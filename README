@@ -1,0 +1,20 @@
+
+UNCIL IS STILL IN EARLY DEVELOPMENT. THE MAJOR VERSION 0 IS RESERVED FOR
+PRE-RELEASE BUILDS. BREAKING ABI/API CHANGES MAY OCCUR AT ANY TIME UNTIL
+IT ROLLS OVER TO 1. PRE-RELEASE BUILDS MAY HAVE SEVERE BUGS AND SHOULD NOT
+BE USED IN PRODUCTION ENVIRONMENTS.
+
+Uncil is a scripting language inspired by languages like Lua, Python
+and JavaScript. It is designed to be portable and support multithreading,
+yet have high performance. It is also designed to be embeddable into C
+programs as a scripting engine.
+
+Uncil uses a dynamic type system (duck typing). Memory management is done
+with a combination of reference counting and garbage collection (currently
+stop-the-world but there are plans to make it incremental).
+
+The current Uncil version is v0.7.0. Major version changes entail breaking
+API or ABI changes and minor version changes entail ABI changes.
+The Uncil language, standard library, C API and compilation instructions
+are documented in the docs folder. Some example programs can be found under
+the exapmles folder.

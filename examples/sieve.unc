@@ -1,0 +1,24 @@
+n = 100
+primes = array.new(n + 1, true)
+
+primes[0] = false
+primes[1] = false
+p = 2
+
+while p * p <= n do
+    if not primes[p] then
+        p += 1
+        continue
+    end
+    for i = 2 * p, <= n, p do
+        primes[i] = false
+    end
+    p += 1
+end
+
+print("Primes up to " ~ string(n))
+for i = 0, <= n do
+    if primes[i] then
+        print(i)
+    end
+end

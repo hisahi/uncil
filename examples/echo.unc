@@ -1,0 +1,12 @@
+
+public function main(args)
+    # this code will run only if this script is run directly
+    args = args->sub(1)
+    if args->length() then
+        print(" "->join(args))
+    else
+        print("Hello, World!")
+    end
+end
+
+# this code will run every time

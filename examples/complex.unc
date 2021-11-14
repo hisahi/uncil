@@ -1,0 +1,89 @@
+
+complex = {}
+
+# rudimentary complex number class
+
+complex.new = function new(r, i)
+    return object(complex, { real: r, imag: i }, true)
+end
+
+complex.__name = "complex"
+
+complex.__posit = function __posit(z)
+    return complex.new(z.real, z.imag)
+end
+complex.__negate = function __negate(z)
+    return complex.new(-z.real, -z.imag)
+end
+complex.__invert = function __invert(z)
+    return complex.new(z.real, -z.imag)
+end
+
+complex.__add = function __add(a, b)
+    if type(b) == "object" and getprototype(b) == complex then
+        return complex.new(a.real + b.real, a.imag + b.imag)
+    else
+        return complex.new(a.real + b, a.imag)
+    end
+end
+complex.__add2 = function __add2(a, b)
+    if type(a) == "object" and getprototype(a) == complex then
+        return complex.new(a.real + b.real, a.imag + b.imag)
+    else
+        return complex.new(a + b.real, b.imag)
+    end
+end
+
+complex.__sub = function __sub(a, b)
+    if type(b) == "object" and getprototype(b) == complex then
+        return complex.new(a.real - b.real, a.imag - b.imag)
+    else
+        return complex.new(a.real - b, a.imag)
+    end
+end
+complex.__sub2 = function __sub2(a, b)
+    if type(a) == "object" and getprototype(a) == complex then
+        return complex.new(a.real - b.real, a.imag - b.imag)
+    else
+        return complex.new(a - b.real, b.imag)
+    end
+end
+
+complex.__mul = function __mul(a, b)
+    if type(b) == "object" and getprototype(b) == complex then
+        return complex.new(a.real * b.real - a.imag * b.imag,
+                        a.real * b.imag + a.imag + b.real)
+    else
+        return complex.new(a.real * b, a.imag * b)
+    end
+end
+complex.__mul2 = function __mul2(a, b)
+    if type(a) == "object" and getprototype(a) == complex then
+        return complex.new(a.real * b.real - a.imag * b.imag,
+                        a.real * b.imag + a.imag + b.real)
+    else
+        return complex.new(a * b.real, a * b.imag)
+    end
+end
+
+complex.__eq = function __eq(a, b)
+    if type(b) == "object" and getprototype(b) == complex then
+        return a.real == b.real and a.imag == b.imag
+    else
+        return a.real == b and a.imag == 0
+    end
+end
+complex.__eq2 = function __eq2(a, b)
+    if type(a) == "object" and getprototype(a) == complex then
+        return a.real == b.real and a.imag == b.imag
+    else
+        return a == b.real and 0 == b.imag
+    end
+end
+
+complex.__string = function __str(z)
+    return (string(z.real) ~ (if z.imag >= 0 then "+" else "" end)
+                           ~ string(z.imag) ~ "i")
+end
+
+complex.I = complex.new(0, 1)
