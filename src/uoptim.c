@@ -263,11 +263,9 @@ nodeadcode_again:
                     target = q->o2data.o;
                     break;
                 }
-                if (target <= i)
-                    ;
-                else if (cond)
+                if (cond && !ISMARKED(&fn->cd[target]))
                     PMARK(&fn->cd[target]);
-                else {
+                else if (!cond && target > i) {
                     i = target;
                     goto nodeadcode_again;
                 }
