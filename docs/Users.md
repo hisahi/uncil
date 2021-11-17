@@ -17,6 +17,12 @@ errors cause it to stop executing).
 
 `uncil` can also run precompiled `.cnu` files (see `uncilc`).
 
+If the script defines a public function called `main`, it will be called with
+a single parameter; the list of command-line arguments given to the script,
+including the first element containing the script name. If `main` returns
+a value, it will be passed to `exit()` (see Library), except with `-i` where
+the return value is displayed to the user.
+
 ## uncilc
 
 `uncilc` is used to convert Uncil scripts from source code `.unc` into a

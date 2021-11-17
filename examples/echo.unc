@@ -4,8 +4,10 @@ public function main(args)
     args = args->sub(1)
     if args->length() then
         print(" "->join(args))
+        return true
     else
         print("Hello, World!")
+        return false
     end
 end
 

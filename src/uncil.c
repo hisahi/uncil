@@ -336,19 +336,19 @@ static int uncildorepl(Unc_View *unc, Unc_Value unc_print) {
     return UNCIL_EXIT_OK;
 }
 
-Unc_RetVal unc__exit(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc__exit_do(Unc_View *w, Unc_Value *retval) {
     int exitcode;
     Unc_Int ui;
-    switch (unc_gettype(w, &args.values[0])) {
+    switch (unc_gettype(w, retval)) {
     case Unc_TBool:
-        if (!unc_getbool(w, &args.values[0], 0))
+        if (!unc_getbool(w, retval, 0))
             exitcode = EXIT_FAILURE;
         else
     case Unc_TNull:
             exitcode = EXIT_SUCCESS;
         break;
     case Unc_TInt:
-        if (unc_getint(w, &args.values[0], &ui))
+        if (unc_getint(w, retval, &ui))
             exitcode = EXIT_FAILURE;
         else {
             if (ui > INT_MAX) ui = INT_MAX;
@@ -360,7 +360,7 @@ Unc_RetVal unc__exit(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Size sn;
             char *ss;
-            if (!unc_valuetostringn(w, &args.values[0], &sn, &ss)) {
+            if (!unc_valuetostringn(w, retval, &sn, &ss)) {
                 fprintf(stderr, "%s\n", ss);
                 unc_mfree(w, ss);
             }
@@ -369,6 +369,10 @@ Unc_RetVal unc__exit(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     exit(exitcode);
     return 0;
+}
+
+Unc_RetVal unc__exit(Unc_View *w, Unc_Tuple args, void *udata) {
+    return unc__exit_do(w, &args.values[0]);
 }
 
 Unc_RetVal unc__quit(Unc_View *w, Unc_Tuple args, void *udata) {
@@ -396,8 +400,7 @@ static int unc__argvtostacklist(Unc_View *w, char *argv[], int start) {
     }
     e = unc_newarrayfrom(w, &s, c, v);
     if (e) return e;
-    for (i = 0; i < c; ++i)
-        unc_clear(w, &v[i]);
+    unc_clearmany(w, c, &v[i]);
     free(v);
     return unc_pushmove(w, &s, NULL);
 }
@@ -632,6 +635,7 @@ static int uncilfilei(char* argv[], int fileat) {
     unc_discard(unc, &pile);
 
     if (!unc_getpublicc(unc, "main", &main)) {
+        Unc_Tuple tuple;
         e = unc__argvtostacklist(unc, argv, fileat);
         if (e) {
             printf("%s: cannot run main: out of memory (or too many arguments"
@@ -645,7 +649,20 @@ static int uncilfilei(char* argv[], int fileat) {
             uncilerr(unc, e);
             return UNCIL_EXIT_FAIL;
         }
-        unc_discard(unc, &pile);
+        unc_returnvalues(unc, &pile, &tuple);
+        if (tuple.count > 0) {
+            Unc_Size sn;
+            char *ss;
+            Unc_Value retval = UNC_BLANK;
+            unc_copy(unc, &retval, &tuple.values[0]);
+            unc_discard(unc, &pile);
+            if (!unc_valuetostringn(unc, &retval, &sn, &ss)) {
+                fprintf(stdout, "main() returned %s\n", ss);
+                unc_mfree(unc, ss);
+            }
+            unc_clear(unc, &retval);
+        } else
+            unc_discard(unc, &pile);
     }
 
     e = unc__setupfuncs(unc, 1);
@@ -738,6 +755,7 @@ static int uncilfile(char* argv[], int fileat) {
     unc_discard(unc, &pile);
 
     if (!unc_getpublicc(unc, "main", &main)) {
+        Unc_Tuple tuple;
         e = unc__argvtostacklist(unc, argv, fileat);
         if (e) {
             printf("%s: cannot run main: out of memory (or too many arguments"
@@ -750,6 +768,15 @@ static int uncilfile(char* argv[], int fileat) {
         if (e) {
             uncilerr(unc, e);
             return UNCIL_EXIT_FAIL;
+        }
+        unc_returnvalues(unc, &pile, &tuple);
+        if (tuple.count > 0) {
+            Unc_Value retval = UNC_BLANK;
+            unc_copy(unc, &retval, &tuple.values[0]);
+            unc_discard(unc, &pile);
+            unc__exit_do(unc, &retval);
+            unc_clear(unc, &retval);
+            return UNCIL_EXIT_OK;
         }
         unc_discard(unc, &pile);
     }
@@ -808,10 +835,14 @@ int main(int argc, char* argv[]) {
                 return print_help(UNCIL_EXIT_USE);
             }
         } else {
-            if (!fileindex) fileindex = argindex;
+            if (!fileindex) {
+                fileindex = argindex;
+                flagok = 0;
+            }
             argv[argindex++] = argv[i];
         }
     }
+    argv[argindex++] = NULL; /* terminate new argv */
 
     if (!fileindex)
         return uncilrepl();
