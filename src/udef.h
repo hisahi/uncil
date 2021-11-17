@@ -37,9 +37,9 @@ SOFTWARE.
 #define UNCIL_VER_MAJOR 0
 #define UNCIL_VER_MINOR 7
 #define UNCIL_VER_PATCH 0
-#define UNCIL_VER (((long)(UNCIL_VER_MAJOR) << 16) \
-                 | ((long)(UNCIL_VER_MINOR) <<  8) \
-                 | ((long)(UNCIL_VER_PATCH)      ))
+#define UNCIL_VER (((UNCIL_VER_MAJOR##L) << 16) \
+                 | ((UNCIL_VER_MINOR##L) <<  8) \
+                 | ((UNCIL_VER_PATCH##L)      ))
 #define UNCIL_PROGRAM_VER 1
 
 #if CHAR_BIT != 8

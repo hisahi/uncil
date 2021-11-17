@@ -1090,6 +1090,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 ## Dangerous functions
 
 Use these only if you know what you are doing.
+
 `void unc_incref(Unc_View *w, Unc_Value *v);`
 * Increments the reference count of the given value.
   (Note that this nor `decref`/`clear` has any effect on value types)

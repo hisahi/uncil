@@ -2103,6 +2103,7 @@ void pcurinstrdump(Unc_View *w, const byte *pc);
 
 int unc__run(Unc_View *w) {
     int e;
+    const Unc_View *origw = w;
     register const byte *pc = w->pc;
     Unc_Value *regs = w->regs;
     jmp_buf env;
@@ -3135,7 +3136,7 @@ vmerrormainctail:
     unc__unwindframeerr(w);
     /* nope, sorry */
 vmexit:
-    if (VGETTYPE(&w->coroutine)) {
+    if (VGETTYPE(&w->coroutine) && w != origw) {
         int pe = e;
         if (UNCIL_ERR_KIND(pe) == UNCIL_ERR_KIND_TRAMPOLINE)
             pe = 0;

@@ -27,7 +27,7 @@ Returns the approximate number of free memory on the system, or
 `os.getenv([env])`
 
 If `env` is not `null`, gets the value of the environment variable `env`
-(string),.Returns the value as a string, or `null` if no such environment
+(string). Returns the value as a string, or `null` if no such environment
 variable was found.
 
 If `env` is `null` or not given, returns all environment variables as a table.

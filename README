@@ -17,4 +17,4 @@ The current Uncil version is v0.7.0. Major version changes entail breaking
 API or ABI changes and minor version changes entail ABI changes.
 The Uncil language, standard library, C API and compilation instructions
 are documented in the docs folder. Some example programs can be found under
-the exapmles folder.
+the examples folder.
