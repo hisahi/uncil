@@ -9,11 +9,11 @@ monthNames = ["January", "February", "March", "April", "May", "June", "July", "A
 weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 function formatOrdinal(n)
-	if n != 11 & n % 10 == 1 then
+	if n != 11 and n % 10 == 1 then
 		return string(n) ~ "st"
-	elseif n != 12 & n % 10 == 2 then
+	elseif n != 12 and n % 10 == 2 then
 		return string(n) ~ "nd"
-	elseif n != 12 & n % 10 == 3 then
+	elseif n != 13 and n % 10 == 3 then
 		return string(n) ~ "rd"
 	else
 		return string(n) ~ "th"
