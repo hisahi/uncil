@@ -1,0 +1,68 @@
+
+time = require("time")
+
+function getWeekday(y, m, d)
+	return time.datetime.new(y, m, d, 12, 0, 0, null).weekday
+end
+
+monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+function formatOrdinal(n)
+	if n != 11 & n % 10 == 1 then
+		return string(n) ~ "st"
+	elseif n != 12 & n % 10 == 2 then
+		return string(n) ~ "nd"
+	elseif n != 12 & n % 10 == 3 then
+		return string(n) ~ "rd"
+	else
+		return string(n) ~ "th"
+	end	
+end
+
+function formatMonthDay(month, day)
+	if not (1 <= month <= 12) then
+		error("value", "Invalid month")
+	end
+	if day < 1 then
+		error("value", "Invalid day")
+	end
+	return monthNames[month - 1] ~ " " ~ formatOrdinal(day)
+end
+
+function formatWeekday(wday)
+	if not (1 <= wday <= 7) then
+		error("value", "Invalid day of the week")
+	end
+	return weekdayNames[wday - 1]
+end
+
+function findYears(y1, y2, m, d, w)
+	a = []
+	for y = y1, <=y2 do
+		if getWeekday(y, m, d) == w then
+			a->push(y)
+		end
+	end
+	return a
+end
+
+public function main(...args)
+	print("Finds years by week day")
+	year1 = int(input("First year? "))
+	year2 = int(input("Last year? "))
+	month = int(input("Month (1-12)? "))
+	day = int(input("Day (1-...)? "))
+	wday = int(input("Day of the week (1=Mon, 2=Tue... 7=Sun)? "))
+	
+	if year1 > year2 then
+		return true
+	end
+	print("For the following years in the given range, ")
+	print(formatMonthDay(month, day) ~ " was a " ~ formatWeekday(wday) ~ ":")
+	for year << findYears(year1, year2, month, day, wday) do
+		print(year)
+	end
+	return true
+end
+

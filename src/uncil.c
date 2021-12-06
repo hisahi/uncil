@@ -842,7 +842,7 @@ int main(int argc, char* argv[]) {
             argv[argindex++] = argv[i];
         }
     }
-    argv[argindex++] = NULL; /* terminate new argv */
+    argv[argindex] = NULL; /* terminate new argv */
 
     if (!fileindex)
         return uncilrepl();
