@@ -34,7 +34,7 @@ them were compiled in.
 `thread.yield()`
 
 Yields the current thread and lets other threads run. To sleep, see
-`time.sleep` (which automatically yields).
+`thread.sleep` (which automatically yields).
 
 If Uncil was not compiled with multithreading support, this function
 does nothing.
