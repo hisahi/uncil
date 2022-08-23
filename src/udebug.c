@@ -2,7 +2,7 @@
  
 Uncil -- debug code
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ SOFTWARE.
 #include "uparse.h"
 #include "uvlq.h"
 
-void uncil__hexdump(const byte *data, size_t n) {
+void unc__dbghexdump(const byte *data, size_t n) {
     size_t i = 0;
     if (n) {
         int j;

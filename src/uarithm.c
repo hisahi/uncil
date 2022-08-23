@@ -2,7 +2,7 @@
  
 Uncil -- arithmetic helper
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -107,8 +107,11 @@ int unc__mulovf(Unc_Int a, Unc_Int b) {
     Unc_UInt x, y, q, r, m;
     INIT_BIT_WIDTH();
     /* bunch of special cases */
-    if (a == -a || b == -b)
-        return a || b;
+    if (!a || !b) return 0;
+    /* is a/b the minimum value that cannot be represented as positive? */
+    if (a == -a) return b != 1;
+    if (b == -b) return a != 1;
+    /* BIT_WIDTH = 2N -> m = 2^N */
     h = BIT_WIDTH / 2;
     m = (Unc_UInt)1 << h;
     if (a >= m && b >= m)
@@ -131,7 +134,7 @@ int unc__cmpint(Unc_Int a, Unc_Int b) {
 }
 
 int unc__cmpflt(Unc_Float a, Unc_Float b) {
-    if (a != a || b != b)
+    if (a != a || b != b) /* NAN */
         return UNCIL_ERR_LOGIC_CMPNAN;
     return a == b ? 0 : a < b ? -1 : 1;
 }

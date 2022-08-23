@@ -2,7 +2,7 @@
  
 Uncil -- builtin fs library impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -74,6 +74,15 @@ static int unc__ansiexists(const char *fn) {
         return 0;
 }
 
+static int unc__ansifcopy(FILE *f1, FILE *f0) {
+    char buf[BUFSIZ];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f0)))
+        if (!fwrite(buf, n, 1, f1))
+            return -1;
+    return 0;
+}
+
 static int unc__ansicopy(const char *f0, const char *f1, int overwrite) {
     FILE *a = fopen(f0, "rb"), *b;
     if (!a) return -1;
@@ -87,12 +96,7 @@ static int unc__ansicopy(const char *f0, const char *f1, int overwrite) {
         fclose(a);
         return -1;
     } else {
-        char buf[BUFSIZ];
-        size_t n;
-        while ((n = fread(buf, 1, sizeof(buf), a)))
-            if (!fwrite(buf, n, 1, b))
-                goto unc__ansicopy_fail;
-        if (ferror(a) || ferror(b)) goto unc__ansicopy_fail;
+        if (unc__ansifcopy(b, a) || ferror(a) || ferror(b)) goto unc__ansicopy_fail;
     }
     fclose(b);
     fclose(a);

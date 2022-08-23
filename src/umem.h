@@ -2,7 +2,7 @@
  
 Uncil -- memory management (internal headers)
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -87,6 +87,11 @@ size_t unc__memcpy(void *dst, const void *src, size_t sz);
 size_t unc__memmove(void *dst, const void *src, size_t sz);
 int unc__memcmp(const void *dst, const void *src, size_t sz);
 void unc__memrev(void *dst, size_t sz);
+void *unc__memrchr(const void *p, int c, size_t n);
+const byte *unc__strsearch(const byte *haystack, Unc_Size haystack_n,
+                           const byte *needle, Unc_Size needle_n);
+const byte *unc__strsearchr(const byte *haystack, Unc_Size haystack_n,
+                            const byte *needle, Unc_Size needle_n);
 
 size_t unc__strnlen(const char *s, size_t maxlen);
 

@@ -2,7 +2,7 @@
  
 Uncil -- memory management impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -233,6 +233,14 @@ void unc__memrev(void *dst, size_t sz) {
     }
 }
 
+void *unc__memrchr(const void *p, int c, size_t n) {
+    unsigned char *b = (unsigned char *)p + n;
+    while (n--)
+        if (*--b == c)
+            return b;
+    return NULL;
+}
+
 int unc__strput(Unc_Allocator *alloc, byte **o, Unc_Size *n, Unc_Size *c,
                     Unc_Size inc_log2, byte q) {
     if (*n >= *c) {
@@ -247,6 +255,38 @@ int unc__strput(Unc_Allocator *alloc, byte **o, Unc_Size *n, Unc_Size *c,
     }
     (*o)[(*n)++] = q;
     return 0;
+}
+
+/* (raw) string search */
+const byte *unc__strsearch(const byte *haystack, Unc_Size haystack_n,
+                           const byte *needle, Unc_Size needle_n) {
+    byte s0;
+    const byte *next;
+    if (!needle_n) return haystack;
+    s0 = needle[0];
+    haystack_n -= needle_n - 1;
+    while ((next = unc__memchr(haystack, s0, haystack_n))) {
+        if (!unc__memcmp(next + 1, needle + 1, needle_n - 1))
+            return next;
+        haystack_n -= next - haystack + 1;
+        haystack = next + 1;
+    }
+    return NULL;
+}
+
+const byte *unc__strsearchr(const byte *haystack, Unc_Size haystack_n,
+                            const byte *needle, Unc_Size needle_n) {
+    byte s0;
+    const byte *next;
+    if (!needle_n) return haystack;
+    s0 = needle[0];
+    haystack_n -= needle_n - 1;
+    while ((next = unc__memrchr(haystack, s0, haystack_n))) {
+        if (!memcmp(next + 1, needle + 1, needle_n - 1))
+            return next;
+        haystack_n = next - haystack - 1;
+    }
+    return NULL;
 }
 
 int unc__strputn(Unc_Allocator *alloc, byte **o, Unc_Size *n, Unc_Size *c,

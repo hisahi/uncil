@@ -2,7 +2,7 @@
  
 Uncil -- builtin time library impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -350,17 +350,18 @@ static time_t unc__timegm_fallback(struct tm *time, int y);
 static time_t unc__timegm(struct tm *time) {
     time_t t;
     time->tm_isdst = 0;
-#if UNIXTIME
-    UNC_LOCKF(loctime);
-    t = unc__mkgmtime(time);
-    UNC_UNLOCKF(loctime);
-#elif UNCIL_IS_WINDOWS
+#if UNCIL_IS_WINDOWS
     UNC_LOCKF(loctime);
     t = _mkgmtime(time);
     UNC_UNLOCKF(loctime);
-#elif UNCIL_IS_POXI
+#elif UNCIL_IS_POSIX
     UNC_LOCKF(loctime);
     t = timegm(time);
+    UNC_UNLOCKF(loctime);
+#elif UNIXTIME
+#define UNCIL_MKGMTIME 1
+    UNC_LOCKF(loctime);
+    t = unc__mkgmtime(time);
     UNC_UNLOCKF(loctime);
 #else
     t = unc__timegm_fallback(time, time->tm_year);

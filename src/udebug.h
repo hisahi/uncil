@@ -2,7 +2,7 @@
  
 Uncil -- debug definitions (for use inside Uncil only)
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -57,7 +57,7 @@ SOFTWARE.
 #else
 #include <signal.h>
 #define BREAKPOINT() raise(SIGTRAP)
-void uncil__hexdump(const unsigned char *data, size_t n);
+void unc__dbghexdump(const unsigned char *data, size_t n);
 #endif
 
 #define ASSERT assert

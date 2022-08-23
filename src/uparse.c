@@ -2,7 +2,7 @@
  
 Uncil -- parser step 1 (L-code -> Q-code) impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1653,6 +1653,27 @@ INLINE int getbinaryop(int opc) {
     }
 }
 
+int allowlocals(const Unc_ParserContext *c) {
+    return !c->quiet && (!c->c.extend || c->pframes_n);
+}
+
+int symboltolocal(Unc_ParserContext *c, Unc_Size z, Unc_BTreeRecord **rec, int cond) {
+    if (allowlocals(c) && cond) {
+        int created;
+        MUST(unc__putbtree(c->book, z, &created, rec));
+        if (created) {
+            Unc_BTreeRecord *trec = *rec;
+            Unc_Dst u;
+            MUST(localloc(c, &u));
+            trec->first = UNC_QOPER_TYPE_LOCAL;
+            trec->second = u;
+        }
+    } else {
+        *rec = unc__getbtree(c->book, z);
+    }
+    return 0;
+}
+
 /* write = -1 for delete, 0 for read, 1 for write */
 INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
     int writable = 1;
@@ -1721,19 +1742,7 @@ INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
         Unc_BTreeRecord *rec;
         consume(c);
         s = consumez(c);
-        if (write > 0 && !c->quiet && !atomcontnext(c)
-                && !(c->c.extend && !c->pframes_n)) {
-            int created;
-            MUST(unc__putbtree(c->book, s, &created, &rec));
-            if (created) {
-                Unc_Dst u;
-                MUST(localloc(c, &u));
-                rec->first = UNC_QOPER_TYPE_LOCAL;
-                rec->second = u;
-            }
-        } else {
-            rec = unc__getbtree(c->book, s);
-        }
+        MUST(symboltolocal(c, s, &rec, write > 0 && !atomcontnext(c)));
         if (rec) {
             if (!c->quiet && rec->first == UNC_QOPER_TYPE_BINDABLE)
                 MUST(dobind(c, s, rec));
@@ -2937,20 +2946,19 @@ static int eatwithblk(Unc_ParserContext *c) {
     s = 0;
     for (;;) {
         size_t z;
-        int created;
         Unc_BTreeRecord *rec;
         if (peek(c) != ULT_I)
             return UNCIL_ERR(SYNTAX);
         consume(c);
         z = consumez(c);
-        MUST(unc__putbtree(c->book, z, &created, &rec));
-        if (created) {
-            Unc_Dst u;
-            MUST(localloc(c, &u));
-            rec->first = UNC_QOPER_TYPE_LOCAL;
-            rec->second = u;
-        }
-        if (unc__qcode_isopreg(rec->first)) {
+        MUST(symboltolocal(c, z, &rec, 1));
+        if (!rec) {
+            MARK_ID_USED(c, z);
+            MUST(emit2(c, UNC_QINSTR_OP_MOV, QOPER_TMP(0), QOPER_STACK(s++)));
+            MUST(emit2(c, UNC_QINSTR_OP_PUSHW, QOPER_WSTACK(), QOPER_TMP(0)));
+            MUST(emit2(c, UNC_QINSTR_OP_MOV,
+                        UNC_QOPER_TYPE_PUBLIC, qdataz(z), QOPER_TMP(0)));
+        } else if (unc__qcode_isopreg(rec->first)) {
             MUST(emit2(c, UNC_QINSTR_OP_MOV,
                         rec->first, qdataz(rec->second), QOPER_STACK(s++)));
             MUST(emit2(c, UNC_QINSTR_OP_PUSHW, QOPER_WSTACK(),
@@ -3502,19 +3510,19 @@ static int eateqlist(Unc_ParserContext *c) {
                         z = consumez(c);
                         if (!c->quiet) {
                             Unc_BTreeRecord *rec;
-                            int created;
-                            MUST(unc__putbtree(c->book, z, &created, &rec));
-                            if (created) {
-                                Unc_Dst u;
-                                MUST(localloc(c, &u));
-                                rec->first = UNC_QOPER_TYPE_LOCAL;
-                                rec->second = u;
+                            MUST(symboltolocal(c, z, &rec, 1));
+                            if (!rec) {
+                                MARK_ID_USED(c, z);
+                                MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
+                                            UNC_QOPER_TYPE_PUBLIC, qdataz(z),
+                                            QOPER_UNSIGN(pn), QOPER_UNSIGN(0)));
+                            } else {
+                                if (rec->first == UNC_QOPER_TYPE_BINDABLE)
+                                    MUST(dobind(c, z, rec));
+                                MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
+                                            rec->first, qdataz(rec->second),
+                                            QOPER_UNSIGN(pn), QOPER_UNSIGN(0)));
                             }
-                            if (rec->first == UNC_QOPER_TYPE_BINDABLE)
-                                MUST(dobind(c, z, rec));
-                            MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
-                                        rec->first, qdataz(rec->second),
-                                        QOPER_UNSIGN(pn), QOPER_UNSIGN(0)));
                         }
                     }
                     continue;
@@ -4110,7 +4118,7 @@ static int eatfunc(Unc_ParserContext *c, int ftype) {
                             QOPER_FUNCTION(c->out.fn_sz - 1));
             break;
         case FUNCTYPE_LOCAL:
-            if (!(c->c.extend && !c->pframes_n)) {
+            if (allowlocals(c)) {
                 Unc_BTreeRecord *rec;
                 int created;
                 MUST(unc__putbtree(c->book, z, &created, &rec));

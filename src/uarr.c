@@ -2,7 +2,7 @@
  
 Uncil -- array impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -116,14 +116,17 @@ int unc__arraycatr(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
     return 0;
 }
 
-int unc__arraypush(Unc_View *w, Unc_Array *s, Unc_Value *v) {
-    return unc__arraycatr(w, s, 1, v);
+/* append/push one value to a */
+int unc__arraypush(Unc_View *w, Unc_Array *a, Unc_Value *v) {
+    return unc__arraycatr(w, a, 1, v);
 }
 
-int unc__arraycat(Unc_View *w, Unc_Array *s, Unc_Array *s2) {
-    return unc__arraycatr(w, s, s2->capacity, s2->data);
+/* concatenate array a2 to a */
+int unc__arraycat(Unc_View *w, Unc_Array *a, const Unc_Array *a2) {
+    return unc__arraycatr(w, a, a2->size, a2->data);
 }
 
+/* append/push N null values to a */
 int unc__arraypushn(Unc_View *w, Unc_Array *a, Unc_Size n) {
     Unc_Size c = a->capacity, s = a->size, ns = s + n, i;
     Unc_Value nl = UNC_BLANK;
@@ -143,6 +146,7 @@ int unc__arraypushn(Unc_View *w, Unc_Array *a, Unc_Size n) {
     return 0;
 }
 
+/* insert n values from v into a at index i */
 int unc__arrayinsr(Unc_View *w, Unc_Array *a, Unc_Size i,
                     Unc_Size n, Unc_Value *v) {
     Unc_Size c = a->capacity, s = a->size, ns = s + n, j;
@@ -167,14 +171,17 @@ int unc__arrayinsr(Unc_View *w, Unc_Array *a, Unc_Size i,
     return 0;
 }
 
-int unc__arrayinsv(Unc_View *w, Unc_Array *s, Unc_Size i, Unc_Value *v) {
-    return unc__arrayinsr(w, s, i, 1, v);
+/* insert value v into a at index i */
+int unc__arrayinsv(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Value *v) {
+    return unc__arrayinsr(w, a, i, 1, v);
 }
 
-int unc__arrayins(Unc_View *w, Unc_Array *s, Unc_Size i, Unc_Array *s2) {
-    return unc__arrayinsr(w, s, i, s2->capacity, s2->data);
+/* insert array a2 into a at index i */
+int unc__arrayins(Unc_View *w, Unc_Array *a, Unc_Size i, const Unc_Array *a2) {
+    return unc__arrayinsr(w, a, i, a2->size, a2->data);
 }
 
+/* delete n items from array a at index i */
 int unc__arraydel(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n) {
     if (i + n > a->size)
         return UNCIL_ERR_ARG_OUTOFBOUNDS;
@@ -189,6 +196,7 @@ int unc__arraydel(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n) {
     return 0;
 }
 
+/* drop/delete array, destructor */
 void unc__droparray(Unc_View *w, Unc_Array *a) {
     Unc_Size s = a->size, i;
     UNC_LOCKFINAL(a->lock);
@@ -197,10 +205,12 @@ void unc__droparray(Unc_View *w, Unc_Array *a) {
     unc__sunsetarray(&w->world->alloc, a);
 }
 
+/* sunset array (free without destructor) */
 void unc__sunsetarray(Unc_Allocator *alloc, Unc_Array *a) {
     TMFREE(Unc_Value, alloc, a->data, a->capacity);
 }
 
+/* array index getter */
 int unc__agetindx(Unc_View *w, Unc_Array *a,
                     Unc_Value *indx, int permissive, Unc_Value *out) {
     Unc_Int i;
@@ -223,6 +233,7 @@ int unc__agetindx(Unc_View *w, Unc_Array *a,
     return 0;
 }
 
+/* array index setter */
 int unc__asetindx(Unc_View *w, Unc_Array *a, Unc_Value *indx, Unc_Value *v) {
     Unc_Int i;
     int e = unc__vgetint(w, indx, &i);

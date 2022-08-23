@@ -2,7 +2,7 @@
  
 Uncil -- blob impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,7 @@ SOFTWARE.
 /* how much to expand blob by if we add one byte and it's out of bounds */
 #define UNC_BLOB_BUFFER 64
 
+/* create new blob with size n and data copied from b */
 int unc__initblob(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n,
                                                      const byte *b) {
     s->capacity = s->size = n;
@@ -46,6 +47,7 @@ int unc__initblob(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n,
     return UNC_LOCKINITL(s->lock);
 }
 
+/* create new blob with size n, allocate and return pointer as b */
 int unc__initblobraw(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, byte **b) {
     s->capacity = s->size = n;
     if (!n) {
@@ -58,12 +60,14 @@ int unc__initblobraw(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, byte **b) {
     return UNC_LOCKINITL(s->lock);
 }
 
+/* create new blob with size n, usurp b as pointer */
 int unc__initblobmove(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, byte *b) {
     s->capacity = s->size = n;
     s->data = b;
     return UNC_LOCKINITL(s->lock);
 }
 
+/* append n bytes form b to blob q */
 int unc__blobadd(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b) {
     Unc_Size c = q->capacity, s = q->size, ns = s + n;
     if (ns > c) {
@@ -80,14 +84,17 @@ int unc__blobadd(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b) {
     return 0;
 }
 
-int unc__blobaddb(Unc_Allocator *alloc, Unc_Blob *s, byte b) {
-    return unc__blobadd(alloc, s, 1, &b);
+/* append n bytes from b to blob q */
+int unc__blobaddb(Unc_Allocator *alloc, Unc_Blob *q, byte b) {
+    return unc__blobadd(alloc, q, 1, &b);
 }
 
-int unc__blobaddf(Unc_Allocator *alloc, Unc_Blob *s, Unc_Blob *s2) {
-    return unc__blobadd(alloc, s, s2->size, s2->data);
+/* append blob q2 to blob q */
+int unc__blobaddf(Unc_Allocator *alloc, Unc_Blob *q, const Unc_Blob *q2) {
+    return unc__blobadd(alloc, q, q2->size, q2->data);
 }
 
+/* append n zeroes to blob q */
 int unc__blobaddn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n) {
     Unc_Size c = q->capacity, s = q->size, ns = s + n;
     if (ns > c) {
@@ -104,6 +111,7 @@ int unc__blobaddn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n) {
     return 0;
 }
 
+/* insert n bytes from b to blob q at index i */
 int unc__blobins(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i,
                                     Unc_Size n, const byte *b) {
     Unc_Size c = q->capacity, s = q->size, ns = s + n;
@@ -123,10 +131,13 @@ int unc__blobins(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i,
     return 0;
 }
 
-int unc__blobinsf(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size i, Unc_Blob *s2) {
-    return unc__blobins(alloc, s, i, s2->size, s2->data);
+/* insert blob q2 to blob q at index i */
+int unc__blobinsf(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i,
+                  const Unc_Blob *q2) {
+    return unc__blobins(alloc, q, i, q2->size, q2->data);
 }
 
+/* insert n zeroes to blob q at index i */
 int unc__blobinsn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n) {
     Unc_Size c = q->capacity, s = q->size, ns = s + n;
     if (ns > c) {
@@ -145,6 +156,7 @@ int unc__blobinsn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n) {
     return 0;
 }
 
+/* delete n bytes from blob q at index i */
 int unc__blobdel(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n) {
     if (i + n > q->size)
         return UNCIL_ERR_ARG_OUTOFBOUNDS;
@@ -159,11 +171,13 @@ int unc__blobdel(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n) {
     return 0;
 }
 
+/* drop/delete blob, destructor */
 void unc__dropblob(Unc_Allocator *alloc, Unc_Blob *s) {
     UNC_LOCKFINAL(s->lock);
     unc__mfree(alloc, s->data, s->capacity);
 }
 
+/* blob-blob equality check, <>0 = equal, 0 = not equal */
 int unc__blobeq(Unc_Blob *a, Unc_Blob *b) {
     int e;
     if (a == b) return 1;
@@ -185,6 +199,7 @@ int unc__blobeq(Unc_Blob *a, Unc_Blob *b) {
     return e;
 }
 
+/* blob-byte block equality check, <>0 = equal, 0 = not equal */
 int unc__blobeqr(Unc_Blob *a, Unc_Size n, const byte *b) {
     int e;
     UNC_LOCKL(a->lock);
@@ -219,8 +234,9 @@ int unc__cmpblob(Unc_Blob *a, Unc_Blob *b) {
     return e;
 }
 
+/* blob index getter */
 int unc__blgetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, int permissive,
-                                                Unc_Value *out) {
+                                             Unc_Value *out) {
     Unc_Int i;
     int e = unc__vgetint(w, indx, &i);
     if (e) {
@@ -244,6 +260,7 @@ int unc__blgetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, int permissive,
     return 0;
 }
 
+/* blob index setter */
 int unc__blsetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, Unc_Value *v) {
     Unc_Int i, i2;
     int e = unc__vgetint(w, indx, &i);

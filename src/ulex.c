@@ -2,7 +2,7 @@
  
 Uncil -- lexer (text -> L-code)
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -102,6 +102,7 @@ INLINE Unc_Float pow10_(long e) {
 }
 
 #define KWFOUND(target, kw) return (target = kw, 1)
+/* look up keyword with a trie-like structure */
 static int kwtrie(const byte *sb, Unc_LexToken *nx) {
     const char *s = (const char *)sb;
     switch (*s++) {
@@ -377,6 +378,7 @@ noexpneg:
             }
             if ((err = unc__strput(alloc, &oid, &oid_n2, &oid_c, 5, 0)))
                 goto lexreturn;
+            /* handle elseif as else + if as a special case */
             if (!strcmp((const char *)oid + oid_n, "elseif")) {
                 byte buf[] = { ULT_Kelse, ULT_Kif };
                 if ((err = unc__strputn(alloc, &olc, &olc_n, &olc_c, 6,
@@ -506,6 +508,7 @@ noexpneg:
                 ost_n = ost_n2, ++stcount;
             continue;
         } else {
+            /* punctuation symbol table */
             switch (c) {
             case '!':
                 c = getch(ud);
@@ -516,7 +519,7 @@ noexpneg:
                 }
                 break;
             case '#':
-                /* comment */
+                /* comment, consume here */
                 c = getch(ud);
                 if (c == '<') {
                     /* #< block comment ># */

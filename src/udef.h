@@ -2,7 +2,7 @@
  
 Uncil -- definitions
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@ SOFTWARE.
 /* major -> API changes, minor -> ABI changes, but anything can happen
    until major gets to 1 */
 #define UNCIL_VER_MAJOR 0
-#define UNCIL_VER_MINOR 7
+#define UNCIL_VER_MINOR 8
 #define UNCIL_VER_PATCH 0
 #define UNCIL_VER (((UNCIL_VER_MAJOR##L) << 16) \
                  | ((UNCIL_VER_MINOR##L) <<  8) \

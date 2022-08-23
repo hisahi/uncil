@@ -2,7 +2,7 @@
  
 Uncil -- blob header
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,19 +39,19 @@ typedef struct Unc_Blob {
     UNC_LOCKLIGHT(lock)
 } Unc_Blob;
 
-int unc__initblob(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, const byte *b);
-int unc__initblobraw(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, byte **b);
-int unc__initblobmove(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, byte *b);
-int unc__blobadd(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, const byte *b);
-int unc__blobaddb(Unc_Allocator *alloc, Unc_Blob *s, byte b);
-int unc__blobaddf(Unc_Allocator *alloc, Unc_Blob *s, Unc_Blob *s2);
-int unc__blobaddn(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n);
-int unc__blobins(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size i,
+int unc__initblob(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b);
+int unc__initblobraw(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, byte **b);
+int unc__initblobmove(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, byte *b);
+int unc__blobadd(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b);
+int unc__blobaddb(Unc_Allocator *alloc, Unc_Blob *q, byte b);
+int unc__blobaddf(Unc_Allocator *alloc, Unc_Blob *q, const Unc_Blob *q2);
+int unc__blobaddn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n);
+int unc__blobins(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i,
                                     Unc_Size n, const byte *b);
-int unc__blobinsf(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size i, Unc_Blob *s2);
-int unc__blobinsn(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size i, Unc_Size n);
-int unc__blobdel(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size i, Unc_Size n);
-void unc__dropblob(Unc_Allocator *alloc, Unc_Blob *s);
+int unc__blobinsf(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, const Unc_Blob *q2);
+int unc__blobinsn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n);
+int unc__blobdel(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n);
+void unc__dropblob(Unc_Allocator *alloc, Unc_Blob *q);
 
 /* the functions above do not lock, the ones below do */
 int unc__blobeq(Unc_Blob *a, Unc_Blob *b);

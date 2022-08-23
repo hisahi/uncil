@@ -2,7 +2,7 @@
  
 Uncil -- opaque impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -153,6 +153,7 @@ int unc__oqgetattrc(Unc_View *w, Unc_Opaque *o,
     return unc__oqgetattrs(w, o, strlen((const char *)s), s, out);
 }
 
+/* call destructor if specified */
 void unc__graceopaque(Unc_View *w, Unc_Opaque *o) {
     if (o->destructor) {
         (void)(*o->destructor)(w, o->size, o->data);
@@ -160,6 +161,7 @@ void unc__graceopaque(Unc_View *w, Unc_Opaque *o) {
     }
 }
 
+/* opaque destructor */
 void unc__dropopaque(Unc_View *w, Unc_Opaque *o) {
     Unc_Size i = 0, n = o->refc;
     unc__graceopaque(w, o);
@@ -168,6 +170,7 @@ void unc__dropopaque(Unc_View *w, Unc_Opaque *o) {
     unc__sunsetopaque(&w->world->alloc, o);
 }
 
+/* opaque free without destructor */
 void unc__sunsetopaque(Unc_Allocator *alloc, Unc_Opaque *o) {
     TMFREE(Unc_Entity *, alloc, o->refs, o->refc);
     unc__mfree(alloc, o->data, o->size);

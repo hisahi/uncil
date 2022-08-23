@@ -2,7 +2,7 @@
  
 Uncil -- Q-code optimizer impl
 
-Copyright (c) 2021 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -318,11 +318,11 @@ int unc__optqcode(Unc_Context *cxt, Unc_QCode *out) {
         MUST(reducetmp(cxt, fn));       /* tmp register minimization */
         MUST(tailcalls(cxt, fn));       /* tail calls */
         MUST(mergejmps(cxt, fn));       /* merge JMP chains */
-        /* TODO: dealing with constants? */
+        /* TODO: inline constants */
         MUST(nodeadcode(cxt, fn));      /* dead code elimination */
     }
     /* inter-function optimizations? */
-
+    /* TODO */
     /* post-optimization cleanup */
     for (i = 0; i < fs; ++i) {
         Unc_QFunc *fn = &out->fn[i];
