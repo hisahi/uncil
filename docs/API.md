@@ -72,6 +72,10 @@ should be resized such that the first `min(oldsize, newsize)` characters (bytes)
 are preserved. If allocation fails, `NULL` should be returned. Allocation may
 not fail if oldsize > newsize.
 
+The pointers returned by an allocator must be aligned according to the system
+requirements. Uncil assumes the pointer has correct alignment to access any
+fundamental C type.
+
 The allocator is assumed to be thread-safe. If it is not, it should implement
 its own locking system.
 

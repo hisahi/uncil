@@ -321,8 +321,7 @@ int unc0_optqcode(Unc_Context *cxt, Unc_QCode *out) {
         /* TODO: inline constants */
         MUST(nodeadcode(cxt, fn));      /* dead code elimination */
     }
-    /* inter-function optimizations? */
-    /* TODO */
+    /* inter-function optimizations? TODO */
     /* post-optimization cleanup */
     for (i = 0; i < fs; ++i) {
         Unc_QFunc *fn = &out->fn[i];
