@@ -82,7 +82,7 @@ static void uncilintro(void) {
 
 #if UNCIL_LIB_READLINE
 
-Unc_RetVal unc__input(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_input(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     const char *prompt = NULL;
@@ -145,12 +145,12 @@ int sgetch_(void *p) {
     return c ? c : -1;
 }
 
-static void unc__copyprogname(Unc_View *unc, const char *fn) {
+static void unc0_copyprogname(Unc_View *unc, const char *fn) {
     size_t sl = strlen(fn);
     Unc_Program *prog = unc->program;
     ASSERT(prog);
     if ((prog->pname = unc_malloc(unc, sl + 1)))
-        unc__memcpy(prog->pname, fn, sl + 1);
+        unc0_memcpy(prog->pname, fn, sl + 1);
 }
 
 static byte *textbuf = NULL;
@@ -174,14 +174,14 @@ static int uncilprocessline(const char *line, const char **outp) {
     long *fdepths = fdepths_static;
     Unc_Size fdepths_n = ASIZEOF(fdepths_static);
     if (textbuf_end) {
-        unc__mfree(alloc, textbuf, textbuf_c);
+        unc0_mfree(alloc, textbuf, textbuf_c);
         textbuf = NULL;
         textbuf_n = textbuf_c = 0;
         textbuf_end = 0;
     }
-    if (unc__newcontext(&cxt, alloc))
+    if (unc0_newcontext(&cxt, alloc))
         abort();
-    if (!unc__lexcode(&cxt, &lexout, &sgetch_, &l)) {
+    if (!unc0_lexcode(&cxt, &lexout, &sgetch_, &l)) {
         Unc_Size i;
         byte b;
         for (i = 0; i < lexout.lc_sz; ++i) {
@@ -226,7 +226,7 @@ static int uncilprocessline(const char *line, const char **outp) {
                 }
                 if (!fdepths) {
                     puts("Out of memory; current input will be discarded");
-                    unc__mfree(alloc, textbuf, textbuf_c);
+                    unc0_mfree(alloc, textbuf, textbuf_c);
                     textbuf = NULL;
                     return -1;
                 }
@@ -267,34 +267,34 @@ static int uncilprocessline(const char *line, const char **outp) {
                 break;
             }
         }
-        unc__mfree(alloc, lexout.lc, lexout.lc_sz);
-        unc__mfree(alloc, lexout.st, lexout.st_sz);
-        unc__mfree(alloc, lexout.id, lexout.id_sz);
+        unc0_mfree(alloc, lexout.lc, lexout.lc_sz);
+        unc0_mfree(alloc, lexout.st, lexout.st_sz);
+        unc0_mfree(alloc, lexout.id, lexout.id_sz);
         if (fdepths != fdepths_static)
             TMFREE(long, alloc, fdepths, fdepths_n);
     }
     cont = !(depth < 0 || pdepth < 0) && (depth || pdepth);
-    unc__dropcontext(&cxt);
+    unc0_dropcontext(&cxt);
     if (cont || textbuf) {
-        if (unc__strputn(alloc, &textbuf, &textbuf_n, &textbuf_c,
+        if (unc0_strputn(alloc, &textbuf, &textbuf_n, &textbuf_c,
                          5, strlen(line), (byte *)line)) {
             puts("Out of memory; current input will be discarded");
-            unc__mfree(alloc, textbuf, textbuf_c);
+            unc0_mfree(alloc, textbuf, textbuf_c);
             textbuf = NULL;
             return -1;
         }
 #if UNCIL_LIB_READLINE
-        if (unc__strput(alloc, &textbuf, &textbuf_n, &textbuf_c, 1, '\n')) {
+        if (unc0_strput(alloc, &textbuf, &textbuf_n, &textbuf_c, 1, '\n')) {
             puts("Out of memory; current input will be discarded");
-            unc__mfree(alloc, textbuf, textbuf_c);
+            unc0_mfree(alloc, textbuf, textbuf_c);
             textbuf = NULL;
             return -1;
         }
 #endif
         if (!cont) {
-            if (unc__strput(alloc, &textbuf, &textbuf_n, &textbuf_c, 1, 0)) {
+            if (unc0_strput(alloc, &textbuf, &textbuf_n, &textbuf_c, 1, 0)) {
                 puts("Out of memory; current input will be discarded");
-                unc__mfree(alloc, textbuf, textbuf_c);
+                unc0_mfree(alloc, textbuf, textbuf_c);
                 textbuf = NULL;
                 return -1;
             }
@@ -336,7 +336,7 @@ static int uncildorepl(Unc_View *unc, Unc_Value unc_print) {
     return UNCIL_EXIT_OK;
 }
 
-Unc_RetVal unc__exit_do(Unc_View *w, Unc_Value *retval) {
+Unc_RetVal unc0_exit_do(Unc_View *w, Unc_Value *retval) {
     int exitcode;
     Unc_Int ui;
     switch (unc_gettype(w, retval)) {
@@ -371,21 +371,21 @@ Unc_RetVal unc__exit_do(Unc_View *w, Unc_Value *retval) {
     return 0;
 }
 
-Unc_RetVal unc__exit(Unc_View *w, Unc_Tuple args, void *udata) {
-    return unc__exit_do(w, &args.values[0]);
+Unc_RetVal unc0_exit(Unc_View *w, Unc_Tuple args, void *udata) {
+    return unc0_exit_do(w, &args.values[0]);
 }
 
-Unc_RetVal unc__quit(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_quit(Unc_View *w, Unc_Tuple args, void *udata) {
     exit(0);
     return 0;
 }
 
-Unc_RetVal unc__quitrepl(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_quitrepl(Unc_View *w, Unc_Tuple args, void *udata) {
     keepgoing = 0;
     return 0;
 }
 
-static int unc__argvtostacklist(Unc_View *w, char *argv[], int start) {
+static int unc0_argvtostacklist(Unc_View *w, char *argv[], int start) {
     Unc_Value *v, s = UNC_BLANK;
     int e, i, c = 0;
     while (argv[start + c])
@@ -405,23 +405,23 @@ static int unc__argvtostacklist(Unc_View *w, char *argv[], int start) {
     return unc_pushmove(w, &s, NULL);
 }
 
-static int unc__setupfuncs(Unc_View *unc, int repl) {
+static int unc0_setupfuncs(Unc_View *unc, int repl) {
     int e = 0;
     if (!e) e = unc_exportcfunction(unc, "exit",
-                    &unc__exit, UNC_CFUNC_DEFAULT,
+                    &unc0_exit, UNC_CFUNC_DEFAULT,
                     0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (!e) e = unc_exportcfunction(unc, "quit",
-                    repl ? &unc__quitrepl : &unc__quit, UNC_CFUNC_DEFAULT,
+                    repl ? &unc0_quitrepl : &unc0_quit, UNC_CFUNC_DEFAULT,
                     0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
 #if UNCIL_CUSTOMINPUT
     if (!e) e = unc_exportcfunction(unc, "input",
-                    &unc__input, UNC_CFUNC_DEFAULT,
+                    &unc0_input, UNC_CFUNC_DEFAULT,
                     0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
 #endif
     return e;
 }
 
-static int unc__initpaths(Unc_View *w, const char *path) {
+static int unc0_initpaths(Unc_View *w, const char *path) {
     Unc_World *world = w->world;
     Unc_Value *v, s = UNC_BLANK;
     int c = 1, e;
@@ -458,7 +458,7 @@ static int unc__initpaths(Unc_View *w, const char *path) {
     return 0;
 }
 
-static int unc__initdlpaths(Unc_View *w, const char *path) {
+static int unc0_initdlpaths(Unc_View *w, const char *path) {
     Unc_World *world = w->world;
     Unc_Value *v, s = UNC_BLANK;
     int c = 1, e;
@@ -516,20 +516,20 @@ static int uncilrepl(void) {
         return UNCIL_EXIT_FAIL;
     }
 
-    e = unc__setupfuncs(unc, 1);
+    e = unc0_setupfuncs(unc, 1);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n",
             myname);
         return UNCIL_EXIT_FAIL;
     }
 
-    e = unc__initpaths(unc, NULL);
+    e = unc0_initpaths(unc, NULL);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n", myname);
         return UNCIL_EXIT_FAIL;
     }
 
-    e = unc__initdlpaths(unc, NULL);
+    e = unc0_initdlpaths(unc, NULL);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n", myname);
         return UNCIL_EXIT_FAIL;
@@ -589,18 +589,18 @@ static int uncilfilei(char* argv[], int fileat) {
         return UNCIL_EXIT_FAIL;
     }
     
-    e = unc__initpaths(unc, argv[fileat]);
+    e = unc0_initpaths(unc, argv[fileat]);
     if (e) {
         printf("%s: could not set up Uncil instance\n", myname);
         return UNCIL_EXIT_FAIL;
     }
-    e = unc__initdlpaths(unc, argv[fileat]);
+    e = unc0_initdlpaths(unc, argv[fileat]);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n", myname);
         return UNCIL_EXIT_FAIL;
     }
     unc->world->wmode = Unc_ModeREPL;
-    e = unc_exportcfunction(unc, "exit", &unc__exit, UNC_CFUNC_DEFAULT,
+    e = unc_exportcfunction(unc, "exit", &unc0_exit, UNC_CFUNC_DEFAULT,
                     0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n",
@@ -608,7 +608,7 @@ static int uncilfilei(char* argv[], int fileat) {
         return UNCIL_EXIT_FAIL;
     }
 #if UNCIL_CUSTOMINPUT
-    e = unc_exportcfunction(unc, "input", &unc__input, UNC_CFUNC_DEFAULT,
+    e = unc_exportcfunction(unc, "input", &unc0_input, UNC_CFUNC_DEFAULT,
                     0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n",
@@ -620,7 +620,7 @@ static int uncilfilei(char* argv[], int fileat) {
     atexit(&uncil_atexit); /* unc_destroy */
     uncil_instance = unc;
     e = binary ? unc_loadfile(unc, f) : unc_compilefile(unc, f);
-    if (!e) unc__copyprogname(unc, close ? argv[fileat] : "<stdin>");
+    if (!e) unc0_copyprogname(unc, close ? argv[fileat] : "<stdin>");
     if (close) fclose(f);
     if (e) {
         uncilerr(unc, e);
@@ -636,7 +636,7 @@ static int uncilfilei(char* argv[], int fileat) {
 
     if (!unc_getpublicc(unc, "main", &main)) {
         Unc_Tuple tuple;
-        e = unc__argvtostacklist(unc, argv, fileat);
+        e = unc0_argvtostacklist(unc, argv, fileat);
         if (e) {
             printf("%s: cannot run main: out of memory (or too many arguments"
                         " to fit in memory)\n", myname);
@@ -665,7 +665,7 @@ static int uncilfilei(char* argv[], int fileat) {
             unc_discard(unc, &pile);
     }
 
-    e = unc__setupfuncs(unc, 1);
+    e = unc0_setupfuncs(unc, 1);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n",
             myname);
@@ -721,17 +721,17 @@ static int uncilfile(char* argv[], int fileat) {
         return UNCIL_EXIT_FAIL;
     }
     
-    e = unc__setupfuncs(unc, 0);
+    e = unc0_setupfuncs(unc, 0);
     if (e) {
         printf("%s: could not set up Uncil instance\n", myname);
         return UNCIL_EXIT_FAIL;
     }
-    e = unc__initpaths(unc, argv[fileat]);
+    e = unc0_initpaths(unc, argv[fileat]);
     if (e) {
         printf("%s: could not set up Uncil instance\n", myname);
         return UNCIL_EXIT_FAIL;
     }
-    e = unc__initdlpaths(unc, argv[fileat]);
+    e = unc0_initdlpaths(unc, argv[fileat]);
     if (e) {
         printf("%s: could not set up Uncil REPL instance\n", myname);
         return UNCIL_EXIT_FAIL;
@@ -740,7 +740,7 @@ static int uncilfile(char* argv[], int fileat) {
     atexit(&uncil_atexit); /* unc_destroy */
     uncil_instance = unc;
     e = binary ? unc_loadfile(unc, f) : unc_compilefile(unc, f);
-    if (!e) unc__copyprogname(unc, close ? argv[fileat] : "<stdin>");
+    if (!e) unc0_copyprogname(unc, close ? argv[fileat] : "<stdin>");
     if (close) fclose(f);
     if (e) {
         uncilerr(unc, e);
@@ -756,7 +756,7 @@ static int uncilfile(char* argv[], int fileat) {
 
     if (!unc_getpublicc(unc, "main", &main)) {
         Unc_Tuple tuple;
-        e = unc__argvtostacklist(unc, argv, fileat);
+        e = unc0_argvtostacklist(unc, argv, fileat);
         if (e) {
             printf("%s: cannot run main: out of memory (or too many arguments"
                         " to fit in memory)\n", myname);
@@ -774,7 +774,7 @@ static int uncilfile(char* argv[], int fileat) {
             Unc_Value retval = UNC_BLANK;
             unc_copy(unc, &retval, &tuple.values[0]);
             unc_discard(unc, &pile);
-            unc__exit_do(unc, &retval);
+            unc0_exit_do(unc, &retval);
             unc_clear(unc, &retval);
             return UNCIL_EXIT_OK;
         }

@@ -34,7 +34,7 @@ SOFTWARE.
 #include "uvali.h"
 #include "uvlq.h"
 
-Unc_RetVal unc__lib_sys_forget(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_sys_forget(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size sn;
     const char *sp;
@@ -45,16 +45,16 @@ Unc_RetVal unc__lib_sys_forget(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, &args.values[0], &sn, &sp);
     if (e) return e;
     
-    ov = unc__gethtbls(w, cache, sn, (const byte *)sp);
+    ov = unc0_gethtbls(w, cache, sn, (const byte *)sp);
     if (ov) {
-        unc__delhtbls(w, cache, sn, (const byte *)sp);
+        unc0_delhtbls(w, cache, sn, (const byte *)sp);
         unc_setbool(w, &v, 1);
     } else
         unc_setbool(w, &v, 0);
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size sn, fsn = 0;
     const char *sp, *fsp = NULL;
@@ -68,17 +68,17 @@ Unc_RetVal unc__lib_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
         e = unc_getstring(w, &args.values[1], &fsn, &fsp);
         if (e) return e;
     }
-    en = unc__wake(w, Unc_TObject);
+    en = unc0_wake(w, Unc_TObject);
     if (!en) return UNCIL_ERR_MEM;
-    e = unc__initobj(w, LEFTOVER(Unc_Object, en), NULL);
+    e = unc0_initobj(w, LEFTOVER(Unc_Object, en), NULL);
     if (e) {
-        unc__unwake(en, w);
+        unc0_unwake(en, w);
         return e;
     }
-    e = unc__dorequirec(w, sn, (const byte *)sp,
+    e = unc0_dorequirec(w, sn, (const byte *)sp,
                            fsn, (const byte *)fsp, LEFTOVER(Unc_Object, en));
     if (e) {
-        unc__hibernate(en, w);
+        unc0_hibernate(en, w);
         return e;
     }
 
@@ -86,7 +86,7 @@ Unc_RetVal unc__lib_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_sys_version(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_sys_version(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v;
     (void)udata;
@@ -110,11 +110,11 @@ static const char *endianstrings[] = { "other", "little", "big" };
 
 Unc_RetVal uncilmain_sys(Unc_View *w) {
     Unc_RetVal e;
-    e = unc_exportcfunction(w, "loaddl", &unc__lib_sys_loaddl,
+    e = unc_exportcfunction(w, "loaddl", &unc0_lib_sys_loaddl,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "forget", &unc__lib_sys_forget,
+    e = unc_exportcfunction(w, "forget", &unc0_lib_sys_forget,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
@@ -152,7 +152,7 @@ Unc_RetVal uncilmain_sys(Unc_View *w) {
     }
     {
         Unc_Value v = UNC_BLANK;
-        e = unc_newstringc(w, &v, endianstrings[unc__getendianness()]);
+        e = unc_newstringc(w, &v, endianstrings[unc0_getendianness()]);
         if (e) return e;
         e = unc_setpublicc(w, "endian", &v);
         if (e) return e;
@@ -188,7 +188,7 @@ Unc_RetVal uncilmain_sys(Unc_View *w) {
         e = unc_setpublicc(w, "canloaddl", &v);
         if (e) return e;
     }
-    e = unc_exportcfunction(w, "version", &unc__lib_sys_version,
+    e = unc_exportcfunction(w, "version", &unc0_lib_sys_version,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

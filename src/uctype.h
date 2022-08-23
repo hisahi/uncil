@@ -27,10 +27,10 @@ SOFTWARE.
 #ifndef UNCIL_UCTYPE_H
 #define UNCIL_UCTYPE_H
 
-int unc__isalnum(int c);
-int unc__isalpha(int c);
-int unc__isdigit(int c);
-int unc__isspace(int c);
-int unc__tolower(int c);
+int unc0_isalnum(int c);
+int unc0_isalpha(int c);
+int unc0_isdigit(int c);
+int unc0_isspace(int c);
+int unc0_tolower(int c);
 
 #endif /* UNCIL_UCTYPE_H */

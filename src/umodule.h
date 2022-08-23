@@ -46,9 +46,9 @@ typedef struct Unc_ModuleFrame {
     const byte *curdir;
 } Unc_ModuleFrame;
 
-int unc__dorequire(struct Unc_View *w, Unc_Size name_n,
+int unc0_dorequire(struct Unc_View *w, Unc_Size name_n,
                    const byte *name, Unc_Object *obj);
-int unc__dorequirec(Unc_View *w,
+int unc0_dorequirec(Unc_View *w,
                     Unc_Size dname_n, const byte *dname,
                     Unc_Size fname_n, const byte *fname,
                     Unc_Object *obj);

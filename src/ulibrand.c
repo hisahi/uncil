@@ -101,7 +101,7 @@ struct unc_rng_state {
 static const uint64_t pcg_mul = UINT64_C(0x5851F42D4C957F2D);
 static const uint64_t pcg_add = UINT64_C(0xDD5C0E28D9236311);
 
-static uint64_t unc__stdrandseed(void) {
+static uint64_t unc0_stdrandseed(void) {
     uint64_t u;
     byte buf[sizeof(u)];
 #if SAFERNG
@@ -117,7 +117,7 @@ static uint64_t unc__stdrandseed(void) {
     return u;
 }
 
-static void unc__stdrand(struct unc_rng_state *data, Unc_Size n, byte *b) {
+static void unc0_stdrand(struct unc_rng_state *data, Unc_Size n, byte *b) {
     /* based on O'Neill 2014: PCG: A Family of Simple Fast Space-Efficient
        Statistically Good Algorithms for Random Number Generation */
     uint64_t st = data->state, x;
@@ -145,10 +145,10 @@ static void unc__stdrand(struct unc_rng_state *data, Unc_Size n, byte *b) {
     data->state = st;
 }
 
-static void unc__stdrandinit(struct unc_rng_state *data) {
+static void unc0_stdrandinit(struct unc_rng_state *data) {
     byte b;
-    data->state = pcg_add + unc__stdrandseed();
-    (void)unc__stdrand(data, 1, &b);
+    data->state = pcg_add + unc0_stdrandseed();
+    (void)unc0_stdrand(data, 1, &b);
 }
 #else
 #include <stdlib.h>
@@ -158,14 +158,14 @@ struct unc_rng_state {
     char _;
 };
 
-static void unc__stdrand(void *data, Unc_Size n, byte *b) {
+static void unc0_stdrand(void *data, Unc_Size n, byte *b) {
     Unc_Size i;
     (void)data;
     for (i = 0; i < n; ++i)
         b[i] = (byte)(rand() >> (3 + (2 ^ (i & 3))));
 }
 
-static void unc__stdrandinit(struct unc_rng_state *data) {
+static void unc0_stdrandinit(struct unc_rng_state *data) {
     (void)data;
     srand((unsigned)time(NULL));
 }
@@ -174,7 +174,7 @@ static void unc__stdrandinit(struct unc_rng_state *data) {
 static Unc_RetVal unc_randwrapper(Unc_View *w, Unc_Value fn,
                                   Unc_Int n, byte *b, void *data) {
     if (!fn.type) {
-        unc__stdrand(data, n, b);
+        unc0_stdrand(data, n, b);
         return 0;
     }
     if (unc_iscallable(w, &fn)) {
@@ -209,7 +209,7 @@ static Unc_RetVal unc_randwrapper(Unc_View *w, Unc_Value fn,
                                                 "a single blob of the "
                                                 "requested size");
             }
-            unc__memcpy(b, pb, n);
+            unc0_memcpy(b, pb, n);
             unc_unlock(w, &tuple.values[0]);
             unc_discard(w, &ret);
             return 0;
@@ -220,7 +220,7 @@ static Unc_RetVal unc_randwrapper(Unc_View *w, Unc_Value fn,
 
 #define INV_UINT_MAX (1 / ((Unc_Float)(UNC_UINT_MAX / 2 + 1)))
 
-Unc_RetVal unc__lib_rand_random(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_rand_random(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     byte b[sizeof(Unc_UInt)];
     Unc_UInt u;
@@ -242,7 +242,7 @@ Unc_RetVal unc__lib_rand_random(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     byte b[sizeof(Unc_UInt)];
     Unc_Int i0, i1;
@@ -274,7 +274,7 @@ Unc_RetVal unc__lib_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_rand_randombytes(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_rand_randombytes(Unc_View *w, Unc_Tuple args,
                                      void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
@@ -299,13 +299,13 @@ Unc_RetVal unc__lib_rand_randombytes(Unc_View *w, Unc_Tuple args,
         unc_unlock(w, unc_boundvalue(w, 0));
         return e;
     }
-    unc__stdrand(rng, i, b);
+    unc0_stdrand(rng, i, b);
     unc_unlock(w, &v);
     unc_unlock(w, unc_boundvalue(w, 0));
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_rand_securerandom(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_rand_securerandom(Unc_View *w, Unc_Tuple args,
                                      void *udata) {
 #if SAFERNG
     int e;
@@ -333,7 +333,7 @@ Unc_RetVal unc__lib_rand_securerandom(Unc_View *w, Unc_Tuple args,
 #endif
 }
 
-Unc_RetVal unc__lib_rand_shuffle(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_rand_shuffle(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value *av;
     byte b[sizeof(Unc_UInt)];
     Unc_Size a, an, aj;
@@ -390,26 +390,26 @@ Unc_RetVal uncilmain_random(Unc_View *w) {
                       sizeof(struct unc_rng_state), (void **)&rngs,
                       NULL, 0, NULL, 0, NULL);
     if (e) return e;
-    unc__stdrandinit(rngs);
+    unc0_stdrandinit(rngs);
     unc_unlock(w, &rng);
 
-    e = unc_exportcfunction(w, "random", &unc__lib_rand_random,
+    e = unc_exportcfunction(w, "random", &unc0_lib_rand_random,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 1, NULL, 1, &rng, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "randomint", &unc__lib_rand_randomint,
+    e = unc_exportcfunction(w, "randomint", &unc0_lib_rand_randomint,
                             UNC_CFUNC_DEFAULT,
                             2, 0, 1, NULL, 1, &rng, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "randombytes", &unc__lib_rand_randombytes,
+    e = unc_exportcfunction(w, "randombytes", &unc0_lib_rand_randombytes,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 0, NULL, 1, &rng, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "securerandom", &unc__lib_rand_securerandom,
+    e = unc_exportcfunction(w, "securerandom", &unc0_lib_rand_securerandom,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "shuffle", &unc__lib_rand_shuffle,
+    e = unc_exportcfunction(w, "shuffle", &unc0_lib_rand_shuffle,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 1, NULL, 1, &rng, 0, NULL, NULL);
     if (e) return e;

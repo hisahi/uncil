@@ -41,7 +41,7 @@ void uncil_printversion(void) {
     printf("\tByte code version  \t%u\n", UNCIL_PROGRAM_VER);
     printf("\tTarget platform    \t%s\n", UNCIL_TARGET);
     printf("\tTarget architecture\t%s\n", UNCIL_CPU_ARCH);
-    printf("\tEndianness         \t%s\n", endianness[unc__getendianness()]);
+    printf("\tEndianness         \t%s\n", endianness[unc0_getendianness()]);
     printf("\tCompiled with      \t%s\n", UNCIL_COMPILED_WITH);
     printf("\tCompiled on        \t%s\n", __DATE__ ", " __TIME__);
     printf("\tHas multithreading \t%s\n",

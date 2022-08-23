@@ -47,15 +47,15 @@ SOFTWARE.
 #endif
 
 #if !UNCIL_C99
-static Unc_Float unc__math_trunc(Unc_Float x) {
+static Unc_Float unc0_math_trunc(Unc_Float x) {
     return x < 0 ? ceil(x) : floor(x);
 }
 
-static Unc_Float unc__math_round(Unc_Float x) {
+static Unc_Float unc0_math_round(Unc_Float x) {
     return x > 0 ? ceil(x - 0.5) : floor(x + 0.5);
 }
 
-static Unc_Float unc__math_hypot(Unc_Float x, Unc_Float y) {
+static Unc_Float unc0_math_hypot(Unc_Float x, Unc_Float y) {
     if (x != x) return x; /* NAN */
     if (y != y) return y; /* NAN */
     if (x < 0) x = -x; /* abs */
@@ -93,11 +93,11 @@ static Unc_Float unc__math_hypot(Unc_Float x, Unc_Float y) {
     return sqrt(x * x + y * y);
 }
 
-static Unc_Float unc__math_asinh(Unc_Float x) {
+static Unc_Float unc0_math_asinh(Unc_Float x) {
     return log(x + sqrt(x * x + 1));
 }
 
-static Unc_Float unc__math_acosh(Unc_Float x) {
+static Unc_Float unc0_math_acosh(Unc_Float x) {
     Unc_Float y;
     errno = 0;
     y = sqrt(x * x - 1);
@@ -105,7 +105,7 @@ static Unc_Float unc__math_acosh(Unc_Float x) {
     return log(x + y);
 }
 
-static Unc_Float unc__math_atanh(Unc_Float x) {
+static Unc_Float unc0_math_atanh(Unc_Float x) {
     Unc_Float y;
     errno = 0;
     y = log((1 + x) / (1 - x));
@@ -114,14 +114,14 @@ static Unc_Float unc__math_atanh(Unc_Float x) {
 }
 #endif
 
-Unc_RetVal unc__lib_math_abs(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_abs(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Int ui;
     Unc_Float uf;
 
     e = unc_getint(w, &args.values[0], &ui);
-    if (!e && !unc__negovf(ui)) {
+    if (!e && !unc0_negovf(ui)) {
         unc_setint(w, &v, ui < 0 ? -ui : ui);
         return unc_push(w, 1, &v, NULL);
     }
@@ -133,7 +133,7 @@ Unc_RetVal unc__lib_math_abs(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_sign(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_sign(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -143,11 +143,11 @@ Unc_RetVal unc__lib_math_sign(Unc_View *w, Unc_Tuple args, void *udata) {
     if (uf != uf)
         unc_setfloat(w, &v, uf);
     else
-        unc_setint(w, &v, unc__cmpflt(uf, 0));
+        unc_setint(w, &v, unc0_cmpflt(uf, 0));
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_sqrt(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_sqrt(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -161,7 +161,7 @@ Unc_RetVal unc__lib_math_sqrt(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_exp(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_exp(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -175,7 +175,7 @@ Unc_RetVal unc__lib_math_exp(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_log(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_log(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -189,7 +189,7 @@ Unc_RetVal unc__lib_math_log(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_log2(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_log2(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -207,7 +207,7 @@ Unc_RetVal unc__lib_math_log2(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_log10(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_log10(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -221,7 +221,7 @@ Unc_RetVal unc__lib_math_log10(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_floor(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_floor(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -235,7 +235,7 @@ Unc_RetVal unc__lib_math_floor(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_ceil(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_ceil(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -249,7 +249,7 @@ Unc_RetVal unc__lib_math_ceil(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_round(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_round(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -260,14 +260,14 @@ Unc_RetVal unc__lib_math_round(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_C99
     uf = round(uf);
 #else
-    uf = unc__math_round(uf);
+    uf = unc0_math_round(uf);
 #endif
     if (errno == EDOM) return unc_throwexc(w, "math", "domain error");
     unc_setfloat(w, &v, uf);
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_trunc(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_trunc(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -278,14 +278,14 @@ Unc_RetVal unc__lib_math_trunc(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_C99
     uf = trunc(uf);
 #else
-    uf = unc__math_trunc(uf);
+    uf = unc0_math_trunc(uf);
 #endif
     if (errno == EDOM) return unc_throwexc(w, "math", "domain error");
     unc_setfloat(w, &v, uf);
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_deg(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_deg(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -297,7 +297,7 @@ Unc_RetVal unc__lib_math_deg(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_rad(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_rad(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -309,7 +309,7 @@ Unc_RetVal unc__lib_math_rad(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_sin(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_sin(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -323,7 +323,7 @@ Unc_RetVal unc__lib_math_sin(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_cos(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_cos(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -337,7 +337,7 @@ Unc_RetVal unc__lib_math_cos(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_tan(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_tan(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -351,7 +351,7 @@ Unc_RetVal unc__lib_math_tan(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_asin(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_asin(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -365,7 +365,7 @@ Unc_RetVal unc__lib_math_asin(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_acos(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_acos(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -379,7 +379,7 @@ Unc_RetVal unc__lib_math_acos(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_atan(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_atan(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -393,7 +393,7 @@ Unc_RetVal unc__lib_math_atan(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_sinh(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_sinh(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -407,7 +407,7 @@ Unc_RetVal unc__lib_math_sinh(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_cosh(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_cosh(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -421,7 +421,7 @@ Unc_RetVal unc__lib_math_cosh(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_tanh(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_tanh(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -435,7 +435,7 @@ Unc_RetVal unc__lib_math_tanh(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_asinh(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_asinh(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -446,14 +446,14 @@ Unc_RetVal unc__lib_math_asinh(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_C99
     uf = asinh(uf);
 #else
-    uf = unc__math_asinh(uf);
+    uf = unc0_math_asinh(uf);
 #endif
     if (errno == EDOM) return unc_throwexc(w, "math", "domain error");
     unc_setfloat(w, &v, uf);
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_acosh(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_acosh(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -464,14 +464,14 @@ Unc_RetVal unc__lib_math_acosh(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_C99
     uf = acosh(uf);
 #else
-    uf = unc__math_acosh(uf);
+    uf = unc0_math_acosh(uf);
 #endif
     if (errno == EDOM) return unc_throwexc(w, "math", "domain error");
     unc_setfloat(w, &v, uf);
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_atanh(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_atanh(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf;
@@ -482,14 +482,14 @@ Unc_RetVal unc__lib_math_atanh(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_C99
     uf = atanh(uf);
 #else
-    uf = unc__math_atanh(uf);
+    uf = unc0_math_atanh(uf);
 #endif
     if (errno == EDOM) return unc_throwexc(w, "math", "domain error");
     unc_setfloat(w, &v, uf);
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_pow(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_pow(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf1, uf2;
@@ -505,7 +505,7 @@ Unc_RetVal unc__lib_math_pow(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_atan2(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_atan2(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf1, uf2;
@@ -521,7 +521,7 @@ Unc_RetVal unc__lib_math_atan2(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_hypot(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_hypot(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Float uf1, uf2;
@@ -534,14 +534,14 @@ Unc_RetVal unc__lib_math_hypot(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_C99
     uf1 = hypot(uf1, uf2);
 #else
-    uf1 = unc__math_hypot(uf1, uf2);
+    uf1 = unc0_math_hypot(uf1, uf2);
 #endif
     if (errno == EDOM) return unc_throwexc(w, "math", "domain error");
     unc_setfloat(w, &v, uf1);
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_min(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_min(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Size i;
     int e;
     Unc_Value v = UNC_BLANK;
@@ -576,7 +576,7 @@ Unc_RetVal unc__lib_math_min(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_max(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_max(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Size i;
     int e;
     Unc_Value v = UNC_BLANK;
@@ -611,18 +611,18 @@ Unc_RetVal unc__lib_math_max(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_math_clamp(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_math_clamp(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     Unc_Int ui0, ui1, ui2;
     Unc_Float uf0, uf1, uf2;
 
     e = unc_getint(w, &args.values[0], &ui0);
-    if (e) goto unc__lib_math_clamp_float;
+    if (e) goto unc0_lib_math_clamp_float;
     e = unc_getint(w, &args.values[1], &ui1);
-    if (e) goto unc__lib_math_clamp_float;
+    if (e) goto unc0_lib_math_clamp_float;
     e = unc_getint(w, &args.values[2], &ui2);
-    if (e) goto unc__lib_math_clamp_float;
+    if (e) goto unc0_lib_math_clamp_float;
     if (ui1 > ui2) {
         Unc_Int t = ui1;
         ui1 = ui2;
@@ -633,7 +633,7 @@ Unc_RetVal unc__lib_math_clamp(Unc_View *w, Unc_Tuple args, void *udata) {
 
     unc_setint(w, &v, ui0);
     return unc_push(w, 1, &v, NULL);
-unc__lib_math_clamp_float:
+unc0_lib_math_clamp_float:
     e = unc_getfloat(w, &args.values[0], &uf0);
     if (e) return e;
     e = unc_getfloat(w, &args.values[1], &uf1);
@@ -654,127 +654,127 @@ unc__lib_math_clamp_float:
 
 Unc_RetVal uncilmain_math(struct Unc_View *w) {
     Unc_RetVal e;
-    e = unc_exportcfunction(w, "abs", &unc__lib_math_abs,
+    e = unc_exportcfunction(w, "abs", &unc0_lib_math_abs,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "sign", &unc__lib_math_sign,
+    e = unc_exportcfunction(w, "sign", &unc0_lib_math_sign,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "sqrt", &unc__lib_math_sqrt,
+    e = unc_exportcfunction(w, "sqrt", &unc0_lib_math_sqrt,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "exp", &unc__lib_math_exp,
+    e = unc_exportcfunction(w, "exp", &unc0_lib_math_exp,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "log", &unc__lib_math_log,
+    e = unc_exportcfunction(w, "log", &unc0_lib_math_log,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "log2", &unc__lib_math_log2,
+    e = unc_exportcfunction(w, "log2", &unc0_lib_math_log2,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "log10", &unc__lib_math_log10,
+    e = unc_exportcfunction(w, "log10", &unc0_lib_math_log10,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "floor", &unc__lib_math_floor,
+    e = unc_exportcfunction(w, "floor", &unc0_lib_math_floor,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "ceil", &unc__lib_math_ceil,
+    e = unc_exportcfunction(w, "ceil", &unc0_lib_math_ceil,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "round", &unc__lib_math_round,
+    e = unc_exportcfunction(w, "round", &unc0_lib_math_round,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "trunc", &unc__lib_math_trunc,
+    e = unc_exportcfunction(w, "trunc", &unc0_lib_math_trunc,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "deg", &unc__lib_math_deg,
+    e = unc_exportcfunction(w, "deg", &unc0_lib_math_deg,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "rad", &unc__lib_math_rad,
+    e = unc_exportcfunction(w, "rad", &unc0_lib_math_rad,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "sin", &unc__lib_math_sin,
+    e = unc_exportcfunction(w, "sin", &unc0_lib_math_sin,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "cos", &unc__lib_math_cos,
+    e = unc_exportcfunction(w, "cos", &unc0_lib_math_cos,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "tan", &unc__lib_math_tan,
+    e = unc_exportcfunction(w, "tan", &unc0_lib_math_tan,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "asin", &unc__lib_math_asin,
+    e = unc_exportcfunction(w, "asin", &unc0_lib_math_asin,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "acos", &unc__lib_math_acos,
+    e = unc_exportcfunction(w, "acos", &unc0_lib_math_acos,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "atan", &unc__lib_math_atan,
+    e = unc_exportcfunction(w, "atan", &unc0_lib_math_atan,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "sinh", &unc__lib_math_sinh,
+    e = unc_exportcfunction(w, "sinh", &unc0_lib_math_sinh,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "cosh", &unc__lib_math_cosh,
+    e = unc_exportcfunction(w, "cosh", &unc0_lib_math_cosh,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "tanh", &unc__lib_math_tanh,
+    e = unc_exportcfunction(w, "tanh", &unc0_lib_math_tanh,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "asinh", &unc__lib_math_asinh,
+    e = unc_exportcfunction(w, "asinh", &unc0_lib_math_asinh,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "acosh", &unc__lib_math_acosh,
+    e = unc_exportcfunction(w, "acosh", &unc0_lib_math_acosh,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "atanh", &unc__lib_math_atanh,
+    e = unc_exportcfunction(w, "atanh", &unc0_lib_math_atanh,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "atan2", &unc__lib_math_atan2,
+    e = unc_exportcfunction(w, "atan2", &unc0_lib_math_atan2,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "pow", &unc__lib_math_pow,
+    e = unc_exportcfunction(w, "pow", &unc0_lib_math_pow,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "hypot", &unc__lib_math_hypot,
+    e = unc_exportcfunction(w, "hypot", &unc0_lib_math_hypot,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "min", &unc__lib_math_min,
+    e = unc_exportcfunction(w, "min", &unc0_lib_math_min,
                             UNC_CFUNC_CONCURRENT,
                             1, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "max", &unc__lib_math_max,
+    e = unc_exportcfunction(w, "max", &unc0_lib_math_max,
                             UNC_CFUNC_CONCURRENT,
                             1, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "clamp", &unc__lib_math_clamp,
+    e = unc_exportcfunction(w, "clamp", &unc0_lib_math_clamp,
                             UNC_CFUNC_CONCURRENT,
                             3, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

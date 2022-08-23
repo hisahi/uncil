@@ -29,6 +29,6 @@ SOFTWARE.
 
 #include "uparse.h"
 
-int unc__optqcode(Unc_Context *cxt, Unc_QCode *out);
+int unc0_optqcode(Unc_Context *cxt, Unc_QCode *out);
 
 #endif /* UNCIL_UOPTIM_H */

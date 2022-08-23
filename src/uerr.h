@@ -133,13 +133,13 @@ SOFTWARE.
 
 struct Unc_View;
 struct Unc_Frame;
-int unc__err_unsup1(struct Unc_View *w, int t);
-int unc__err_unsup2(struct Unc_View *w, int t1, int t2);
-int unc__err_unsup2(struct Unc_View *w, int t1, int t2);
-int unc__err_withname(struct Unc_View *w, int e, Unc_Size s,
+int unc0_err_unsup1(struct Unc_View *w, int t);
+int unc0_err_unsup2(struct Unc_View *w, int t1, int t2);
+int unc0_err_unsup2(struct Unc_View *w, int t1, int t2);
+int unc0_err_withname(struct Unc_View *w, int e, Unc_Size s,
                       const unsigned char *b);
-void unc__errstackpush(struct Unc_View *w, Unc_Size lineno);
-void unc__errstackpushcoro(struct Unc_View *w);
-void unc__errinfocopyfrom(struct Unc_View *w, struct Unc_View *wc);
+void unc0_errstackpush(struct Unc_View *w, Unc_Size lineno);
+void unc0_errstackpushcoro(struct Unc_View *w);
+void unc0_errinfocopyfrom(struct Unc_View *w, struct Unc_View *wc);
 
 #endif /* UNCIL_UERR_H */

@@ -114,7 +114,7 @@ typedef struct Unc_LexOut {
     Unc_Size id_n;        /* one past highest index of identifiers */
 } Unc_LexOut;
 
-int unc__lexcode(Unc_Context *cxt, Unc_LexOut *out,
+int unc0_lexcode(Unc_Context *cxt, Unc_LexOut *out,
                  int (*getch)(void *ud), void *ud);
 
 #endif /* UNCIL_ULEX_H */

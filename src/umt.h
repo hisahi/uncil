@@ -81,17 +81,17 @@ typedef volatile Unc_Size Unc_AtomicLarge;
 #if UNCIL_MT_OK
 #error "atomic operations required for multithreaded build"
 #endif
-int unc__nonatomictas(Unc_AtomicFlag *v);
-Unc_AtomicSmall unc__nonatomicsxchg(Unc_AtomicSmall *var,
+int unc0_nonatomictas(Unc_AtomicFlag *v);
+Unc_AtomicSmall unc0_nonatomicsxchg(Unc_AtomicSmall *var,
                                     Unc_AtomicSmall val);
 #define ATOMICSSET(a, x) (a = (x))
 #define ATOMICSINC(a) (++a)
 #define ATOMICSDEC(a) (--a)
-#define ATOMICSXCG(a, x) unc__nonatomicsxchg(&(a), x)
+#define ATOMICSXCG(a, x) unc0_nonatomicsxchg(&(a), x)
 #define ATOMICLSET(a, x) (a = (x))
 #define ATOMICLINC(a) (++a)
 #define ATOMICLDEC(a) (--a)
-#define ATOMICFLAGTAS(a) unc__nonatomictas(&(a))
+#define ATOMICFLAGTAS(a) unc0_nonatomictas(&(a))
 #define ATOMICFLAGCLR(a) (a = 0)
 #define UNC_NONATOMIC 1
 #endif /* UNCIL_DEFINES */
@@ -137,31 +137,31 @@ Unc_AtomicSmall unc__nonatomicsxchg(Unc_AtomicSmall *var,
 #ifdef UNCIL_DEFINES
 #include <sched.h>
 #if INLINEEXTOK
-INLINEEXT void unc__locklight_(Unc_AtomicFlag *x) {
+INLINEEXT void unc0_locklight_(Unc_AtomicFlag *x) {
     while (ATOMICFLAGTAS(*x)) sched_yield();
 }
 #else
-void unc__locklight_(Unc_AtomicFlag *x);
+void unc0_locklight_(Unc_AtomicFlag *x);
 #endif
-int unc__pthread_init(pthread_mutex_t *mutex);
-void unc__pthread_lock(pthread_mutex_t *mutex);
-int unc__pthread_lockorpause(struct Unc_View *view, pthread_mutex_t *mutex);
-void unc__pthread_pause(struct Unc_View *view);
-void unc__pthread_resume(struct Unc_View *view);
-void unc__pthread_paused(struct Unc_View *view);
-void unc__pthread_resumed(struct Unc_View *view);
+int unc0_pthread_init(pthread_mutex_t *mutex);
+void unc0_pthread_lock(pthread_mutex_t *mutex);
+int unc0_pthread_lockorpause(struct Unc_View *view, pthread_mutex_t *mutex);
+void unc0_pthread_pause(struct Unc_View *view);
+void unc0_pthread_resume(struct Unc_View *view);
+void unc0_pthread_paused(struct Unc_View *view);
+void unc0_pthread_resumed(struct Unc_View *view);
 
 #if !UNCIL_ALTLIGHTLOCK
 #define UNC_LOCKSTATICL(x) static pthread_mutex_t x = PTHREAD_MUTEX_INITIALIZER;
 #define UNC_LOCKINITL(x) pthread_mutex_init(&(x), NULL)
-#define UNC_LOCKL(x) unc__pthread_lock(&(x))
+#define UNC_LOCKL(x) unc0_pthread_lock(&(x))
 #define UNC_LOCKLQ(x) (!pthread_mutex_trylock(&(x)))
 #define UNC_UNLOCKL(x) pthread_mutex_unlock(&(x))
 #define UNC_LOCKFINAL(x) pthread_mutex_destroy(&(x))
 #else
 #define UNC_LOCKSTATICL(x) static Unc_AtomicFlag x = 0;
 #define UNC_LOCKINITL(x) ((void)(ATOMICFLAGCLR(x)), 0)
-#define UNC_LOCKL(x) unc__locklight_(&(x))
+#define UNC_LOCKL(x) unc0_locklight_(&(x))
 #define UNC_LOCKLQ(x) !ATOMICFLAGTAS(x)
 #define UNC_UNLOCKL(x) ATOMICFLAGCLR(x)
 #define UNC_LOCKFINAL(x)
@@ -170,18 +170,18 @@ void unc__pthread_resumed(struct Unc_View *view);
 #define UNC_LOCKSTATICF(x) static pthread_mutex_t x = PTHREAD_MUTEX_INITIALIZER;
 #define UNC_LOCKSTATICFINIT0(x)
 #define UNC_LOCKSTATICFINIT1(x)
-#define UNC_LOCKINITF(x) unc__pthread_init(&(x))
-#define UNC_LOCKF(x) unc__pthread_lock(&(x))
-#define UNC_LOCKFP(w, x) unc__pthread_lockorpause(w, &(x))
+#define UNC_LOCKINITF(x) unc0_pthread_init(&(x))
+#define UNC_LOCKF(x) unc0_pthread_lock(&(x))
+#define UNC_LOCKFP(w, x) unc0_pthread_lockorpause(w, &(x))
 #define UNC_LOCKFQ(x) (!pthread_mutex_trylock(&(x)))
 #define UNC_UNLOCKF(x) pthread_mutex_unlock(&(x))
 #define UNC_LOCKFINAF(x) pthread_mutex_destroy(&(x))
 
 #define UNC_YIELD() sched_yield()
-#define UNC_PAUSE(view) unc__pthread_pause(view)
-#define UNC_RESUME(view) unc__pthread_resume(view)
-#define UNC_PAUSED(view) unc__pthread_paused(view)
-#define UNC_RESUMED(view) unc__pthread_resumed(view)
+#define UNC_PAUSE(view) unc0_pthread_pause(view)
+#define UNC_RESUME(view) unc0_pthread_resume(view)
+#define UNC_PAUSED(view) unc0_pthread_paused(view)
+#define UNC_RESUMED(view) unc0_pthread_resumed(view)
 #endif /* UNCIL_DEFINES */
 
 #elif UNCIL_MT_OK && UNCIL_MT_C11
@@ -195,31 +195,31 @@ void unc__pthread_resumed(struct Unc_View *view);
 #endif
 #define UNC_LOCKFULL(name) mtx_t name;
 #ifdef UNCIL_DEFINES
-INLINEEXT void unc__locklight_(Unc_AtomicFlag *x) {
+INLINEEXT void unc0_locklight_(Unc_AtomicFlag *x) {
     while (ATOMICFLAGTAS(*x)) thrd_yield();
 }
-int unc__c11_init(mtx_t *mutex);
-INLINEEXT void unc__c11_lock(mtx_t *mutex) {
+int unc0_c11_init(mtx_t *mutex);
+INLINEEXT void unc0_c11_lock(mtx_t *mutex) {
     while (mtx_lock(mutex) != thrd_success)
         ;
 }
-int unc__c11_lockorpause(struct Unc_View *view, mtx_t *mutex);
-void unc__c11_pause(struct Unc_View *view);
-void unc__c11_resume(struct Unc_View *view);
-void unc__c11_paused(struct Unc_View *view);
-void unc__c11_resumed(struct Unc_View *view);
+int unc0_c11_lockorpause(struct Unc_View *view, mtx_t *mutex);
+void unc0_c11_pause(struct Unc_View *view);
+void unc0_c11_resume(struct Unc_View *view);
+void unc0_c11_paused(struct Unc_View *view);
+void unc0_c11_resumed(struct Unc_View *view);
 
 #if !UNCIL_ALTLIGHTLOCK
 #define UNC_LOCKSTATICL(x)
 #define UNC_LOCKINITL(x) mtx_init(&(x), mtx_plain) != thrd_success
-#define UNC_LOCKL(x) unc__c11_lock(&(x))
+#define UNC_LOCKL(x) unc0_c11_lock(&(x))
 #define UNC_LOCKLQ(x) (mtx_trylock(&(x)) == thrd_success)
 #define UNC_UNLOCKL(x) (void)mtx_unlock(&(x))
 #define UNC_LOCKFINAL(x) mtx_destroy(&(x))
 #else
 #define UNC_LOCKSTATICL(x) static Unc_AtomicFlag x = ATOMIC_FLAG_INIT;
 #define UNC_LOCKINITL(x) ((void)(ATOMICFLAGCLR(x)), 0)
-#define UNC_LOCKL(x) unc__locklight_(&(x))
+#define UNC_LOCKL(x) unc0_locklight_(&(x))
 #define UNC_LOCKLQ(x) !ATOMICFLAGTAS(x)
 #define UNC_UNLOCKL(x) ATOMICFLAGCLR(x)
 #define UNC_LOCKFINAL(x)
@@ -232,18 +232,18 @@ void unc__c11_resumed(struct Unc_View *view);
                                     if (UNC_LOCKINITF(x)) abort(); }
 #define UNC_LOCKSTATICFINIT1(x) call_once(&uncil_static_init0_flag_##x,        \
                                           &uncil_static_init0_##x)
-#define UNC_LOCKINITF(x) unc__c11_init(&(x))
-#define UNC_LOCKF(x) unc__c11_lock(&(x))
-#define UNC_LOCKFP(w, x) unc__c11_lockorpause(w, &(x))
+#define UNC_LOCKINITF(x) unc0_c11_init(&(x))
+#define UNC_LOCKF(x) unc0_c11_lock(&(x))
+#define UNC_LOCKFP(w, x) unc0_c11_lockorpause(w, &(x))
 #define UNC_LOCKFQ(x) (mtx_trylock(&(x)) == thrd_success)
 #define UNC_UNLOCKF(x) (void)mtx_unlock(&(x))
 #define UNC_LOCKFINAF(x) mtx_destroy(&(x))
 
 #define UNC_YIELD() thrd_yield()
-#define UNC_PAUSE(view) unc__c11_pause(view)
-#define UNC_RESUME(view) unc__c11_resume(view)
-#define UNC_PAUSED(view) unc__c11_paused(view)
-#define UNC_RESUMED(view) unc__c11_resumed(view)
+#define UNC_PAUSE(view) unc0_c11_pause(view)
+#define UNC_RESUME(view) unc0_c11_resume(view)
+#define UNC_PAUSED(view) unc0_c11_paused(view)
+#define UNC_RESUMED(view) unc0_c11_resumed(view)
 #endif /* UNCIL_DEFINES */
 
 #elif UNCIL_MT_OK

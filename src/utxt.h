@@ -62,13 +62,13 @@ typedef struct Unc_EncodingTable {
     Unc_HTblS names;
 } Unc_EncodingTable;
 
-void unc__initenctable(Unc_Allocator *alloc, Unc_EncodingTable *table);
-int unc__adddefaultencs(struct Unc_View *w, Unc_EncodingTable *table);
-void unc__dropenctable(struct Unc_View *w, Unc_EncodingTable *table);
-int unc__resolveencindex(struct Unc_View *w, Unc_Size name_n, const byte *name);
-Unc_EncodingEntry *unc__getbyencindex(struct Unc_View *w, int index);
+void unc0_initenctable(Unc_Allocator *alloc, Unc_EncodingTable *table);
+int unc0_adddefaultencs(struct Unc_View *w, Unc_EncodingTable *table);
+void unc0_dropenctable(struct Unc_View *w, Unc_EncodingTable *table);
+int unc0_resolveencindex(struct Unc_View *w, Unc_Size name_n, const byte *name);
+Unc_EncodingEntry *unc0_getbyencindex(struct Unc_View *w, int index);
 
-int unc__cconv_passthru(Unc_CConv_In in, void *in_data,
+int unc0_cconv_passthru(Unc_CConv_In in, void *in_data,
                         Unc_CConv_Out out, void *out_data);
 
 #endif /* UNCIL_UTXT_H */

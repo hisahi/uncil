@@ -32,7 +32,7 @@ SOFTWARE.
 
 #define K UNC_BTREE_K
 
-void unc__initbtree(Unc_BTree *tree, Unc_Allocator *alloc) {
+void unc0_initbtree(Unc_BTree *tree, Unc_Allocator *alloc) {
     tree->root = NULL;
     tree->begin = NULL;
     tree->alloc = alloc;
@@ -46,7 +46,7 @@ void unc__initbtree(Unc_BTree *tree, Unc_Allocator *alloc) {
 static Unc_BTreeNode *bplusnewnode(Unc_Allocator *alloc,
                                    Unc_BTreeNode *parent,
                                    int leaf) {
-    Unc_BTreeNode *node = unc__mallocz(alloc, 0, sizeof(Unc_BTreeNode)
+    Unc_BTreeNode *node = unc0_mallocz(alloc, 0, sizeof(Unc_BTreeNode)
                     + (leaf ? (K - 1) * sizeof(Unc_BTreeRecord) : 0));
     if (node) {
         node->parent = parent;
@@ -194,7 +194,7 @@ static int bplussearch(Unc_BTree *tree, Unc_Size key, int *created,
     return bplusinsertleaf(tree, node, key, k, record);
 }
 
-Unc_BTreeRecord *unc__getbtree(Unc_BTree *tree, Unc_Size key) {
+Unc_BTreeRecord *unc0_getbtree(Unc_BTree *tree, Unc_Size key) {
     int n = 0;
     Unc_BTreeRecord *record;
     if (bplussearch(tree, key, &n, &record))
@@ -202,7 +202,7 @@ Unc_BTreeRecord *unc__getbtree(Unc_BTree *tree, Unc_Size key) {
     return record;
 }
 
-int unc__putbtree(Unc_BTree *tree, Unc_Size key, int *created,
+int unc0_putbtree(Unc_BTree *tree, Unc_Size key, int *created,
                   Unc_BTreeRecord **record) {
     int e;
     ASSERT(record != NULL);
@@ -212,7 +212,7 @@ int unc__putbtree(Unc_BTree *tree, Unc_Size key, int *created,
 }
 
 /* you may not put values into a tree you are iterating over! */
-int unc__iterbtreerecords(Unc_BTree *tree, 
+int unc0_iterbtreerecords(Unc_BTree *tree, 
                 int (*iter)(Unc_Size key, Unc_BTreeRecord *value, void *udata),
                 void *udata) {
     Unc_BTreeNode *node = tree->begin;
@@ -234,16 +234,16 @@ static void dropnode(Unc_Allocator *alloc, Unc_BTreeNode *node) {
     if (!node) 
         return;
     else if (node->leaf) {
-        unc__mfree(alloc, node, sizeof(Unc_BTreeNode)
+        unc0_mfree(alloc, node, sizeof(Unc_BTreeNode)
                     + (K - 1) * sizeof(Unc_BTreeRecord));
     } else {
         int k, n = node->numkeys;
         for (k = 0; k < n; ++k)
             dropnode(alloc, node->child[k]);
-        unc__mfree(alloc, node, sizeof(Unc_BTreeNode));
+        unc0_mfree(alloc, node, sizeof(Unc_BTreeNode));
     }
 }
 
-void unc__dropbtree(Unc_BTree *tree) {
+void unc0_dropbtree(Unc_BTree *tree) {
     dropnode(tree->alloc, tree->root);
 }

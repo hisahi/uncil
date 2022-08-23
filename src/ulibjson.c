@@ -51,8 +51,8 @@ static int json_decode_string_do(void *p) {
 /*
 static int json_decode_file_do(void *p) {
     struct ulib_io_file *filep = p;
-    int c = unc__io_fgetc(filep);
-    return c == EOF ? (unc__io_ferror(filep) ? -2 : -1) : c;
+    int c = unc0_io_fgetc(filep);
+    return c == EOF ? (unc0_io_ferror(filep) ? -2 : -1) : c;
 }*/
 
 struct json_decode_file {
@@ -67,14 +67,14 @@ static int json_decode_file_do(void *p_) {
     struct json_decode_file *p = p_;
     if (p->err) return p->err;
     while (p->i == p->n) {
-        int c = unc__io_fgetc_text(p->view, p->fp, p->buffer);
+        int c = unc0_io_fgetc_text(p->view, p->fp, p->buffer);
         if (c < 0) {
             if (c == -2) {
                 p->err = c;
                 return c;
             }
             p->err = -1;
-            return unc__io_ferror(p->fp) ? -2 : -1;
+            return unc0_io_ferror(p->fp) ? -2 : -1;
         }
         p->i = 0, p->n = c;
     }
@@ -100,7 +100,7 @@ INLINE int jsondec_err(struct json_decode_context *c,
 
 static int jsondec_skipw(struct json_decode_context *c) {
     int x = c->next;
-    while (x >= 0 && unc__isspace(x))
+    while (x >= 0 && unc0_isspace(x))
         x = jsonnext(c);
     return x;
 }
@@ -122,7 +122,7 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
         neg = 1;
         x = jsonnext(c);
     }
-    if (!unc__isdigit(x))
+    if (!unc0_isdigit(x))
         return jsondec_err(c, "syntax",
             "JSON syntax error: - not followed by digit");
     u = 0;
@@ -138,7 +138,7 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
             }
         }
         x = jsonnext(c);
-    } while (unc__isdigit(x));
+    } while (unc0_isdigit(x));
 
     if (x == '.') {
         Unc_Float fp = 0;
@@ -148,19 +148,19 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
             f = (Unc_Float)u;
         }
         x = jsonnext(c);
-        if (!unc__isdigit(x))
+        if (!unc0_isdigit(x))
             return jsondec_err(c, "syntax",
                 "JSON syntax error: . not followed by digit");
         do {
             if (fp && ++nonzeroes >= DBL_DIG + 2) {
                 do {
                     x = jsonnext(c);
-                } while (unc__isdigit(x));
+                } while (unc0_isdigit(x));
                 break;
             }
             fp = (fp * 10) + (x - '0');
             x = jsonnext(c);
-        } while (unc__isdigit(x));
+        } while (unc0_isdigit(x));
         f += fp / pow(10, pow10);
     }
 
@@ -177,7 +177,7 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
         } else if (x == '+') {
             x = jsonnext(c);
         }
-        if (!unc__isdigit(x))
+        if (!unc0_isdigit(x))
             return jsondec_err(c, "syntax",
                 "JSON syntax error: e/E not followed by digit");
         up = u = 0;
@@ -189,7 +189,7 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
                 break;
             }
             x = jsonnext(c);
-        } while (unc__isdigit(x));
+        } while (unc0_isdigit(x));
 
         if (!eneg) {
             if (u > DBL_MAX_10_EXP * 2)
@@ -270,7 +270,7 @@ static int jsondec_str(struct json_decode_context *c, Unc_Value *v) {
                 u = 0;
                 for (i = 0; i < 4; ++i) {
                     x = jsonnext(c);
-                    if (unc__isdigit(x)) {
+                    if (unc0_isdigit(x)) {
                         u = (u << 4) | (x - '0');
                     } else if ('A' <= x && x <= 'F') {
                         u = (u << 4) | (x - 'A' + 10);
@@ -306,7 +306,7 @@ static int jsondec_str(struct json_decode_context *c, Unc_Value *v) {
             continue;
         }
         if (u >= 0x80) {
-            us = unc__utf8enc(u, sizeof(uc), uc);
+            us = unc0_utf8enc(u, sizeof(uc), uc);
         } else {
             us = 1;
         }
@@ -317,7 +317,7 @@ static int jsondec_str(struct json_decode_context *c, Unc_Value *v) {
                 p = unc_mrealloc(c->view, buf, z);
             else {
                 p = unc_malloc(c->view, z);
-                if (p) unc__memcpy(p, buf, buf_c);
+                if (p) unc0_memcpy(p, buf, buf_c);
             }
             if (!p) return UNCIL_ERR_MEM;
             buf = p;
@@ -325,7 +325,7 @@ static int jsondec_str(struct json_decode_context *c, Unc_Value *v) {
             buf_ext = 1;
         }
         if (u >= 0x80) {
-            unc__memcpy(&buf[buf_n], uc, us);
+            unc0_memcpy(&buf[buf_n], uc, us);
             buf_n += us;
         } else {
             buf[buf_n++] = u;
@@ -551,7 +551,7 @@ static int jsondec(struct json_decode_context *c, Unc_Value *v) {
     return jsondec_val(c, v);
 }
 
-Unc_RetVal unc__lib_json_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_json_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct json_decode_context cxt;
@@ -571,7 +571,7 @@ Unc_RetVal unc__lib_json_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct json_decode_context cxt;
@@ -579,7 +579,7 @@ Unc_RetVal unc__lib_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     struct ulib_io_file *pfile;
     (void)ud_;
 
-    e = unc__io_lockfile(w, &args.values[0], &pfile, 0);
+    e = unc0_io_lockfile(w, &args.values[0], &pfile, 0);
     if (e) return e;
 
     buf.fp = pfile;
@@ -595,9 +595,9 @@ Unc_RetVal unc__lib_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     e = jsondec(&cxt, &v);
     if (buf.err == -2)
         e = unc_throwexc(w, "io", "json.decodefile(): could not decode text");
-    else if (unc__io_ferror(pfile))
-        e = unc__io_makeerr(w, "json.decodefile()", errno);
-    unc__io_unlockfile(w, &args.values[0]);
+    else if (unc0_io_ferror(pfile))
+        e = unc0_io_makeerr(w, "json.decodefile()", errno);
+    unc0_io_unlockfile(w, &args.values[0]);
     if (e) return e;
     return unc_push(w, 1, &v, NULL);
 }
@@ -612,7 +612,7 @@ struct json_encode_string {
 /* 0 = OK, <>0 = error */
 static int json_encode_string_do(Unc_Size n, const char *c, void *p) {
     struct json_encode_string *s = p;
-    return (s->err = unc__strpush(s->alloc, &s->s, &s->n, &s->c,
+    return (s->err = unc0_strpush(s->alloc, &s->s, &s->n, &s->c,
                                   6, n, (const byte *)c));
 }
 
@@ -624,7 +624,7 @@ struct json_encode_file {
 
 static int json_encode_file_do(Unc_Size n, const char *c, void *p_) {
     struct json_encode_file *p = p_;
-    return (p->err = unc__io_fwrite_text(p->view, p->fp, (const byte *)c, n));
+    return (p->err = unc0_io_fwrite_text(p->view, p->fp, (const byte *)c, n));
 }
 
 struct json_encode_context {
@@ -650,7 +650,7 @@ static int jsonenc_printf(struct json_encode_context *c,
     int r;
     va_list va;
     va_start(va, format);
-    r = unc__vxprintf(&jsonenc_printf_wrap, c, format, va);
+    r = unc0_vxprintf(&jsonenc_printf_wrap, c, format, va);
     va_end(va);
     return r < 0 ? UNCIL_ERR_INTERNAL : 0;
 }
@@ -733,7 +733,7 @@ static int jsonenc_str_i(struct json_encode_context *c,
     if (e) return e;
 
     while (n) {
-        u = unc__utf8decx(&n, (const byte **)&r);
+        u = unc0_utf8decx(&n, (const byte **)&r);
         if (u < 0x20 || u >= 0x80) {
             switch (u) {
             case '\0':
@@ -976,7 +976,7 @@ static int jsonenc(struct json_encode_context *c, Unc_Value *v) {
     return jsonenc_val(c, v);
 }
 
-Unc_RetVal unc__lib_json_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_json_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct json_encode_context cxt =
@@ -1015,7 +1015,7 @@ Unc_RetVal unc__lib_json_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
     return e;
 }
 
-Unc_RetVal unc__lib_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     struct json_encode_context cxt =
         { NULL, NULL, 0, NULL, 0, 0, 0, UNC_BLANK };
@@ -1042,16 +1042,16 @@ Unc_RetVal unc__lib_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
         return unc_throwexc(w, "type", "mapper must be callable or null");
     unc_copy(w, &cxt.mapper, &args.values[2]);
 
-    e = unc__io_lockfile(w, &args.values[0], &pfile, 0);
+    e = unc0_io_lockfile(w, &args.values[0], &pfile, 0);
     if (e) return e;
     buf.fp = pfile;
     
     e = jsonenc(&cxt, &args.values[0]);
     if (buf.err < 0)
         e = unc_throwexc(w, "io", "json.encodefile(): could not encode text");
-    else if (unc__io_ferror(pfile))
-        e = unc__io_makeerr(w, "json.encodefile()", errno);
-    unc__io_unlockfile(w, &args.values[0]);
+    else if (unc0_io_ferror(pfile))
+        e = unc0_io_makeerr(w, "json.encodefile()", errno);
+    unc0_io_unlockfile(w, &args.values[0]);
     unc_mfree(w, cxt.ents);
     unc_clear(w, &cxt.mapper);
     return e;
@@ -1060,25 +1060,25 @@ Unc_RetVal unc__lib_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
 Unc_RetVal uncilmain_json(Unc_View *w) {
     Unc_RetVal e;
 
-    e = unc__io_init(w);
+    e = unc0_io_init(w);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "decode", &unc__lib_json_decode,
+    e = unc_exportcfunction(w, "decode", &unc0_lib_json_decode,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "encode", &unc__lib_json_encode,
+    e = unc_exportcfunction(w, "encode", &unc0_lib_json_encode,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "decodefile", &unc__lib_json_decodefile,
+    e = unc_exportcfunction(w, "decodefile", &unc0_lib_json_decodefile,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "encodefile", &unc__lib_json_encodefile,
+    e = unc_exportcfunction(w, "encodefile", &unc0_lib_json_encodefile,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

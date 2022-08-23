@@ -94,27 +94,27 @@ void hexdump(const byte *data, size_t n) {
 }
 
 void pdump_reg(const byte **d) {
-    printf("R%-5lu\t", (unsigned long)unc__clqdecz(UNCIL_REGW, d));
+    printf("R%-5lu\t", (unsigned long)unc0_clqdecz(UNCIL_REGW, d));
 }
 
 void pdump_us(const byte **d) {
-    printf("%-6lu\t", (unsigned long)unc__vlqdecz(d));
+    printf("%-6lu\t", (unsigned long)unc0_vlqdecz(d));
 }
 
 void pdump_lint(const byte **d) {
-    Unc_Int ui = unc__vlqdeci(d);
+    Unc_Int ui = unc0_vlqdeci(d);
     printf("I(%+6ld)\t", (long)ui);
 }
 
 void pdump_lflt(const byte **d) {
     Unc_Float uf;
-    unc__memcpy(&uf, *d, sizeof(Unc_Float));
+    unc0_memcpy(&uf, *d, sizeof(Unc_Float));
     *d += sizeof(Unc_Float);
     printf("F(%+6f)\t", (float)uf);
 }
 
 void pdump_loff(const char *s, const byte **d) {
-    Unc_Size z = unc__vlqdecz(d);
+    Unc_Size z = unc0_vlqdecz(d);
     printf(s, (unsigned long)z);
     putchar('\t');
 }
@@ -124,7 +124,7 @@ void pdump_lstr(const byte **d) {
 }
 
 void pdump_jmp(const byte **d) {
-    Unc_Size z = unc__clqdecz(jumpw, d);
+    Unc_Size z = unc0_clqdecz(jumpw, d);
     printf("$%06lx\t", (unsigned long)(z + (jbase - jbegin)));
     putchar('\t');
 }

@@ -41,7 +41,7 @@ SOFTWARE.
 extern char **environ;
 #endif
 
-Unc_RetVal unc__lib_os_getenv(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_getenv(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     const char *sb, *se;
     int e;
@@ -81,7 +81,7 @@ Unc_RetVal unc__lib_os_getenv(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_os_system(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_system(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v;
     const char *sb;
     int e;
@@ -97,7 +97,7 @@ Unc_RetVal unc__lib_os_system(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_os_time(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_time(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v;
     (void)udata;
 
@@ -105,7 +105,7 @@ Unc_RetVal unc__lib_os_time(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_os_difftime(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_difftime(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v;
     Unc_Float f0, f1;
@@ -128,7 +128,7 @@ Unc_RetVal unc__lib_os_difftime(Unc_View *w, Unc_Tuple args, void *udata) {
 #include <sys/sysinfo.h>
 #endif
 
-Unc_RetVal unc__lib_os_nprocs(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_nprocs(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v;
     (void)udata;
 
@@ -141,7 +141,7 @@ Unc_RetVal unc__lib_os_nprocs(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_os_freemem(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_freemem(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v;
     (void)udata;
 
@@ -162,7 +162,7 @@ Unc_RetVal unc__lib_os_freemem(Unc_View *w, Unc_Tuple args, void *udata) {
 #include <sys/utsname.h>
 #endif
 
-Unc_RetVal unc__lib_os_version(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_os_version(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     Unc_Size sn;
     const char *sb;
@@ -209,7 +209,7 @@ Unc_RetVal unc__lib_os_version(Unc_View *w, Unc_Tuple args, void *udata) {
 #if CAN_UNAME
             struct utsname utsn;
             if (uname(&utsn) >= 0) {
-                e = unc__usxprintf(w, &v, "%s %s", utsn.sysname, utsn.release);
+                e = unc0_usxprintf(w, &v, "%s %s", utsn.sysname, utsn.release);
                 if (e) return e;
             } else
                 VINITNULL(&v);
@@ -242,31 +242,31 @@ Unc_RetVal unc__lib_os_version(Unc_View *w, Unc_Tuple args, void *udata) {
 
 Unc_RetVal uncilmain_os(Unc_View *w) {
     Unc_RetVal e;
-    e = unc_exportcfunction(w, "getenv", &unc__lib_os_getenv,
+    e = unc_exportcfunction(w, "getenv", &unc0_lib_os_getenv,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "system", &unc__lib_os_system,
+    e = unc_exportcfunction(w, "system", &unc0_lib_os_system,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "time", &unc__lib_os_time,
+    e = unc_exportcfunction(w, "time", &unc0_lib_os_time,
                             UNC_CFUNC_CONCURRENT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "difftime", &unc__lib_os_difftime,
+    e = unc_exportcfunction(w, "difftime", &unc0_lib_os_difftime,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "nprocs", &unc__lib_os_nprocs,
+    e = unc_exportcfunction(w, "nprocs", &unc0_lib_os_nprocs,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "freemem", &unc__lib_os_freemem,
+    e = unc_exportcfunction(w, "freemem", &unc0_lib_os_freemem,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "version", &unc__lib_os_version,
+    e = unc_exportcfunction(w, "version", &unc0_lib_os_version,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

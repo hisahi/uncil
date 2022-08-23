@@ -29,31 +29,31 @@ SOFTWARE.
 
 #include "udef.h"
 
-Unc_Int unc__shiftl(Unc_Int a, Unc_Int b);
-Unc_Int unc__shiftr(Unc_Int a, Unc_Int b);
+Unc_Int unc0_shiftl(Unc_Int a, Unc_Int b);
+Unc_Int unc0_shiftr(Unc_Int a, Unc_Int b);
 
 /* can -a be represented correctly (a + (-a) = 0 and (a > 0) != ((-a) > 0))? */
-int unc__negovf(Unc_Int a);
+int unc0_negovf(Unc_Int a);
 /* would a + b overflow or underflow? */
-int unc__addovf(Unc_Int a, Unc_Int b);
+int unc0_addovf(Unc_Int a, Unc_Int b);
 /* would a - b overflow or underflow? */
-int unc__subovf(Unc_Int a, Unc_Int b);
+int unc0_subovf(Unc_Int a, Unc_Int b);
 /* would a * b overflow or underflow? */
-int unc__mulovf(Unc_Int a, Unc_Int b);
+int unc0_mulovf(Unc_Int a, Unc_Int b);
 
-int unc__cmpint(Unc_Int a, Unc_Int b);
-int unc__cmpflt(Unc_Float a, Unc_Float b);
+int unc0_cmpint(Unc_Int a, Unc_Int b);
+int unc0_cmpflt(Unc_Float a, Unc_Float b);
 
-Unc_Int unc__iidiv(Unc_Int a, Unc_Int b);
-Unc_Int unc__imod(Unc_Int a, Unc_Int b);
-Unc_Float unc__fidiv(Unc_Float a, Unc_Float b);
-Unc_Float unc__fmod(Unc_Float a, Unc_Float b);
-Unc_Float unc__ffrac(Unc_Float x);
+Unc_Int unc0_iidiv(Unc_Int a, Unc_Int b);
+Unc_Int unc0_imod(Unc_Int a, Unc_Int b);
+Unc_Float unc0_fidiv(Unc_Float a, Unc_Float b);
+Unc_Float unc0_fmod(Unc_Float a, Unc_Float b);
+Unc_Float unc0_ffrac(Unc_Float x);
 
-Unc_Float unc__fnan(void);
-Unc_Float unc__finfty(void);
+Unc_Float unc0_fnan(void);
+Unc_Float unc0_finfty(void);
 
-int unc__fisfinite(Unc_Float x);
+int unc0_fisfinite(Unc_Float x);
 
 #ifdef UNCIL_DEFINES
 #if defined(__GNUC__) && __GNUC__ >= 7
@@ -62,10 +62,10 @@ int unc__fisfinite(Unc_Float x);
 #define SUBOVF(x, y) __builtin_sub_overflow_p(x, y, (Unc_Int)0)
 #define MULOVF(x, y) __builtin_mul_overflow_p(x, y, (Unc_Int)0)
 #else
-#define NEGOVF(x) unc__negovf(x)
-#define ADDOVF(x, y) unc__addovf(x, y)
-#define SUBOVF(x, y) unc__subovf(x, y)
-#define MULOVF(x, y) unc__mulovf(x, y)
+#define NEGOVF(x) unc0_negovf(x)
+#define ADDOVF(x, y) unc0_addovf(x, y)
+#define SUBOVF(x, y) unc0_subovf(x, y)
+#define MULOVF(x, y) unc0_mulovf(x, y)
 #endif
  
 #endif

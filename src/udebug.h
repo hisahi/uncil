@@ -57,7 +57,7 @@ SOFTWARE.
 #else
 #include <signal.h>
 #define BREAKPOINT() raise(SIGTRAP)
-void unc__dbghexdump(const unsigned char *data, size_t n);
+void unc0_dbghexdump(const unsigned char *data, size_t n);
 #endif
 
 #define ASSERT assert

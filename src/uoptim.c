@@ -62,10 +62,10 @@ INLINE Unc_Dst reducetmp_mapreg(Unc_Size *trd, Unc_Dst reg,
     ++offset;
     cd += offset;
     while (offset < cdsz) {
-        int opc = unc__qcode_operandcount(cd->op);
+        int opc = unc0_qcode_operandcount(cd->op);
         if (opc < 0) {
             opc = -opc;
-        } else if (unc__qcode_isread0op(cd->op)
+        } else if (unc0_qcode_isread0op(cd->op)
                 && cd->o0type == UNC_QOPER_TYPE_TMP && cd->o0data == reg)
             lr = offset;
         /* assume ops 1-2 are only ever read, which is currently true
@@ -86,7 +86,7 @@ INLINE Unc_Dst reducetmp_mapreg(Unc_Size *trd, Unc_Dst reg,
             if (jd < offset && jd >= fr)
                 lr = offset;
         }
-        if (unc__qcode_iswrite0op(cd->op)
+        if (unc0_qcode_iswrite0op(cd->op)
                 && cd->o0type == UNC_QOPER_TYPE_TMP && cd->o0data == reg) {
             break;
         }
@@ -109,26 +109,26 @@ static int reducetmp(Unc_Context *cxt, Unc_QFunc *fn) {
     if (fn->cnt_tmp < 2)
         return 0;
     
-    trs = unc__mallocz(cxt->alloc, 0,
+    trs = unc0_mallocz(cxt->alloc, 0,
                         (fn->cnt_tmp - 1) * sizeof(Unc_Dst));
     if (!trs) goto reducetmp_fail0;
     
-    trd = unc__mallocz(cxt->alloc, 0,
+    trd = unc0_mallocz(cxt->alloc, 0,
                         (fn->cnt_tmp - 1) * sizeof(Unc_Size));
     if (!trd) goto reducetmp_fail1;
 
     for (i = 0; i < e; ++i) {
-        int opc = unc__qcode_operandcount(cr->op);
+        int opc = unc0_qcode_operandcount(cr->op);
         if (opc < 0) {
             opc = -opc;
-        } else if (unc__qcode_isread0op(cr->op)
+        } else if (unc0_qcode_isread0op(cr->op)
                 && cr->o0type == UNC_QOPER_TYPE_TMP && cr->o0data > 0) {
             /* make sure we are not reading a tmp register before
                 we write to it */
             Unc_Dst d = trs[cr->o0data - 1];
             ASSERT(d != 0);
             cr->o0data = d;
-        } else if (unc__qcode_iswrite0op(cr->op)
+        } else if (unc0_qcode_iswrite0op(cr->op)
                 && cr->o0type == UNC_QOPER_TYPE_TMP && cr->o0data > 0) {
             int remap = 1;
             /* don't attempt to remap if we are reading the same value */
@@ -161,10 +161,10 @@ static int reducetmp(Unc_Context *cxt, Unc_QFunc *fn) {
         }
         ++cr;
     }
-    unc__mfree(cxt->alloc, trd, (fn->cnt_tmp - 1)
+    unc0_mfree(cxt->alloc, trd, (fn->cnt_tmp - 1)
                                 * sizeof(Unc_Dst));
 reducetmp_fail1:
-    unc__mfree(cxt->alloc, trs, (fn->cnt_tmp - 1)
+    unc0_mfree(cxt->alloc, trs, (fn->cnt_tmp - 1)
                                 * sizeof(Unc_Size));
 reducetmp_fail0:
     fn->cnt_tmp = newcnt + 1;
@@ -206,8 +206,8 @@ static void optimcleanup(Unc_Context *cxt, Unc_QFunc *fn) {
 static Unc_Size mergejmps_i(Unc_QInstr *qc, Unc_Size qi, int rec) {
     Unc_QInstr *q = &qc[qi];
     if (rec < 256 && (rec ? q->op == UNC_QINSTR_OP_JMP
-                          : unc__qcode_isjump(q->op))) {
-        int d = unc__qcode_getjumpd(q->op);
+                          : unc0_qcode_isjump(q->op))) {
+        int d = unc0_qcode_getjumpd(q->op);
         Unc_Size target;
         switch (d) {
         case 1:
@@ -234,7 +234,7 @@ static Unc_Size mergejmps_i(Unc_QInstr *qc, Unc_Size qi, int rec) {
 static int mergejmps(Unc_Context *cxt, Unc_QFunc *fn) {
     Unc_Size i, n = fn->cd_sz;
     for (i = 0; i < n; ++i) {
-        if (unc__qcode_isjump(fn->cd[i].op)) {
+        if (unc0_qcode_isjump(fn->cd[i].op)) {
             mergejmps_i(fn->cd, i, 0);
         }
     }
@@ -252,10 +252,10 @@ static int nodeadcode_i(Unc_Context *cxt, Unc_QFunc *fn) {
 nodeadcode_again:
             q = &fn->cd[i];
             MARK(q);
-            if (unc__qcode_isjump(q->op)) {
+            if (unc0_qcode_isjump(q->op)) {
                 int cond = q->op != UNC_QINSTR_OP_JMP;
                 Unc_Size target;
-                switch (unc__qcode_getjumpd(q->op)) {
+                switch (unc0_qcode_getjumpd(q->op)) {
                 case 1:
                     target = q->o1data.o;
                     break;
@@ -269,7 +269,7 @@ nodeadcode_again:
                     i = target;
                     goto nodeadcode_again;
                 }
-            } else if (unc__qcode_isexit(q->op)) {
+            } else if (unc0_qcode_isexit(q->op)) {
                 break;
             }
         }
@@ -310,7 +310,7 @@ static Unc_Size ilog2(Unc_Size v) {
     return v;
 }
 
-int unc__optqcode(Unc_Context *cxt, Unc_QCode *out) {
+int unc0_optqcode(Unc_Context *cxt, Unc_QCode *out) {
     Unc_Size i, fs = out->fn_sz;
     /* intra-function optimizations */
     for (i = 0; i < fs; ++i) {

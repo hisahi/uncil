@@ -122,10 +122,10 @@ SOFTWARE.
 
 #include "uarithm.h"
 #ifndef NAN
-#define NAN unc__fnan()
+#define NAN unc0_fnan()
 #endif
 #ifndef INFINITY
-#define INFINITY unc__finfty()
+#define INFINITY unc0_finfty()
 #endif
 
 /* try to map ptrdiff_t to long long, long, or int */
@@ -251,7 +251,7 @@ INLINE int isdigo_(int c) {
 }
 
 INLINE int isdigx_(int c) {
-    return unc__isdigit(c) || ('A' <= c && c <= 'F')
+    return unc0_isdigit(c) || ('A' <= c && c <= 'F')
                            || ('a' <= c && c <= 'f');
 }
 
@@ -268,7 +268,7 @@ INLINE int isdigr_(int c, int b) {
     case 2:
         return isdigb_(c);
     default: /* 10 */
-        return unc__isdigit(c);
+        return unc0_isdigit(c);
     }
 }
 
@@ -522,7 +522,7 @@ INLINE BOOL iscans_(int (*getch)(void *p), void *p, int *nextc,
     size_t nowread = *readin;
 
     while (KEEP_READING()) {
-        if (ctype == A_STRING && unc__isspace(next))
+        if (ctype == A_STRING && unc0_isspace(next))
             break;
         if (ctype == A_SCANSET && !insset_(set, (unsigned char)next))
             break;
@@ -616,9 +616,9 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
     next = getch(p);
     /* ++read_chars; intentionally left out, otherwise %n is off by 1 */
     while ((c = *f++)) {
-        if (unc__isspace(c)) {
+        if (unc0_isspace(c)) {
             /* skip 0-N whitespace */
-            while (!GOT_EOF() && unc__isspace(next))
+            while (!GOT_EOF() && unc0_isspace(next))
                 NEXT_CHAR(read_chars);
         } else if (c != '%') {
             if (GOT_EOF()) break;
@@ -653,16 +653,16 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
             }
 
             /* width specifier => maxlen */
-            if (unc__isdigit(*f)) {
+            if (unc0_isdigit(*f)) {
                 size_t pr = 0;
                 /* skip initial zeros */
                 while (*f == '0')
                     ++f;
-                while (unc__isdigit(*f)) {
+                while (unc0_isdigit(*f)) {
                     maxlen = maxlen * 10 + ctodn_(*f);
                     if (maxlen < pr) {
                         maxlen = SIZE_MAX;
-                        while (unc__isdigit(*f))
+                        while (unc0_isdigit(*f))
                             ++f;
                         break;
                     } else
@@ -723,7 +723,7 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
             switch (c) {
             default:
                 /* skip whitespace. include in %n, but not elsewhere */
-                while (!GOT_EOF() && unc__isspace(next))
+                while (!GOT_EOF() && unc0_isspace(next))
                     NEXT_CHAR(read_chars);
                 /* fall-through */
             /* do not skip whitespace for... */
@@ -985,7 +985,7 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
                             if (next == ')') {
                                 NEXT_CHAR(nowread);
                                 break;
-                            } else if (next != '_' && !unc__isalnum(next))
+                            } else if (next != '_' && !unc0_isalnum(next))
                                 MATCH_FAILURE();
                         }
                     }
@@ -1006,7 +1006,7 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
                         for (k = 0; k < 5; ++k) {
                             if (!KEEP_READING() ||
                                     (next != rest2[k] &&
-                                     next != unc__tolower(rest2[k])))
+                                     next != unc0_tolower(rest2[k])))
                                 break;
                             NEXT_CHAR(nowread);
                         }
@@ -1148,17 +1148,17 @@ read_failure:
     return tryconv && noconv ? EOF : fields;
 }
 
-int unc__vxscanf(int (*getch)(void *data), void (*ungetch)(int c, void *data),
+int unc0_vxscanf(int (*getch)(void *data), void (*ungetch)(int c, void *data),
                 void *data, const char *format, va_list arg) {
     return iscanf_(getch, ungetch, data, format, arg);
 }
 
-int unc__xscanf(int (*getch)(void *data), void (*ungetch)(int c, void *data),
+int unc0_xscanf(int (*getch)(void *data), void (*ungetch)(int c, void *data),
                 void *data, const char *format, ...) {
     int r;
     va_list va;
     va_start(va, format);
-    r = unc__vxscanf(getch, ungetch, data, format, va);
+    r = unc0_vxscanf(getch, ungetch, data, format, va);
     va_end(va);
     return r;
 }

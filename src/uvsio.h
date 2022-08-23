@@ -34,19 +34,19 @@ SOFTWARE.
 
 struct Unc_View;
 
-int unc__vcvt2str(struct Unc_View *w, Unc_Value *in,
+int unc0_vcvt2str(struct Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata);
 
-int unc__savxprintf(Unc_Allocator *alloc, byte **s, const char *fmt,
+int unc0_savxprintf(Unc_Allocator *alloc, byte **s, const char *fmt,
                     va_list arg);
-int unc__saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...);
+int unc0_saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...);
 
-int unc__usvxprintf(struct Unc_View *w, Unc_Value *out,
+int unc0_usvxprintf(struct Unc_View *w, Unc_Value *out,
                     const char *fmt, va_list arg);
-int unc__usxprintf(struct Unc_View *w, Unc_Value *out,
+int unc0_usxprintf(struct Unc_View *w, Unc_Value *out,
                    const char *fmt, ...);
 
-int unc__std_makeerr(Unc_View *w, const char *mt, const char *prefix, int err);
-int unc__sxscanf(Unc_Size sn, const byte *bn, const char *format, ...);
+int unc0_std_makeerr(Unc_View *w, const char *mt, const char *prefix, int err);
+int unc0_sxscanf(Unc_Size sn, const byte *bn, const char *format, ...);
 
 #endif /* UNCIL_UVSIO_H */

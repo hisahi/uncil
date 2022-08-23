@@ -39,22 +39,22 @@ SOFTWARE.
 #define UNC_ENDIAN_LITTLE 1
 #define UNC_ENDIAN_BIG 2
 
-int unc__getendianness(void);
+int unc0_getendianness(void);
 
-Unc_Size unc__vlqencz(Unc_Size v, Unc_Size n, byte *out);
-Unc_Size unc__vlqdecz(const byte **in);
-Unc_Size unc__vlqdeczd(const byte *in);
-Unc_Size unc__vlqenczl(Unc_Size v);
-Unc_Size unc__vlqdeczl(const byte *in);
+Unc_Size unc0_vlqencz(Unc_Size v, Unc_Size n, byte *out);
+Unc_Size unc0_vlqdecz(const byte **in);
+Unc_Size unc0_vlqdeczd(const byte *in);
+Unc_Size unc0_vlqenczl(Unc_Size v);
+Unc_Size unc0_vlqdeczl(const byte *in);
 
-Unc_Size unc__vlqenci(Unc_Int v, Unc_Size n, byte *out);
-Unc_Int unc__vlqdeci(const byte **in);
-Unc_Int unc__vlqdecid(const byte *in);
-Unc_Size unc__vlqencil(Unc_Int v);
-Unc_Size unc__vlqdecil(const byte *in);
+Unc_Size unc0_vlqenci(Unc_Int v, Unc_Size n, byte *out);
+Unc_Int unc0_vlqdeci(const byte **in);
+Unc_Int unc0_vlqdecid(const byte *in);
+Unc_Size unc0_vlqencil(Unc_Int v);
+Unc_Size unc0_vlqdecil(const byte *in);
 
-Unc_Size unc__clqencz(Unc_Size v, Unc_Size width, byte *out);
-Unc_Size unc__clqdecz(Unc_Size width, const byte **in);
-Unc_Size unc__clqdeczd(Unc_Size width, const byte *in);
+Unc_Size unc0_clqencz(Unc_Size v, Unc_Size width, byte *out);
+Unc_Size unc0_clqdecz(Unc_Size width, const byte **in);
+Unc_Size unc0_clqdeczd(Unc_Size width, const byte *in);
 
 #endif /* UNCIL_UVLQ_H */

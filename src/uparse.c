@@ -157,7 +157,7 @@ static Unc_Int consumei(Unc_ParserContext *c) {
     int n = 0;
     for (n = 0; n < sizeof(b); ++n)
         b[n] = rconsume(c);
-    unc__memcpy(&s, b, sizeof(b));
+    unc0_memcpy(&s, b, sizeof(b));
     return s;
 }
 
@@ -167,7 +167,7 @@ static Unc_Float consumef(Unc_ParserContext *c) {
     int n = 0;
     for (n = 0; n < sizeof(b); ++n)
         b[n] = rconsume(c);
-    unc__memcpy(&s, b, sizeof(b));
+    unc0_memcpy(&s, b, sizeof(b));
     return s;
 }
 
@@ -177,7 +177,7 @@ static Unc_Size consumez(Unc_ParserContext *c) {
     int n = 0;
     for (n = 0; n < sizeof(b); ++n)
         b[n] = rconsume(c);
-    unc__memcpy(&s, b, sizeof(b));
+    unc0_memcpy(&s, b, sizeof(b));
     return s;
 }
 
@@ -309,7 +309,7 @@ INLINE void plbpop(Unc_ParserContext *c) {
 }
 
 /* actually reads op 0 rather than writing it? */
-int unc__qcode_isread0op(byte op) {
+int unc0_qcode_isread0op(byte op) {
     switch (op) {
     case UNC_QINSTR_OP_SATTR:
     case UNC_QINSTR_OP_SINDX:
@@ -325,8 +325,8 @@ int unc__qcode_isread0op(byte op) {
 }
 
 /* writes op 0? */
-int unc__qcode_ismov(byte op) {
-    if (unc__qcode_isread0op(op)) return 0;
+int unc0_qcode_ismov(byte op) {
+    if (unc0_qcode_isread0op(op)) return 0;
     switch (op) {
     case UNC_QINSTR_OP_MOV:
     case UNC_QINSTR_OP_GPUB:
@@ -340,8 +340,8 @@ int unc__qcode_ismov(byte op) {
 }
 
 /* writes op 0? */
-int unc__qcode_iswrite0op(byte op) {
-    if (unc__qcode_isread0op(op)) return 0;
+int unc0_qcode_iswrite0op(byte op) {
+    if (unc0_qcode_isread0op(op)) return 0;
     switch (op) {
     case UNC_QINSTR_OP_DELETE:
     case UNC_QINSTR_OP_EXPUSH:
@@ -354,7 +354,7 @@ int unc__qcode_iswrite0op(byte op) {
     }
 }
 
-int unc__qcode_isjump(byte op) {
+int unc0_qcode_isjump(byte op) {
     switch (op) {
     case UNC_QINSTR_OP_JMP:
     case UNC_QINSTR_OP_IFF:
@@ -366,7 +366,7 @@ int unc__qcode_isjump(byte op) {
     }
 }
 
-int unc__qcode_isexit(byte op) {
+int unc0_qcode_isexit(byte op) {
     switch (op) {
     case UNC_QINSTR_OP_END:
     case UNC_QINSTR_OP_EXIT0:
@@ -377,7 +377,7 @@ int unc__qcode_isexit(byte op) {
     }
 }
 
-int unc__qcode_getjumpd(byte op) {
+int unc0_qcode_getjumpd(byte op) {
     switch (op) {
     case UNC_QINSTR_OP_JMP:
     case UNC_QINSTR_OP_IFF:
@@ -415,7 +415,7 @@ static int isexitop(byte op) {
     }
 }
 
-int unc__qcode_operandcount(byte op) {
+int unc0_qcode_operandcount(byte op) {
     switch (op) {
     case UNC_QINSTR_OP_DELETE:     return 0;
     case UNC_QINSTR_OP_MOV:        return 2;
@@ -553,7 +553,7 @@ INLINE int pushins(Unc_ParserContext *c, Unc_QInstr *instr) {
     return 0;
 }
 
-int unc__qcode_isopreg(int t) {
+int unc0_qcode_isopreg(int t) {
     switch (t) {
     case UNC_QOPER_TYPE_TMP:
     case UNC_QOPER_TYPE_LOCAL:
@@ -563,7 +563,7 @@ int unc__qcode_isopreg(int t) {
     }
 }
 
-int unc__qcode_isoplit(int t) {
+int unc0_qcode_isoplit(int t) {
     switch (t) {
     case UNC_QOPER_TYPE_NULL:
     case UNC_QOPER_TYPE_INT:
@@ -617,10 +617,10 @@ static int retarget(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
     switch (t0) {
     case UNC_QOPER_TYPE_STACK:
         ASSERT(d0.o == 0);
-        if (unc__qcode_isread0op(c->next.op)) {
+        if (unc0_qcode_isread0op(c->next.op)) {
             NEVER();
         } else if (c->next.op == UNC_QINSTR_OP_MOV
-                            && unc__qcode_isopreg(c->next.o0type)) {
+                            && unc0_qcode_isopreg(c->next.o0type)) {
             c->next.op = UNC_QINSTR_OP_PUSH;
         } else if (!isfstackop(c->next.op)) {
             Unc_Dst u;
@@ -659,10 +659,10 @@ static int retarget(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
     case UNC_QOPER_TYPE_PUBLIC:
         /* split it up! */
         if (c->next.op != UNC_QINSTR_OP_MOV ||
-                        !unc__qcode_isopreg(c->next.o1type)) {
+                        !unc0_qcode_isopreg(c->next.o1type)) {
             Unc_Dst u;
             MUST(tmpalloc(c, &u));
-            if (unc__qcode_isread0op(c->next.op)) {
+            if (unc0_qcode_isread0op(c->next.op)) {
                 Unc_QInstr instr;
                 instr.op = UNC_QINSTR_OP_GPUB;
                 instr.o0type = UNC_QOPER_TYPE_TMP;
@@ -696,10 +696,10 @@ static int retarget(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
     case UNC_QOPER_TYPE_INHALE:
         /* split it up! */
         if (c->next.op != UNC_QINSTR_OP_MOV ||
-                        !unc__qcode_isopreg(c->next.o1type)) {
+                        !unc0_qcode_isopreg(c->next.o1type)) {
             Unc_Dst u;
             MUST(tmpalloc(c, &u));
-            if (unc__qcode_isread0op(c->next.op)) {
+            if (unc0_qcode_isread0op(c->next.op)) {
                 Unc_QInstr instr;
                 instr.op = UNC_QINSTR_OP_GBIND;
                 instr.o0type = UNC_QOPER_TYPE_TMP;
@@ -845,16 +845,16 @@ static int push(Unc_ParserContext *c) {
         break;
     case UNC_QINSTR_OP_MOV:
         if (c->next.o1type == UNC_QOPER_TYPE_PUBLIC) {
-            ASSERT(unc__qcode_isopreg(c->next.o0type));
+            ASSERT(unc0_qcode_isopreg(c->next.o0type));
             c->next.op = UNC_QINSTR_OP_GPUB;
             break;
         } else if (c->next.o1type == UNC_QOPER_TYPE_INHALE
                 || c->next.o1type == UNC_QOPER_TYPE_EXHALE) {
-            ASSERT(unc__qcode_isopreg(c->next.o0type));
+            ASSERT(unc0_qcode_isopreg(c->next.o0type));
             c->next.op = UNC_QINSTR_OP_GBIND;
             break;
-        } else if (!unc__qcode_isopreg(c->next.o0type)) {
-            if (!unc__qcode_isopreg(c->next.o1type)) {
+        } else if (!unc0_qcode_isopreg(c->next.o0type)) {
+            if (!unc0_qcode_isopreg(c->next.o1type)) {
                 Unc_Dst tr;
                 Unc_QOperand o = makeoperand(c->next.o1type, c->next.o1data);
                 MUST(tmpalloc(c, &tr));
@@ -865,7 +865,7 @@ static int push(Unc_ParserContext *c) {
         /* try merging into previous operation if we have moving TMP=>TMP */
         if (!c->fence && c->cd_n && c->next.o0type == UNC_QOPER_TYPE_TMP
                 && c->next.o1type == UNC_QOPER_TYPE_TMP
-                && unc__qcode_iswrite0op(c->cd[c->cd_n - 1].op)
+                && unc0_qcode_iswrite0op(c->cd[c->cd_n - 1].op)
                 && c->cd[c->cd_n - 1].o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].o0data == c->next.o1data.o) {
             c->cd[c->cd_n - 1].o0data = c->next.o0data;
@@ -888,7 +888,7 @@ static int push(Unc_ParserContext *c) {
     case UNC_QINSTR_OP_CLT:
         {
             Unc_QOperand o;
-            if (!unc__qcode_isopreg(c->next.o1type)
+            if (!unc0_qcode_isopreg(c->next.o1type)
                        && !fitsliteral(c->next.o1type, c->next.o1data)) {
                 Unc_Dst tr;
                 o = makeoperand(c->next.o1type, c->next.o1data);
@@ -896,7 +896,7 @@ static int push(Unc_ParserContext *c) {
                 MUST(wrapreg(c, &o, tr));
                 seto1(c, o);
             }
-            if (!unc__qcode_isopreg(c->next.o2type)
+            if (!unc0_qcode_isopreg(c->next.o2type)
                        && !fitsliteral(c->next.o2type, c->next.o2data)) {
                 Unc_Dst tr;
                 o = makeoperand(c->next.o2type, c->next.o2data);
@@ -907,14 +907,14 @@ static int push(Unc_ParserContext *c) {
         }
         break;
     case UNC_QINSTR_OP_PUSH:
-        ASSERT(unc__qcode_isopreg(c->next.o1type));
+        ASSERT(unc0_qcode_isopreg(c->next.o1type));
         /* try merging into previous operation if we were moving reg=>tmp
                                                      and now pushing tmp */
         if (!c->fence && c->cd_n
                 && c->cd[c->cd_n - 1].op == UNC_QINSTR_OP_MOV
                 && c->cd[c->cd_n - 1].o0type == c->next.o1type
                 && c->cd[c->cd_n - 1].o0data == c->next.o1data.o
-                && unc__qcode_isopreg(c->cd[c->cd_n - 1].o1type)) {
+                && unc0_qcode_isopreg(c->cd[c->cd_n - 1].o1type)) {
             c->next.o1type = c->cd[c->cd_n - 1].o1type;
             c->next.o1data = c->cd[c->cd_n - 1].o1data;
             --c->cd_n;
@@ -925,7 +925,7 @@ static int push(Unc_ParserContext *c) {
     case UNC_QINSTR_OP_UXOR:
         {
             Unc_QOperand o;
-            if (!unc__qcode_isopreg(c->next.o1type)
+            if (!unc0_qcode_isopreg(c->next.o1type)
                        && !fitsliteral(c->next.o1type, c->next.o1data)) {
                 Unc_Dst tr;
                 o = makeoperand(c->next.o1type, c->next.o1data);
@@ -945,7 +945,7 @@ static int push(Unc_ParserContext *c) {
     case UNC_QINSTR_OP_LNOT:
         {
             Unc_QOperand o;
-            if (!unc__qcode_isopreg(c->next.o1type)) {
+            if (!unc0_qcode_isopreg(c->next.o1type)) {
                 Unc_Dst tr;
                 o = makeoperand(c->next.o1type, c->next.o1data);
                 MUST(tmpalloc(c, &tr));
@@ -957,14 +957,14 @@ static int push(Unc_ParserContext *c) {
     case UNC_QINSTR_OP_CAT:
         {
             Unc_QOperand o;
-            if (!unc__qcode_isopreg(c->next.o1type)) {
+            if (!unc0_qcode_isopreg(c->next.o1type)) {
                 Unc_Dst tr;
                 o = makeoperand(c->next.o1type, c->next.o1data);
                 MUST(tmpalloc(c, &tr));
                 MUST(wrapreg(c, &o, tr));
                 seto1(c, o);
             }
-            if (!unc__qcode_isopreg(c->next.o2type)) {
+            if (!unc0_qcode_isopreg(c->next.o2type)) {
                 Unc_Dst tr;
                 o = makeoperand(c->next.o2type, c->next.o2data);
                 MUST(tmpalloc(c, &tr));
@@ -975,12 +975,12 @@ static int push(Unc_ParserContext *c) {
         break;
     case UNC_QINSTR_OP_IFT:
     case UNC_QINSTR_OP_IFF:
-        ASSERT(unc__qcode_isopreg(c->next.o0type));
+        ASSERT(unc0_qcode_isopreg(c->next.o0type));
         if (!c->fence && c->cd_n && c->next.o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].op == UNC_QINSTR_OP_LNOT
                 && c->cd[c->cd_n - 1].o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].o0data == c->next.o0data
-                && unc__qcode_isopreg(c->cd[c->cd_n - 1].o1type)) {
+                && unc0_qcode_isopreg(c->cd[c->cd_n - 1].o1type)) {
             c->next.o0type = c->cd[c->cd_n - 1].o1type;
             c->next.o0data = c->cd[c->cd_n - 1].o1data.o;
             --c->cd_n;
@@ -996,25 +996,25 @@ static int push(Unc_ParserContext *c) {
     case UNC_QINSTR_OP_DCALL:
         ASSERT(c->next.o2type == UNC_QOPER_TYPE_UNSIGN);
     case UNC_QINSTR_OP_FCALL:
-        ASSERT(unc__qcode_isopreg(c->next.o0type)
+        ASSERT(unc0_qcode_isopreg(c->next.o0type)
                 || c->next.o0type == UNC_QOPER_TYPE_STACK);
         break;
     case UNC_QINSTR_OP_GPUB:
     case UNC_QINSTR_OP_GBIND:
-        ASSERT(unc__qcode_isopreg(c->next.o0type));
+        ASSERT(unc0_qcode_isopreg(c->next.o0type));
         break;
     case UNC_QINSTR_OP_SPUB:
     case UNC_QINSTR_OP_SBIND:
-        ASSERT(unc__qcode_isopreg(c->next.o0type));
+        ASSERT(unc0_qcode_isopreg(c->next.o0type));
         break;
     case UNC_QINSTR_OP_FMAKE:
         ASSERT(c->next.o1type == UNC_QOPER_TYPE_FUNCTION);
         break;
     case UNC_QINSTR_OP_MLIST:
-        ASSERT(unc__qcode_isopreg(c->next.o0type));
+        ASSERT(unc0_qcode_isopreg(c->next.o0type));
         break;
     case UNC_QINSTR_OP_NDICT:
-        ASSERT(unc__qcode_isopreg(c->next.o0type));
+        ASSERT(unc0_qcode_isopreg(c->next.o0type));
         break;
     default:
         break;
@@ -1078,7 +1078,7 @@ INLINE int emitre(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
 }
 
 INLINE int unwrapwr(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
-    if (c->cd_n && unc__qcode_iswrite0op(c->cd[c->cd_n - 1].op)
+    if (c->cd_n && unc0_qcode_iswrite0op(c->cd[c->cd_n - 1].op)
                 && c->cd[c->cd_n - 1].o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].o0type == t0
                 && c->cd[c->cd_n - 1].o0data == d0.o) {
@@ -1088,7 +1088,7 @@ INLINE int unwrapwr(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
 }
 
 INLINE int unwrapmov(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
-    if (c->cd_n && unc__qcode_ismov(c->cd[c->cd_n - 1].op)
+    if (c->cd_n && unc0_qcode_ismov(c->cd[c->cd_n - 1].op)
                 && c->cd[c->cd_n - 1].o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].o0type == t0
                 && c->cd[c->cd_n - 1].o0data == d0.o) {
@@ -1139,7 +1139,7 @@ static int dobloat(Unc_Allocator *alloc, Unc_ParserParent *p, Unc_Size i,
         Unc_QInstr *os, *ns;
         os = *p->cd + i + 1;
         ns = os + add;
-        unc__memmove(ns, os, rem * sizeof(Unc_QInstr));
+        unc0_memmove(ns, os, rem * sizeof(Unc_QInstr));
     }
     (*p->cd)[i + qu] = (*p->cd)[i];
     *p->cd_n += add;
@@ -1156,10 +1156,10 @@ static int loctoexh_code(Unc_Allocator *alloc, Unc_ParserParent *p,
         Unc_Size qu = 0, qd = 0;
         tr = tmp;
         qi = &qc[i];
-        o = oo = unc__qcode_operandcount(qi->op);
+        o = oo = unc0_qcode_operandcount(qi->op);
         if (o > 0 && qi->o0type == UNC_QOPER_TYPE_LOCAL) {
             if (qi->o0data == l) {
-                if (unc__qcode_isread0op(qi->op))
+                if (unc0_qcode_isread0op(qi->op))
                     ++qu;
                 else
                     ++qd;
@@ -1197,7 +1197,7 @@ static int loctoexh_code(Unc_Allocator *alloc, Unc_ParserParent *p,
         qd = qu + 1;
         if (o > 0 && qi->o0type == UNC_QOPER_TYPE_LOCAL) {
             if (qi->o0data == l) {
-                if (unc__qcode_isread0op(qi->op))
+                if (unc0_qcode_isread0op(qi->op))
                     qc[qu++] = make_gbind_exh(u, tr, qi->lineno);
                 else
                     qc[qd++] = make_sbind_exh(u, tr, qi->lineno);
@@ -1238,7 +1238,7 @@ static int loctoexh_vars_iter(Unc_Size key, Unc_BTreeRecord *value, void *u) {
 
 static int loctoexh_vars(Unc_BTree *b, Unc_Dst l, Unc_Dst u) {
     (void)u;
-    return unc__iterbtreerecords(b, &loctoexh_vars_iter, &l);
+    return unc0_iterbtreerecords(b, &loctoexh_vars_iter, &l);
 }
 
 static int inhalloc(Unc_ParserContext *c, Unc_Size depth,
@@ -1282,7 +1282,7 @@ static int dobind(Unc_ParserContext *c, Unc_Size key, Unc_BTreeRecord *rec) {
     ASSERT(c->pframes_n >= depth);
     for (;;) {
         p = depth ? &c->pframes[c->pframes_n - depth] : NULL;
-        br = p ? unc__getbtree(p->book, key) : rec;
+        br = p ? unc0_getbtree(p->book, key) : rec;
         if (generation) {
             if (br->first != UNC_QOPER_TYPE_INHALE) {
                 ASSERT(br->first == UNC_QOPER_TYPE_BINDABLE);
@@ -1317,14 +1317,14 @@ static int dobind(Unc_ParserContext *c, Unc_Size key, Unc_BTreeRecord *rec) {
 static int addstr(Unc_Allocator *alloc, byte **buf, Unc_Size *buf_z,
                   Unc_Size n, const byte *c) {
     Unc_Size z = *buf_z;
-    Unc_Size l = unc__utf8patdownl(n, c);
+    Unc_Size l = unc0_utf8patdownl(n, c);
     byte lb[UNC_VLQ_SIZE_MAXLEN];
-    Unc_Size ln = unc__vlqencz(l, sizeof(lb), lb);
-    byte *p = unc__mrealloc(alloc, 0, *buf, z, z + ln + l);
+    Unc_Size ln = unc0_vlqencz(l, sizeof(lb), lb);
+    byte *p = unc0_mrealloc(alloc, 0, *buf, z, z + ln + l);
     if (!p) return UNCIL_ERR(MEM);
-    unc__memcpy(p + z, lb, ln);
+    unc0_memcpy(p + z, lb, ln);
     {
-        Unc_Size l2 = unc__utf8patdown(n, p + z + ln, c);
+        Unc_Size l2 = unc0_utf8patdown(n, p + z + ln, c);
         ASSERT(l == l2);
     }
     *buf = p;
@@ -1359,7 +1359,7 @@ int copystrs(Unc_ParserContext *c, int sub) {
 
     n = c->cd_n;
     for (i = 0; i < n; ++i) {
-        int o = unc__qcode_operandcount(c->cd[i].op);
+        int o = unc0_qcode_operandcount(c->cd[i].op);
         if (o == 0) continue;
         if (o < 0) {
             o = -o;
@@ -1405,7 +1405,7 @@ int copyids(Unc_ParserContext *c, int sub) {
 
     n = c->cd_n;
     for (i = 0; i < n; ++i) {
-        int o = unc__qcode_operandcount(c->cd[i].op);
+        int o = unc0_qcode_operandcount(c->cd[i].op);
         if (o == 0) continue;
         if (o < 0) {
             o = -o;
@@ -1537,7 +1537,7 @@ static int killvalue(Unc_ParserContext *c) {
     case VALTYPE_STACK:
         return killstack(c);
     case VALTYPE_HOLD:
-        if (!unc__qcode_ismov(c->next.op))
+        if (!unc0_qcode_ismov(c->next.op))
     case VALTYPE_FSTACK:
             MUST(emitre(c, QOPER_TMP(0)));
         break;
@@ -1660,7 +1660,7 @@ int allowlocals(const Unc_ParserContext *c) {
 int symboltolocal(Unc_ParserContext *c, Unc_Size z, Unc_BTreeRecord **rec, int cond) {
     if (allowlocals(c) && cond) {
         int created;
-        MUST(unc__putbtree(c->book, z, &created, rec));
+        MUST(unc0_putbtree(c->book, z, &created, rec));
         if (created) {
             Unc_BTreeRecord *trec = *rec;
             Unc_Dst u;
@@ -1669,7 +1669,7 @@ int symboltolocal(Unc_ParserContext *c, Unc_Size z, Unc_BTreeRecord **rec, int c
             trec->second = u;
         }
     } else {
-        *rec = unc__getbtree(c->book, z);
+        *rec = unc0_getbtree(c->book, z);
     }
     return 0;
 }
@@ -2087,7 +2087,7 @@ INLINE void ufold(Unc_ParserContext *c) {
         if (c->next.o1type != UNC_QOPER_TYPE_INT) {
             c->next.op = UNC_QINSTR_OP_MOV;
             c->next.o1data.uf = -c->next.o1data.uf;
-        } else if (!unc__negovf(c->next.o1data.ui)) {
+        } else if (!unc0_negovf(c->next.o1data.ui)) {
             c->next.op = UNC_QINSTR_OP_MOV;
             c->next.o1data.ui = -c->next.o1data.ui;
         }
@@ -2191,7 +2191,7 @@ INLINE void bfold(Unc_ParserContext *c) {
         if (c->next.o1type == UNC_QOPER_TYPE_INT &&
             c->next.o2type == UNC_QOPER_TYPE_INT) {
             Unc_Int a = c->next.o1data.ui, b = c->next.o2data.ui;
-            if (!unc__addovf(a, b))
+            if (!unc0_addovf(a, b))
                 configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(a + b));
         } else {
             Unc_Float a = c->next.o1type == UNC_QOPER_TYPE_INT ? 
@@ -2205,7 +2205,7 @@ INLINE void bfold(Unc_ParserContext *c) {
         if (c->next.o1type == UNC_QOPER_TYPE_INT &&
             c->next.o2type == UNC_QOPER_TYPE_INT) {
             Unc_Int a = c->next.o1data.ui, b = c->next.o2data.ui;
-            if (!unc__subovf(a, b))
+            if (!unc0_subovf(a, b))
                 configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(a - b));
         } else {
             Unc_Float a = c->next.o1type == UNC_QOPER_TYPE_INT ? 
@@ -2219,7 +2219,7 @@ INLINE void bfold(Unc_ParserContext *c) {
         if (c->next.o1type == UNC_QOPER_TYPE_INT &&
             c->next.o2type == UNC_QOPER_TYPE_INT) {
             Unc_Int a = c->next.o1data.ui, b = c->next.o2data.ui;
-            if (!unc__mulovf(a, b))
+            if (!unc0_mulovf(a, b))
                 configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(a * b));
         } else {
             Unc_Float a = c->next.o1type == UNC_QOPER_TYPE_INT ? 
@@ -2232,13 +2232,13 @@ INLINE void bfold(Unc_ParserContext *c) {
     case UNC_QINSTR_OP_SHL:
     {
         Unc_Int a = c->next.o1data.ui, b = c->next.o2data.ui;
-        configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(unc__shiftl(a, b)));
+        configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(unc0_shiftl(a, b)));
         break;
     }
     case UNC_QINSTR_OP_SHR:
     {
         Unc_Int a = c->next.o1data.ui, b = c->next.o2data.ui;
-        configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(unc__shiftr(a, b)));
+        configure2x(c, UNC_QINSTR_OP_MOV, QOPER_INT(unc0_shiftr(a, b)));
         break;
     }
     case UNC_QINSTR_OP_AND:
@@ -2958,7 +2958,7 @@ static int eatwithblk(Unc_ParserContext *c) {
             MUST(emit2(c, UNC_QINSTR_OP_PUSHW, QOPER_WSTACK(), QOPER_TMP(0)));
             MUST(emit2(c, UNC_QINSTR_OP_MOV,
                         UNC_QOPER_TYPE_PUBLIC, qdataz(z), QOPER_TMP(0)));
-        } else if (unc__qcode_isopreg(rec->first)) {
+        } else if (unc0_qcode_isopreg(rec->first)) {
             MUST(emit2(c, UNC_QINSTR_OP_MOV,
                         rec->first, qdataz(rec->second), QOPER_STACK(s++)));
             MUST(emit2(c, UNC_QINSTR_OP_PUSHW, QOPER_WSTACK(),
@@ -3606,7 +3606,7 @@ static int eatpublist(Unc_ParserContext *c) {
             return UNCIL_ERR(SYNTAX);
         consume(c);
         z = consumez(c);
-        MUST(unc__putbtree(c->book, z, &created, &rec));
+        MUST(unc0_putbtree(c->book, z, &created, &rec));
         ok = 1;
         if (!created) {
             switch (rec->first) {
@@ -3961,7 +3961,7 @@ static int setupbinds(Unc_Size key, Unc_BTreeRecord *value, void *udata) {
     {
         int c;
         Unc_BTreeRecord *r;
-        MUST(unc__putbtree(newtree, key, &c, &r));
+        MUST(unc0_putbtree(newtree, key, &c, &r));
         ASSERT(c);
         r->first = UNC_QOPER_TYPE_BINDABLE;
         r->second = 1;
@@ -3971,7 +3971,7 @@ static int setupbinds(Unc_Size key, Unc_BTreeRecord *value, void *udata) {
     {
         int c;
         Unc_BTreeRecord *r;
-        MUST(unc__putbtree(newtree, key, &c, &r));
+        MUST(unc0_putbtree(newtree, key, &c, &r));
         ASSERT(c);
         r->first = UNC_QOPER_TYPE_BINDABLE;
         r->second = value->second + 1;
@@ -3985,7 +3985,7 @@ static void patchjumps(Unc_ParserContext *c, Unc_Size base) {
     Unc_Size i = 0, n = c->cd_n, ln = c->lb_n;
     for (i = 0; i < n; ++i) {
         Unc_QInstr *instr = &c->cd[i];
-        int o = unc__qcode_getjumpd(instr->op);
+        int o = unc0_qcode_getjumpd(instr->op);
         if (o == 1 && instr->o1type == UNC_QOPER_TYPE_JUMP
                    && instr->o1data.o >= base
                    && instr->o1data.o < ln) {
@@ -4012,11 +4012,11 @@ static int patchboundargs(Unc_ParserContext *c) {
             c->cd_c = nz;
             c->cd = np;
         }
-        unc__memmove(c->cd + ba, c->cd, c->cd_n * sizeof(Unc_QInstr));
+        unc0_memmove(c->cd + ba, c->cd, c->cd_n * sizeof(Unc_QInstr));
         c->cd_n += ba;
         for (i = ba; i < c->cd_n; ++i) {
             Unc_QInstr *instr = &c->cd[i];
-            int o = unc__qcode_getjumpd(instr->op);
+            int o = unc0_qcode_getjumpd(instr->op);
             if (o == 1 && instr->o1type == UNC_QOPER_TYPE_JUMP)
                 instr->o1data.o += ba;
             else if (o == 2 && instr->o2type == UNC_QOPER_TYPE_JUMP)
@@ -4121,7 +4121,7 @@ static int eatfunc(Unc_ParserContext *c, int ftype) {
             if (allowlocals(c)) {
                 Unc_BTreeRecord *rec;
                 int created;
-                MUST(unc__putbtree(c->book, z, &created, &rec));
+                MUST(unc0_putbtree(c->book, z, &created, &rec));
                 if (created || rec->first != UNC_QOPER_TYPE_LOCAL) {
                     Unc_Dst u;
                     MUST(localloc(c, &u));
@@ -4179,7 +4179,7 @@ static int eatfunc(Unc_ParserContext *c, int ftype) {
         Unc_Size parentargc = c->argc;
         Unc_Size *parentarg_exh = c->arg_exh;
         Unc_BTree newbook;
-        unc__initbtree(&newbook, c->c.alloc);
+        unc0_initbtree(&newbook, c->c.alloc);
 
         {
             Unc_ParserParent *pp;
@@ -4213,7 +4213,7 @@ static int eatfunc(Unc_ParserContext *c, int ftype) {
         c->plb_n = c->plb_c = 0;
         c->argc = 0;
 
-        MUST(unc__iterbtreerecords(parentbook, &setupbinds, &newbook));
+        MUST(unc0_iterbtreerecords(parentbook, &setupbinds, &newbook));
 
         /* read parameters */
         if (peek(c) != ULT_SParenL)
@@ -4234,7 +4234,7 @@ nextparam:
                 s = consumez(c);
                 if (peek(c) != ULT_SParenR)
                     return UNCIL_ERR(SYNTAX);
-                MUST(unc__putbtree(c->book, s, &n, &vrec));
+                MUST(unc0_putbtree(c->book, s, &n, &vrec));
                 if (n && vrec->first == UNC_QOPER_TYPE_LOCAL) {
                     /* duplicate parameter name */
                     return UNCIL_ERR(SYNTAX);
@@ -4249,7 +4249,7 @@ nextparam:
             } else {
                 consume(c);
                 s = consumez(c);
-                MUST(unc__putbtree(c->book, s, &n, &vrec));
+                MUST(unc0_putbtree(c->book, s, &n, &vrec));
                 if (n && vrec->first == UNC_QOPER_TYPE_LOCAL) {
                     /* duplicate parameter name */
                     return UNCIL_ERR(SYNTAX);
@@ -4334,7 +4334,7 @@ nextparam:
             if (c->inhl_c)
                 OUT_FUNCTION(c, fnindex)->inhales = c->inhl;
         }
-        unc__dropbtree(&newbook);
+        unc0_dropbtree(&newbook);
         c->book = parentbook;
         c->cd = parentcd;
         c->cd_n = parentcd_n;
@@ -4366,7 +4366,7 @@ nextparam:
 }
 
 /* warning: clobbers lex */
-int unc__parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
+int unc0_parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
     Unc_ParserContext c;
     Unc_Allocator *alloc = cxt->alloc;
     Unc_QCode s = { 1, 0, NULL, 0, NULL };
@@ -4377,7 +4377,7 @@ int unc__parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
     c.c = *cxt;
     c.lex = *lex;
     c.out = s;
-    unc__initbtree(&book, alloc);
+    unc0_initbtree(&book, alloc);
     c.book = &book;
     c.cd = NULL;
     c.st = NULL;
@@ -4415,7 +4415,7 @@ int unc__parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
     } else {
         if (!(c.st_offset = TMALLOC(Unc_Size, alloc, 0, sumidstr_n)))
             return UNCIL_ERR(MEM);
-        if (!(c.st_status = unc__mallocz(alloc, 0, sumidstr_n))) {
+        if (!(c.st_status = unc0_mallocz(alloc, 0, sumidstr_n))) {
             TMFREE(Unc_Size, alloc, c.st_offset, sumidstr_n);
             return UNCIL_ERR(MEM);
         }
@@ -4444,11 +4444,11 @@ int unc__parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
         if (!e) e = copyids(&c, 0);
         endfunc(&c, 0);
     }
-    unc__mfree(alloc, lex->lc, lex->lc_sz);
-    unc__mfree(alloc, lex->st, lex->st_sz);
-    unc__mfree(alloc, lex->id, lex->id_sz);
-    unc__mfree(alloc, c.st_status, sumidstr_n);
-    unc__dropbtree(&book);
+    unc0_mfree(alloc, lex->lc, lex->lc_sz);
+    unc0_mfree(alloc, lex->st, lex->st_sz);
+    unc0_mfree(alloc, lex->id, lex->id_sz);
+    unc0_mfree(alloc, c.st_status, sumidstr_n);
+    unc0_dropbtree(&book);
     TMFREE(Unc_ParserParent, alloc, c.pframes, c.pframes_c);
     TMFREE(Unc_Size, alloc, c.st_offset, sumidstr_n);
     TMFREE(Unc_Size, alloc, c.plb, c.plb_c);

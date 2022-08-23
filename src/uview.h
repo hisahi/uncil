@@ -29,18 +29,18 @@ SOFTWARE.
 
 #include "uncil.h"
 
-Unc_World *unc__incept(Unc_Alloc alloc, void *udata);
-Unc_View *unc__newview(Unc_World *world, Unc_ViewType vtype);
-void unc__haltview(Unc_View *view);
-void unc__freeview(Unc_View *view);
-void unc__doomsday(Unc_View *v, Unc_World *w);
+Unc_World *unc0_incept(Unc_Alloc alloc, void *udata);
+Unc_View *unc0_newview(Unc_World *world, Unc_ViewType vtype);
+void unc0_haltview(Unc_View *view);
+void unc0_freeview(Unc_View *view);
+void unc0_doomsday(Unc_View *v, Unc_World *w);
 
-void unc__wsetprogram(Unc_View *w, Unc_Program *p);
+void unc0_wsetprogram(Unc_View *w, Unc_Program *p);
 
 #ifdef UNCIL_DEFINES
 /* in ulibthrd.c */
 #if UNCIL_MT_OK
-void unc__waitonviewthread(Unc_View *w);
+void unc0_waitonviewthread(Unc_View *w);
 #endif
 #endif
 

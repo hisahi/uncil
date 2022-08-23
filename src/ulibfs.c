@@ -61,11 +61,11 @@ char *realpath(const char *RESTRICT path, char *RESTRICT resolved_path);
 #include <Windows.h>
 #endif
 
-static int unc__fs_makeerr(Unc_View *w, const char *prefix, int err) {
-    return unc__std_makeerr(w, "system", prefix, err);
+static int unc0_fs_makeerr(Unc_View *w, const char *prefix, int err) {
+    return unc0_std_makeerr(w, "system", prefix, err);
 }
 
-static int unc__ansiexists(const char *fn) {
+static int unc0_ansiexists(const char *fn) {
     FILE *fd = fopen(fn, "rb");
     if (fd) {
         fclose(fd);
@@ -74,7 +74,7 @@ static int unc__ansiexists(const char *fn) {
         return 0;
 }
 
-static int unc__ansifcopy(FILE *f1, FILE *f0) {
+static int unc0_ansifcopy(FILE *f1, FILE *f0) {
     char buf[BUFSIZ];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), f0)))
@@ -83,7 +83,7 @@ static int unc__ansifcopy(FILE *f1, FILE *f0) {
     return 0;
 }
 
-static int unc__ansicopy(const char *f0, const char *f1, int overwrite) {
+static int unc0_ansicopy(const char *f0, const char *f1, int overwrite) {
     FILE *a = fopen(f0, "rb"), *b;
     if (!a) return -1;
 #if UNCIL_C11
@@ -96,12 +96,12 @@ static int unc__ansicopy(const char *f0, const char *f1, int overwrite) {
         fclose(a);
         return -1;
     } else {
-        if (unc__ansifcopy(b, a) || ferror(a) || ferror(b)) goto unc__ansicopy_fail;
+        if (unc0_ansifcopy(b, a) || ferror(a) || ferror(b)) goto unc0_ansicopy_fail;
     }
     fclose(b);
     fclose(a);
     return 0;
-unc__ansicopy_fail:
+unc0_ansicopy_fail:
     fclose(b);
     {
         int old_errno = errno;
@@ -117,19 +117,19 @@ unc__ansicopy_fail:
 #define PATH_MAX 1024
 #endif
 
-int unc__getcwd(Unc_Allocator *alloc, char **c) {
+int unc0_getcwd(Unc_Allocator *alloc, char **c) {
     Unc_Size pathSize = PATH_MAX;
     char *buf = NULL, *obuf = NULL, *ptr = NULL;
     do {
-        buf = unc__mmrealloc(alloc, Unc_AllocExternal, buf, pathSize);
+        buf = unc0_mmrealloc(alloc, Unc_AllocExternal, buf, pathSize);
         if (!buf) {
-            unc__mmfree(alloc, obuf);
+            unc0_mmfree(alloc, obuf);
             return UNCIL_ERR_MEM;
         }
         obuf = buf;
         ptr = getcwd(buf, pathSize);
         if (!ptr && errno != ERANGE) {
-            unc__mmfree(alloc, buf);
+            unc0_mmfree(alloc, buf);
             return UNCIL_ERR_IO_UNDERLYING;
         }
         pathSize <<= 1;
@@ -138,18 +138,18 @@ int unc__getcwd(Unc_Allocator *alloc, char **c) {
     return 0;
 }
 
-int unc__getcwdv(Unc_View *w, Unc_Value *v) {
+int unc0_getcwdv(Unc_View *w, Unc_Value *v) {
     char *buf;
-    int e = unc__getcwd(&w->world->alloc, &buf);
+    int e = unc0_getcwd(&w->world->alloc, &buf);
     if (e) {
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.getcwd()", errno);
+            return unc0_fs_makeerr(w, "fs.getcwd()", errno);
         return e;
     }
     return unc_newstringcmove(w, v, buf);
 }
 
-static char *unc__getext_posix(Unc_Allocator *alloc,
+static char *unc0_getext_posix(Unc_Allocator *alloc,
                                const char *path, size_t *len) {
     const char *ext = strrchr(path, '/');
     if (!ext)
@@ -159,18 +159,18 @@ static char *unc__getext_posix(Unc_Allocator *alloc,
     ext = strrchr(ext, '.');
     if (!ext) {
         *len = 0;
-        return unc__mmalloc(alloc, Unc_AllocExternal, 0);
+        return unc0_mmalloc(alloc, Unc_AllocExternal, 0);
     } else {
         size_t l = strlen(ext);
-        char *p = unc__mmalloc(alloc, Unc_AllocExternal, l);
+        char *p = unc0_mmalloc(alloc, Unc_AllocExternal, l);
         if (!p) return NULL;
         *len = l;
-        unc__memcpy(p, ext, l);
+        unc0_memcpy(p, ext, l);
         return p;
     }
 }
 
-static char *unc__normpath_posix(Unc_Allocator *alloc,
+static char *unc0_normpath_posix(Unc_Allocator *alloc,
                                  const char *path, size_t *len) {
     byte *out_p = NULL;
     Unc_Size out_n = 0, out_c = 0;
@@ -182,9 +182,9 @@ static char *unc__normpath_posix(Unc_Allocator *alloc,
     if (n) {
         /* more than two leading slashes shall be treated as a single slash */
         if (n > 2) n = 1;
-        if (unc__strpush(alloc, &out_p, &out_n, &out_c, 6, n,
+        if (unc0_strpush(alloc, &out_p, &out_n, &out_c, 6, n,
                          (const byte *)(path - n)))
-            goto unc__normpath_posix_fail;
+            goto unc0_normpath_posix_fail;
     }
     root = out_n;
     prev = NULL;
@@ -201,27 +201,27 @@ static char *unc__normpath_posix(Unc_Allocator *alloc,
         }
         if (*prev == '.') {
             if (prev + 1 == path) {
-                goto unc__normpath_posix_noappend;
+                goto unc0_normpath_posix_noappend;
             } else if (prev[1] == '.' && prev + 2 == path) {
                 while (out_n > root) {
                     --out_n;
                     if (out_p[out_n] == '/')
                         break;
                 }
-                goto unc__normpath_posix_noappend;
+                goto unc0_normpath_posix_noappend;
             }
-            goto unc__normpath_posix_append;
+            goto unc0_normpath_posix_append;
         } else
-unc__normpath_posix_append:
+unc0_normpath_posix_append:
         {
             if (out_n != root)
-                if (unc__strpush1(alloc, &out_p, &out_n, &out_c, 6, '/'))
-                    goto unc__normpath_posix_fail;
-            if (unc__strpush(alloc, &out_p, &out_n, &out_c, 6, path - prev,
+                if (unc0_strpush1(alloc, &out_p, &out_n, &out_c, 6, '/'))
+                    goto unc0_normpath_posix_fail;
+            if (unc0_strpush(alloc, &out_p, &out_n, &out_c, 6, path - prev,
                             (const byte *)prev))
-                goto unc__normpath_posix_fail;
+                goto unc0_normpath_posix_fail;
         }
-unc__normpath_posix_noappend:
+unc0_normpath_posix_noappend:
         if (*path) {
             ASSERT(*path == '/');
             ++path;
@@ -233,30 +233,30 @@ unc__normpath_posix_noappend:
 
     *len = out_n;
     return (char *)out_p;
-unc__normpath_posix_fail:
-    unc__mmfree(alloc, out_p);
+unc0_normpath_posix_fail:
+    unc0_mmfree(alloc, out_p);
     return NULL;
 }
 
-int unc__abspath_posix(Unc_Allocator *alloc, const char *path,
+int unc0_abspath_posix(Unc_Allocator *alloc, const char *path,
                        size_t *len, char **str) {
     int e;
     char *cwd, *cwde;
     Unc_Size l, lp;
     char *p;
     if (*path == '/') {
-        p = unc__normpath_posix(alloc, path, len);
+        p = unc0_normpath_posix(alloc, path, len);
         *str = p;
         return p ? 0 : UNCIL_ERR_MEM;
     }
-    e = unc__getcwd(alloc, &cwd);
+    e = unc0_getcwd(alloc, &cwd);
     if (e) return e;
-    l = unc__mmgetsize(alloc, cwd);
+    l = unc0_mmgetsize(alloc, cwd);
     lp = strlen(cwd) + strlen(path) + 2;
     if (l < lp) {
-        char *pcwd = unc__mmrealloc(alloc, Unc_AllocExternal, cwd, lp);
+        char *pcwd = unc0_mmrealloc(alloc, Unc_AllocExternal, cwd, lp);
         if (!pcwd) {
-            unc__mmfree(alloc, cwd);
+            unc0_mmfree(alloc, cwd);
             return UNCIL_ERR_MEM;
         }
         cwd = pcwd;
@@ -265,28 +265,28 @@ int unc__abspath_posix(Unc_Allocator *alloc, const char *path,
     if (*cwd && cwde[-1] != '/')
         *cwde++ = '/';
     strcpy(cwde, path);
-    p = unc__normpath_posix(alloc, cwd, len);
-    unc__mmfree(alloc, cwd);
+    p = unc0_normpath_posix(alloc, cwd, len);
+    unc0_mmfree(alloc, cwd);
     *str = p;
     return p ? 0 : UNCIL_ERR_MEM;
 }
 
-char *unc__realpath_posix_path(Unc_Allocator *alloc, const char *path) {
+char *unc0_realpath_posix_path(Unc_Allocator *alloc, const char *path) {
     errno = ENOSYS;
     return NULL;
 }
 
-int unc__realpath_posix(Unc_Allocator *alloc, const char *path,
+int unc0_realpath_posix(Unc_Allocator *alloc, const char *path,
                        size_t *len, char **str) {
     int e;
     size_t sl;
     char *s, *p;
-    e = unc__abspath_posix(alloc, path, &sl, &s);
+    e = unc0_abspath_posix(alloc, path, &sl, &s);
     if (e) return e;
 #if _POSIX_C_SOURCE >= 200809L
     p = realpath(s, NULL);
 #else
-    p = unc__realpath_posix_path(alloc, s);
+    p = unc0_realpath_posix_path(alloc, s);
 #endif
     if (!p) {
         switch (errno) {
@@ -303,9 +303,9 @@ int unc__realpath_posix(Unc_Allocator *alloc, const char *path,
             return UNCIL_ERR_IO_UNDERLYING;
         }
     }
-    unc__mmfree(alloc, s);
+    unc0_mmfree(alloc, s);
     sl = strlen(p);
-    s = unc__mmalloc(alloc, Unc_AllocExternal, sl + 1);
+    s = unc0_mmalloc(alloc, Unc_AllocExternal, sl + 1);
     if (!s) {
         free(p);
         return UNCIL_ERR_MEM;
@@ -317,7 +317,7 @@ int unc__realpath_posix(Unc_Allocator *alloc, const char *path,
     return 0;
 }
 
-int unc__relpath_posix(Unc_Allocator *alloc, const char *path,
+int unc0_relpath_posix(Unc_Allocator *alloc, const char *path,
                        const char *base, size_t *len, char **str) {
     int e;
     byte *out_p = NULL;
@@ -327,10 +327,10 @@ int unc__relpath_posix(Unc_Allocator *alloc, const char *path,
     prefix = strspn(path, base);
     if (!base[prefix] && !path[prefix]) {
         /* complete */
-        e = unc__strpush1(alloc, &out_p, &out_n, &out_c, 6, '.');
+        e = unc0_strpush1(alloc, &out_p, &out_n, &out_c, 6, '.');
     } else if (!base[prefix] && path[prefix] == '/') {
         path += prefix + 1;
-        e = unc__strpush(alloc, &out_p, &out_n, &out_c, 6,
+        e = unc0_strpush(alloc, &out_p, &out_n, &out_c, 6,
                          strlen(path), (const byte *)path);
     } else if (!path[prefix] && (base[prefix] == '/' || prefix <= 1)) {
         size_t nodes = 0;
@@ -339,13 +339,13 @@ int unc__relpath_posix(Unc_Allocator *alloc, const char *path,
         while (*base)
             nodes += *base++ == '/';
         if (nodes) {
-            if ((e = unc__strpush(alloc, &out_p, &out_n, &out_c, 6, 2,
+            if ((e = unc0_strpush(alloc, &out_p, &out_n, &out_c, 6, 2,
                                  (const byte *)"..")))
-                goto unc__relpath_posix_fail;
+                goto unc0_relpath_posix_fail;
             while (--nodes) {
-                if ((e = unc__strpush(alloc, &out_p, &out_n, &out_c, 6, 3,
+                if ((e = unc0_strpush(alloc, &out_p, &out_n, &out_c, 6, 3,
                                     (const byte *)"/..")))
-                    goto unc__relpath_posix_fail;
+                    goto unc0_relpath_posix_fail;
             }
         }
     } else {
@@ -358,28 +358,28 @@ int unc__relpath_posix(Unc_Allocator *alloc, const char *path,
         while (*base)
             nodes += *base++ == '/';
         if (nodes) {
-            if ((e = unc__strpush(alloc, &out_p, &out_n, &out_c, 6, 2,
+            if ((e = unc0_strpush(alloc, &out_p, &out_n, &out_c, 6, 2,
                                  (const byte *)"..")))
-                goto unc__relpath_posix_fail;
+                goto unc0_relpath_posix_fail;
             while (--nodes) {
-                if ((e = unc__strpush(alloc, &out_p, &out_n, &out_c, 6, 3,
+                if ((e = unc0_strpush(alloc, &out_p, &out_n, &out_c, 6, 3,
                                     (const byte *)"/..")))
-                    goto unc__relpath_posix_fail;
+                    goto unc0_relpath_posix_fail;
             }
         } else
             ++path;
-        e = unc__strpush(alloc, &out_p, &out_n, &out_c, 6,
+        e = unc0_strpush(alloc, &out_p, &out_n, &out_c, 6,
                          strlen(path), (const byte *)path);
     }
     *len = out_n;
     *str = (char *)out_p;
     return 0;
-unc__relpath_posix_fail:
-    unc__mmfree(alloc, out_p);
+unc0_relpath_posix_fail:
+    unc0_mmfree(alloc, out_p);
     return e;
 }
 
-Unc_Size unc__pathprefix_posix(Unc_Size n, const char *a, const char *b) {
+Unc_Size unc0_pathprefix_posix(Unc_Size n, const char *a, const char *b) {
     Unc_Size i = 0;
     while (i < n && a[i] == b[i])
         ++i;
@@ -389,13 +389,13 @@ Unc_Size unc__pathprefix_posix(Unc_Size n, const char *a, const char *b) {
     return i;
 }
 
-struct unc__pathsplit_posix_buf {
+struct unc0_pathsplit_posix_buf {
     const char *s;
     int root;
     int final;
 };
 
-int unc__pathsplit_posix_init(struct unc__pathsplit_posix_buf *b,
+int unc0_pathsplit_posix_init(struct unc0_pathsplit_posix_buf *b,
                               const char *fn) {
     b->s = fn;
     b->root = 1;
@@ -403,7 +403,7 @@ int unc__pathsplit_posix_init(struct unc__pathsplit_posix_buf *b,
     return 0;
 }
 
-int unc__pathsplit_posix_next(struct unc__pathsplit_posix_buf *b,
+int unc0_pathsplit_posix_next(struct unc0_pathsplit_posix_buf *b,
                               size_t *l, const char **p) {
     const char *f = b->s, *fx;
     if (b->final)
@@ -428,7 +428,7 @@ int unc__pathsplit_posix_next(struct unc__pathsplit_posix_buf *b,
     return 1;
 }
 
-int unc__stat_posix_obj(Unc_View *w, Unc_Value *v,
+int unc0_stat_posix_obj(Unc_View *w, Unc_Value *v,
                         const char *fn, struct stat *st) {
     int e;
     Unc_Value tmp = UNC_BLANK;
@@ -459,37 +459,37 @@ int unc__stat_posix_obj(Unc_View *w, Unc_Value *v,
     else if (S_ISDIR(st->st_mode)) s = "dir";
     else if (S_ISREG(st->st_mode)) s = "file";
     
-    if ((e = unc_newstringc(w, &tmp, s))) goto unc__stat_posix_obj_err;
-    if ((e = unc_setattrc(w, v, "type", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_newstringc(w, &tmp, s))) goto unc0_stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "type", &tmp))) goto unc0_stat_posix_obj_err;
 
     if (sizeof(off_t) > sizeof(Unc_Int) &&
             (st->st_size < (off_t)UNC_INT_MIN
                 || st->st_size > (off_t)UNC_INT_MAX)) {
         e = unc_throwexc(w, "system", "size too large for this "
                                       "Uncil version to handle");
-        goto unc__stat_posix_obj_err;
+        goto unc0_stat_posix_obj_err;
     }
     unc_setint(w, &tmp, st->st_size);
-    if ((e = unc_setattrc(w, v, "size", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "size", &tmp))) goto unc0_stat_posix_obj_err;
 
     unc_setint(w, &tmp, st->st_atime);
-    if ((e = unc_setattrc(w, v, "atime", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "atime", &tmp))) goto unc0_stat_posix_obj_err;
     unc_setint(w, &tmp, st->st_mtime);
-    if ((e = unc_setattrc(w, v, "mtime", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "mtime", &tmp))) goto unc0_stat_posix_obj_err;
     unc_setint(w, &tmp, st->st_ctime);
-    if ((e = unc_setattrc(w, v, "ctime", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "ctime", &tmp))) goto unc0_stat_posix_obj_err;
 
     unc_setint(w, &tmp, st->st_ino);
-    if ((e = unc_setattrc(w, v, "inode", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "inode", &tmp))) goto unc0_stat_posix_obj_err;
     unc_setint(w, &tmp, st->st_nlink);
-    if ((e = unc_setattrc(w, v, "links", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "links", &tmp))) goto unc0_stat_posix_obj_err;
     unc_setint(w, &tmp, st->st_dev);
-    if ((e = unc_setattrc(w, v, "device", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "device", &tmp))) goto unc0_stat_posix_obj_err;
 
     unc_setint(w, &tmp, st->st_uid);
-    if ((e = unc_setattrc(w, v, "uid", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "uid", &tmp))) goto unc0_stat_posix_obj_err;
     unc_setint(w, &tmp, st->st_gid);
-    if ((e = unc_setattrc(w, v, "gid", &tmp))) goto unc__stat_posix_obj_err;
+    if ((e = unc_setattrc(w, v, "gid", &tmp))) goto unc0_stat_posix_obj_err;
 
     {
         int mask = 0;
@@ -509,41 +509,41 @@ int unc__stat_posix_obj(Unc_View *w, Unc_Value *v,
         if (st->st_mode & S_ISUID) mask |= S_ISUID;
         unc_setint(w, &tmp, mask);
         if ((e = unc_setattrc(w, v, "mode", &tmp)))
-            goto unc__stat_posix_obj_err;
+            goto unc0_stat_posix_obj_err;
     }
 
-unc__stat_posix_obj_err:
+unc0_stat_posix_obj_err:
     unc_clear(w, &tmp);
     return e;
 }
 
-struct unc__scan_posix_buf {
+struct unc0_scan_posix_buf {
     DIR *dir;
     Unc_Size baselen;
     char *base;
 };
 
-static Unc_RetVal unc__scan_posix_init(Unc_Allocator *alloc,
-            struct unc__scan_posix_buf *buf, const char *fn) {
+static Unc_RetVal unc0_scan_posix_init(Unc_Allocator *alloc,
+            struct unc0_scan_posix_buf *buf, const char *fn) {
     DIR *dir;
     size_t namelen = strlen(fn);
     int addslash = namelen && fn[namelen - 1] != '/';
     buf->baselen = namelen + addslash;
-    buf->base = unc__mmalloc(alloc, Unc_AllocExternal, buf->baselen);
+    buf->base = unc0_mmalloc(alloc, Unc_AllocExternal, buf->baselen);
     if (!buf->base) return UNCIL_ERR_MEM;
     strcpy(buf->base, fn);
     if (addslash) buf->base[namelen] = '/';
     dir = opendir(fn);
     if (!dir) {
-        unc__mmfree(alloc, buf->base);
+        unc0_mmfree(alloc, buf->base);
         return UNCIL_ERR_IO_UNDERLYING;
     }
     buf->dir = dir;
     return 0;
 }
 
-static Unc_RetVal unc__scan_posix_next(Unc_Allocator *alloc,
-            struct unc__scan_posix_buf *buf, Unc_Size *nn, char **ns) {
+static Unc_RetVal unc0_scan_posix_next(Unc_Allocator *alloc,
+            struct unc0_scan_posix_buf *buf, Unc_Size *nn, char **ns) {
     struct dirent *dir;
     size_t namelen;
     Unc_Size n;
@@ -560,24 +560,24 @@ static Unc_RetVal unc__scan_posix_next(Unc_Allocator *alloc,
     }
     namelen = strlen(dir->d_name);
     n = buf->baselen + namelen;
-    ptr = unc__mmalloc(alloc, Unc_AllocExternal, n);
+    ptr = unc0_mmalloc(alloc, Unc_AllocExternal, n);
     if (!ptr) return UNCIL_ERR_MEM;
-    unc__memcpy(ptr, buf->base, buf->baselen);
-    unc__memcpy(ptr + buf->baselen, dir->d_name, namelen);
+    unc0_memcpy(ptr, buf->base, buf->baselen);
+    unc0_memcpy(ptr + buf->baselen, dir->d_name, namelen);
     *nn = n;
     *ns = ptr;
     return 0;
 }
 
-static Unc_RetVal unc__scan_posix_destr(Unc_Allocator *alloc,
-                                        struct unc__scan_posix_buf *d) {
+static Unc_RetVal unc0_scan_posix_destr(Unc_Allocator *alloc,
+                                        struct unc0_scan_posix_buf *d) {
     closedir(d->dir);
-    unc__mmfree(alloc, d->base);
+    unc0_mmfree(alloc, d->base);
     return 0;
 }
 
-static Unc_RetVal unc__scan_posix_destrw(Unc_View *w, size_t n, void *data) {
-    return unc__scan_posix_destr(&w->world->alloc, data);
+static Unc_RetVal unc0_scan_posix_destrw(Unc_View *w, size_t n, void *data) {
+    return unc0_scan_posix_destr(&w->world->alloc, data);
 }
 
 #define DEFAULT_MODE (S_IRWXU | S_IRWXG | S_IRWXO)
@@ -587,7 +587,7 @@ static Unc_RetVal unc__scan_posix_destrw(Unc_View *w, size_t n, void *data) {
 #define UNCIL_POSIX_ERR_FILEONDIR 3
 #define UNCIL_POSIX_ERR_DIRONDIR 4
 
-static int unc__fdcopy_eof(int fd1, int fd0) {
+static int unc0_fdcopy_eof(int fd1, int fd0) {
     char buf[BUFSIZ];
     ssize_t i, n, e;
     do {
@@ -628,7 +628,7 @@ static int unc__fdcopy_eof(int fd1, int fd0) {
 
 #define EXBITS (S_IXUSR | S_IXGRP | S_IXOTH)
 
-static Unc_RetVal unc__copyfile_posix(
+static Unc_RetVal unc0_copyfile_posix(
                         const char *fn, const char *d, int *copied) {
     int overwrite = *copied;
     struct stat st0, st1;
@@ -666,7 +666,7 @@ static Unc_RetVal unc__copyfile_posix(
         close(fd0);
         return UNCIL_ERR_IO_UNDERLYING;
     }
-    if (fstat(fd1, &st1)) goto unc__copyfile_posix_fail;
+    if (fstat(fd1, &st1)) goto unc0_copyfile_posix_fail;
     if (st0.st_rdev == st1.st_rdev && st0.st_ino == st1.st_ino) {
         /* same file! */
         close(fd0);
@@ -678,21 +678,21 @@ static Unc_RetVal unc__copyfile_posix(
         close(fd1);
         return UNCIL_POSIX_ERR_FILEONDIR;
     }
-    if (ftruncate(fd1, 0)) goto unc__copyfile_posix_fail;
-    if (!unc__fdcopy_eof(fd1, fd0)) {
+    if (ftruncate(fd1, 0)) goto unc0_copyfile_posix_fail;
+    if (!unc0_fdcopy_eof(fd1, fd0)) {
         *copied = 1;
         close(fd0);
         close(fd1);
         return 0;
     }
-unc__copyfile_posix_fail:
+unc0_copyfile_posix_fail:
     close(fd0);
     unlink(d);
     close(fd1);
     return UNCIL_ERR_IO_UNDERLYING;
 }
 
-static Unc_RetVal unc__copymeta_posix(Unc_Allocator *alloc,
+static Unc_RetVal unc0_copymeta_posix(Unc_Allocator *alloc,
                         const char *fn, const char *d) {
     struct stat st0;
     if (lstat(fn, &st0)) return UNCIL_ERR_IO_UNDERLYING;
@@ -734,24 +734,24 @@ static Unc_RetVal unc__copymeta_posix(Unc_Allocator *alloc,
     return 0;
 }
 
-static int unc__exists_posix(const char *fn) {
+static int unc0_exists_posix(const char *fn) {
     struct stat st;
     return !lstat(fn, &st);
 }
 
-static Unc_RetVal unc__mkdir_posix_rec(Unc_Allocator *alloc,
+static Unc_RetVal unc0_mkdir_posix_rec(Unc_Allocator *alloc,
                         const char *fn, mode_t mode) {
     int old_errno = errno;
     size_t l = strlen(fn);
     int sink = 1;
     size_t slashes = 0;
-    char *p = unc__mmalloc(alloc, Unc_AllocString, l + 1);
+    char *p = unc0_mmalloc(alloc, Unc_AllocString, l + 1);
     if (!p) return UNCIL_ERR_MEM;
     strcpy(p, fn);
     while (sink) {
         char *slash = strrchr(p, '/');
         if (!slash) {
-            unc__mmfree(alloc, p);
+            unc0_mmfree(alloc, p);
             errno = old_errno;
             return UNCIL_ERR_IO_UNDERLYING;
         }
@@ -766,7 +766,7 @@ static Unc_RetVal unc__mkdir_posix_rec(Unc_Allocator *alloc,
             case ENOENT:
                 break;
             default:
-                unc__mmfree(alloc, p);
+                unc0_mmfree(alloc, p);
                 return UNCIL_ERR_IO_UNDERLYING;
             }
         }
@@ -778,23 +778,23 @@ static Unc_RetVal unc__mkdir_posix_rec(Unc_Allocator *alloc,
             case EEXIST:
                 continue;
             default:
-                unc__mmfree(alloc, p);
+                unc0_mmfree(alloc, p);
                 return UNCIL_ERR_IO_UNDERLYING;
             }
         }
     }
-    unc__mmfree(alloc, p);
+    unc0_mmfree(alloc, p);
     return 0;
 }
 
-static Unc_RetVal unc__mkdir_posix(Unc_Allocator *alloc,
+static Unc_RetVal unc0_mkdir_posix(Unc_Allocator *alloc,
                         const char *fn, mode_t mode, int parents) {
     if (mkdir(fn, mode)) {
         switch (errno) {
         case EEXIST:
             if (parents) return 0;
         case ENOENT:
-            if (parents) return unc__mkdir_posix_rec(alloc, fn, mode);
+            if (parents) return unc0_mkdir_posix_rec(alloc, fn, mode);
         default:
             return UNCIL_ERR_IO_UNDERLYING;
         }
@@ -802,48 +802,48 @@ static Unc_RetVal unc__mkdir_posix(Unc_Allocator *alloc,
     return 0;
 }
 
-static Unc_RetVal unc__chmod_posix(Unc_Allocator *alloc,
+static Unc_RetVal unc0_chmod_posix(Unc_Allocator *alloc,
                         const char *fn, mode_t mode) {
     return chmod(fn, mode) ? UNCIL_ERR_IO_UNDERLYING : 0;
 }
 
-static Unc_RetVal unc__remove_posix(Unc_Allocator *alloc, const char *fn) {
+static Unc_RetVal unc0_remove_posix(Unc_Allocator *alloc, const char *fn) {
     return remove(fn) ? UNCIL_ERR_IO_UNDERLYING : 0;
 }
 
-static Unc_RetVal unc__move_posix(Unc_Allocator *alloc,
+static Unc_RetVal unc0_move_posix(Unc_Allocator *alloc,
                         const char *fn, const char *d, int overwrite) {
-    if (!overwrite && unc__exists_posix(d))
+    if (!overwrite && unc0_exists_posix(d))
         return UNCIL_POSIX_ERR_EXISTS; /* TOCTOU?? */
     return rename(fn, d) ? UNCIL_ERR_IO_UNDERLYING : 0;
 }
 
-static Unc_RetVal unc__link_posix(Unc_Allocator *alloc,
+static Unc_RetVal unc0_link_posix(Unc_Allocator *alloc,
                         const char *fn, const char *n, int symbolic) {
     return (symbolic ? symlink(fn, n) : link(fn, n))
             ? UNCIL_ERR_IO_UNDERLYING : 0;
 }
 
-static Unc_RetVal unc__copy_posix(Unc_Allocator *alloc,
+static Unc_RetVal unc0_copy_posix(Unc_Allocator *alloc,
                         const char *fn, const char *d,
                         int metadata, int overwrite) {
     int copied = overwrite;
-    int e = unc__copyfile_posix(fn, d, &copied);
+    int e = unc0_copyfile_posix(fn, d, &copied);
     if (!e && copied && metadata)
-        return unc__copymeta_posix(alloc, fn, d);
+        return unc0_copymeta_posix(alloc, fn, d);
     return e ? UNCIL_ERR_IO_UNDERLYING : 0;
 }
 
-static Unc_RetVal unc__copy_posix2(Unc_Allocator *alloc,
+static Unc_RetVal unc0_copy_posix2(Unc_Allocator *alloc,
                         const char *fn, const char *d,
                         int metadata, int overwrite) {
-    int e = unc__copy_posix(alloc, fn, d, metadata, overwrite);
+    int e = unc0_copy_posix(alloc, fn, d, metadata, overwrite);
     if (!overwrite && e == UNCIL_ERR_IO_UNDERLYING && errno == EEXIST)
         e = 0;
     return e;
 }
 
-struct unc__rcopy_posix_buf {
+struct unc0_rcopy_posix_buf {
     Unc_Allocator *alloc;
     char *src;
     Unc_Size src_n, src_c;
@@ -857,7 +857,7 @@ struct unc__rcopy_posix_buf {
     Unc_Size recurse;
 };
 
-static Unc_RetVal unc__rcopy_posix_mkdir(const char *fn, mode_t mode,
+static Unc_RetVal unc0_rcopy_posix_mkdir(const char *fn, mode_t mode,
                                          int *created) {
     if (mkdir(fn, mode)) {
         switch (errno) {
@@ -872,7 +872,7 @@ static Unc_RetVal unc__rcopy_posix_mkdir(const char *fn, mode_t mode,
     return 0;
 }
 
-static Unc_RetVal unc__rcopy_posix_do(struct unc__rcopy_posix_buf *buf,
+static Unc_RetVal unc0_rcopy_posix_do(struct unc0_rcopy_posix_buf *buf,
                                       struct stat *pst) {
     int e;
     DIR *d;
@@ -900,13 +900,13 @@ static Unc_RetVal unc__rcopy_posix_do(struct unc__rcopy_posix_buf *buf,
         }
         sl = strlen(de->d_name) + 1;
         buf->src_n = srcn;
-        e = unc__strputn(buf->alloc,
+        e = unc0_strputn(buf->alloc,
                     (byte **)&buf->src, &buf->src_n, &buf->src_c,
                     6, sl, (const byte *)de->d_name);
         if (e) break;
         if (lstat(buf->src, pst)) break;
         buf->dst_n = dstn;
-        e = unc__strputn(buf->alloc,
+        e = unc0_strputn(buf->alloc,
                     (byte **)&buf->dst, &buf->dst_n, &buf->dst_c,
                     6, sl, (const byte *)de->d_name);
         if (buf->follow) {
@@ -916,7 +916,7 @@ static Unc_RetVal unc__rcopy_posix_do(struct unc__rcopy_posix_buf *buf,
             }
             while (S_ISLNK(pst->st_mode)) {
                 size_t in = 64;
-                char *ip = unc__malloc(buf->alloc, Unc_AllocExternal, in), *ip2;
+                char *ip = unc0_malloc(buf->alloc, Unc_AllocExternal, in), *ip2;
                 ssize_t ir;
                 if (!ip)
                     e = UNCIL_ERR_MEM;
@@ -927,7 +927,7 @@ static Unc_RetVal unc__rcopy_posix_do(struct unc__rcopy_posix_buf *buf,
                             ip[ir] = 0;
                             break;
                         }
-                        ip2 = unc__mrealloc(buf->alloc, Unc_AllocExternal, ip,
+                        ip2 = unc0_mrealloc(buf->alloc, Unc_AllocExternal, ip,
                                             in, in << 1);
                         in <<= 1;
                         if (!ip2) {
@@ -936,23 +936,23 @@ static Unc_RetVal unc__rcopy_posix_do(struct unc__rcopy_posix_buf *buf,
                         }
                         ip = ip2;
                     }
-                if (e) goto unc__rcopy_posix_do_link_break;
-                if (lstat(ip, pst)) goto unc__rcopy_posix_do_link_break;
+                if (e) goto unc0_rcopy_posix_do_link_break;
+                if (lstat(ip, pst)) goto unc0_rcopy_posix_do_link_break;
                 if (S_ISDIR(pst->st_mode)) {
                     int loop = 0;
-                    if (!unc__memcmp(ip, buf->dsto, buf->dsto_n) &&
+                    if (!unc0_memcmp(ip, buf->dsto, buf->dsto_n) &&
                             (!ip[buf->dsto_n] || ip[buf->dsto_n] == '/'))
                         loop = 1;
-                    if (ir <= buf->src_n && !unc__memcmp(ip, buf->src, ir) &&
+                    if (ir <= buf->src_n && !unc0_memcmp(ip, buf->src, ir) &&
                             (!buf->src[ir] || buf->src[ir] == '/'))
                         loop = 1;
                     if (oldsrc && ir <= srcn
-                            && !unc__memcmp(ip, oldsrc, ir) &&
+                            && !unc0_memcmp(ip, oldsrc, ir) &&
                             (!oldsrc[ir] || oldsrc[ir] == '/'))
                         loop = 1;
                     if (loop) {
                         errno = ELOOP;
-                        goto unc__rcopy_posix_do_link_break;
+                        goto unc0_rcopy_posix_do_link_break;
                     }
                 }
                 if (!oldsrc) {
@@ -963,27 +963,27 @@ static Unc_RetVal unc__rcopy_posix_do(struct unc__rcopy_posix_buf *buf,
                 buf->src_n = ir;
                 buf->src_c = in;
             }
-unc__rcopy_posix_do_link_break:
+unc0_rcopy_posix_do_link_break:
             ;
         }
         if (S_ISDIR(pst->st_mode)) {
             Unc_Size stn = buf->src_n - 1, dtn = buf->dst_n - 1;
             int created;
-            e = unc__rcopy_posix_mkdir(buf->dst, DEFAULT_MODE, &created);
+            e = unc0_rcopy_posix_mkdir(buf->dst, DEFAULT_MODE, &created);
             if (e) break;
             buf->dst[dtn] = '/';
-            e = unc__rcopy_posix_do(buf, pst);
+            e = unc0_rcopy_posix_do(buf, pst);
             if (e) break;
             if (!buf->metadata || created || buf->overwrite) continue;
             buf->src[stn] = buf->dst[dtn] = 0;
-            e = unc__copymeta_posix(buf->alloc, buf->src, buf->dst);
+            e = unc0_copymeta_posix(buf->alloc, buf->src, buf->dst);
         } else {
-            e = unc__copy_posix2(buf->alloc, buf->src, buf->dst,
+            e = unc0_copy_posix2(buf->alloc, buf->src, buf->dst,
                                             buf->metadata, buf->overwrite);
         }
         if (e) break;
         if (oldsrc) {
-            unc__mfree(buf->alloc, buf->src, buf->src_c);
+            unc0_mfree(buf->alloc, buf->src, buf->src_c);
             buf->src = oldsrc;
             buf->src_c = oldsrc_c;
         }
@@ -1000,11 +1000,11 @@ unc__rcopy_posix_do_link_break:
     return e;
 }
 
-static Unc_RetVal unc__rcopy_posix(Unc_View *w,
+static Unc_RetVal unc0_rcopy_posix(Unc_View *w,
                         const char *fn, const char *d,
                         int metadata, int overwrite, int follow) {
     int e;
-    struct unc__rcopy_posix_buf buf;
+    struct unc0_rcopy_posix_buf buf;
     struct stat st;
     int dstdir;
     const char *bn;
@@ -1018,7 +1018,7 @@ static Unc_RetVal unc__rcopy_posix(Unc_View *w,
     buf.overwrite = overwrite;
     buf.follow = follow;
     buf.recurse = unc_recurselimit(w);
-    if (unc__strputn(buf.alloc, (byte **)&buf.dst, &buf.dst_n, &buf.dst_c,
+    if (unc0_strputn(buf.alloc, (byte **)&buf.dst, &buf.dst_n, &buf.dst_c,
                      6, buf.dsto_n + 1, (const byte *)d))
         return UNCIL_ERR_MEM;
     --buf.dst_n;
@@ -1028,23 +1028,23 @@ static Unc_RetVal unc__rcopy_posix(Unc_View *w,
             errno = ENOTDIR;
             e = UNCIL_ERR_IO_UNDERLYING;
         } else {
-            e = unc__strput(buf.alloc,
+            e = unc0_strput(buf.alloc,
                     (byte **)&buf.dst, &buf.dst_n, &buf.dst_c,
                     6, '/');
             bn = strrchr(fn, '/');
             fn = bn ? bn + 1 : fn;
             ASSERT(*fn);
-            if (!e) e = unc__strputn(buf.alloc,
+            if (!e) e = unc0_strputn(buf.alloc,
                        (byte **)&buf.dst, &buf.dst_n, &buf.dst_c,
                       6, strlen(bn) + 1, (const byte *)bn);
             if (!e)
-                e = unc__copy_posix2(buf.alloc, fn, buf.dst,
+                e = unc0_copy_posix2(buf.alloc, fn, buf.dst,
                                      metadata, overwrite);
         }
     } else {
-        if (unc__strputn(buf.alloc, (byte **)&buf.src, &buf.src_n, &buf.src_c,
+        if (unc0_strputn(buf.alloc, (byte **)&buf.src, &buf.src_n, &buf.src_c,
                         6, strlen(fn) + 1, (const byte *)fn)) {
-            unc__mfree(buf.alloc, buf.dst, buf.dst_c);
+            unc0_mfree(buf.alloc, buf.dst, buf.dst_c);
             return UNCIL_ERR_MEM;
         }
         if (buf.src_n > 1 && buf.src[buf.src_n - 2] == '/')
@@ -1053,27 +1053,27 @@ static Unc_RetVal unc__rcopy_posix(Unc_View *w,
         fn = bn ? bn + 1 : fn;
         if (!dstdir)
             buf.dst[buf.dst_n++] = '/';
-        e = unc__strputn(buf.alloc,
+        e = unc0_strputn(buf.alloc,
                         (byte **)&buf.dst, &buf.dst_n, &buf.dst_c,
                         6, strlen(fn) + 1, (const byte *)fn);
         if (!e) {
             int created;
             Unc_Size stn = buf.src_n - 1, dtn = buf.dst_n - 1;
             buf.dst[dtn] = 0;
-            e = unc__rcopy_posix_mkdir(buf.dst, DEFAULT_MODE, &created);
-            if (!e) buf.dst[dtn] = '/', e = unc__rcopy_posix_do(&buf, &st);
+            e = unc0_rcopy_posix_mkdir(buf.dst, DEFAULT_MODE, &created);
+            if (!e) buf.dst[dtn] = '/', e = unc0_rcopy_posix_do(&buf, &st);
             if (!e && buf.metadata && (created || buf.overwrite)) {
                 buf.src[stn] = buf.dst[dtn] = 0;
-                e = unc__copymeta_posix(buf.alloc, buf.src, buf.dst);
+                e = unc0_copymeta_posix(buf.alloc, buf.src, buf.dst);
             }
         }
-        unc__mfree(buf.alloc, buf.src, buf.src_c);
+        unc0_mfree(buf.alloc, buf.src, buf.src_c);
     }
-    unc__mfree(buf.alloc, buf.dst, buf.dst_c);
+    unc0_mfree(buf.alloc, buf.dst, buf.dst_c);
     return e;
 }
 
-static Unc_RetVal unc__rdestroy_posix_do(struct unc__rcopy_posix_buf *buf,
+static Unc_RetVal unc0_rdestroy_posix_do(struct unc0_rcopy_posix_buf *buf,
                                          struct stat *pst) {
     int e;
     DIR *d;
@@ -1098,13 +1098,13 @@ static Unc_RetVal unc__rdestroy_posix_do(struct unc__rcopy_posix_buf *buf,
         }
         sl = strlen(de->d_name) + 1;
         buf->src_n = srcn;
-        e = unc__strputn(buf->alloc,
+        e = unc0_strputn(buf->alloc,
                     (byte **)&buf->src, &buf->src_n, &buf->src_c,
                     6, sl, (const byte *)de->d_name);
         if (e) break;
         if (lstat(buf->src, pst)) break;
         if (S_ISDIR(pst->st_mode))
-            e = unc__rdestroy_posix_do(buf, pst);
+            e = unc0_rdestroy_posix_do(buf, pst);
         else if (unlink(buf->src))
             e = UNCIL_ERR_IO_UNDERLYING;
         if (e) break;
@@ -1125,9 +1125,9 @@ static Unc_RetVal unc__rdestroy_posix_do(struct unc__rcopy_posix_buf *buf,
     return e;
 }
 
-static Unc_RetVal unc__rdestroy_posix(Unc_View *w, const char *fn) {
+static Unc_RetVal unc0_rdestroy_posix(Unc_View *w, const char *fn) {
     int e;
-    struct unc__rcopy_posix_buf buf;
+    struct unc0_rcopy_posix_buf buf;
     struct stat st;
     if (stat(fn, &st)) return UNCIL_ERR_IO_UNDERLYING;
     buf.alloc = &w->world->alloc;
@@ -1135,25 +1135,25 @@ static Unc_RetVal unc__rdestroy_posix(Unc_View *w, const char *fn) {
     buf.src_n = buf.src_c = buf.dst_n = buf.dst_c = 0;
     buf.recurse = unc_recurselimit(w);
     if (!S_ISDIR(st.st_mode)) {
-        e = unc__remove_posix(&w->world->alloc, fn);
+        e = unc0_remove_posix(&w->world->alloc, fn);
     } else {
-        if (unc__strputn(buf.alloc, (byte **)&buf.src, &buf.src_n, &buf.src_c,
+        if (unc0_strputn(buf.alloc, (byte **)&buf.src, &buf.src_n, &buf.src_c,
                         6, strlen(fn) + 1, (const byte *)fn)) {
-            unc__mfree(buf.alloc, buf.dst, buf.dst_c);
+            unc0_mfree(buf.alloc, buf.dst, buf.dst_c);
             return UNCIL_ERR_MEM;
         }
         if (buf.src_n > 1 && buf.src[buf.src_n - 2] == '/')
             buf.src[--buf.src_n - 1] = 0;
-        e = unc__rdestroy_posix_do(&buf, &st);
-        unc__mfree(buf.alloc, buf.src, buf.src_c);
+        e = unc0_rdestroy_posix_do(&buf, &st);
+        unc0_mfree(buf.alloc, buf.src, buf.src_c);
     }
-    unc__mfree(buf.alloc, buf.dst, buf.dst_c);
+    unc0_mfree(buf.alloc, buf.dst, buf.dst_c);
     return e;
 }
 
 #endif
 
-Unc_RetVal unc__lib_fs_exists(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_exists(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1175,17 +1175,17 @@ Unc_RetVal unc__lib_fs_exists(Unc_View *w, Unc_Tuple args, void *udata) {
                 unc_setbool(w, &v, 0);
                 break;
             default:
-                return unc__fs_makeerr(w, "fs.exists()", errno);
+                return unc0_fs_makeerr(w, "fs.exists()", errno);
             }
         }
 #else
-        unc_setbool(w, &v, unc__ansiexists(fn));
+        unc_setbool(w, &v, unc0_ansiexists(fn));
 #endif
     }
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_fs_isdir(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_isdir(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1207,7 +1207,7 @@ Unc_RetVal unc__lib_fs_isdir(Unc_View *w, Unc_Tuple args, void *udata) {
                 unc_setbool(w, &v, 0);
                 break;
             default:
-                return unc__fs_makeerr(w, "fs.isdir()", errno);
+                return unc0_fs_makeerr(w, "fs.isdir()", errno);
             }
         }
 #else
@@ -1217,7 +1217,7 @@ Unc_RetVal unc__lib_fs_isdir(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_fs_isfile(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_isfile(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1239,22 +1239,22 @@ Unc_RetVal unc__lib_fs_isfile(Unc_View *w, Unc_Tuple args, void *udata) {
                 unc_setbool(w, &v, 0);
                 break;
             default:
-                return unc__fs_makeerr(w, "fs.isfile()", errno);
+                return unc0_fs_makeerr(w, "fs.isfile()", errno);
             }
         }
 #else
-        unc_setbool(w, &v, unc__ansiexists(fn));
+        unc_setbool(w, &v, unc0_ansiexists(fn));
 #endif
     }
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_fs_getcwd(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_getcwd(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     {
 #if UNCIL_IS_POSIX
-        e = unc__getcwdv(w, &v);
+        e = unc0_getcwdv(w, &v);
 #else
         e = 0;
 #endif
@@ -1263,7 +1263,7 @@ Unc_RetVal unc__lib_fs_getcwd(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_setcwd(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_setcwd(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1272,8 +1272,8 @@ Unc_RetVal unc__lib_fs_setcwd(Unc_View *w, Unc_Tuple args, void *udata) {
     {
 #if UNCIL_IS_POSIX
         if (chdir(fn))
-            return unc__fs_makeerr(w, "fs.setcwd()", errno);
-        e = unc__getcwdv(w, &v);
+            return unc0_fs_makeerr(w, "fs.setcwd()", errno);
+        e = unc0_getcwdv(w, &v);
         if (!e) e = unc_pushmove(w, &v, NULL);
         return e;
 #else
@@ -1283,7 +1283,7 @@ Unc_RetVal unc__lib_fs_setcwd(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_getext(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_getext(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1292,12 +1292,12 @@ Unc_RetVal unc__lib_fs_getext(Unc_View *w, Unc_Tuple args, void *udata) {
     {
 #if UNCIL_IS_POSIX
         size_t l;
-        char *p = unc__getext_posix(&w->world->alloc, fn, &l);
+        char *p = unc0_getext_posix(&w->world->alloc, fn, &l);
         if (!p)
             e = UNCIL_ERR_MEM;
         else {
             if ((e = unc_newstringmove(w, &v, l, p)))
-                unc__mmfree(&w->world->alloc, p);
+                unc0_mmfree(&w->world->alloc, p);
         }
         if (!e) e = unc_pushmove(w, &v, NULL);
         return e;
@@ -1308,7 +1308,7 @@ Unc_RetVal unc__lib_fs_getext(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_normpath(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_normpath(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1317,12 +1317,12 @@ Unc_RetVal unc__lib_fs_normpath(Unc_View *w, Unc_Tuple args, void *udata) {
     {
 #if UNCIL_IS_POSIX
         size_t l;
-        char *p = unc__normpath_posix(&w->world->alloc, fn, &l);
+        char *p = unc0_normpath_posix(&w->world->alloc, fn, &l);
         if (!p)
             e = UNCIL_ERR_MEM;
         else {
             if ((e = unc_newstringmove(w, &v, l, p)))
-                unc__mmfree(&w->world->alloc, p);
+                unc0_mmfree(&w->world->alloc, p);
         }
         if (!e) e = unc_pushmove(w, &v, NULL);
         return e;
@@ -1333,7 +1333,7 @@ Unc_RetVal unc__lib_fs_normpath(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_abspath(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_abspath(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1343,12 +1343,12 @@ Unc_RetVal unc__lib_fs_abspath(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
         size_t l;
         char *p;
-        e = unc__abspath_posix(&w->world->alloc, fn, &l, &p);
+        e = unc0_abspath_posix(&w->world->alloc, fn, &l, &p);
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            e = unc__fs_makeerr(w, "fs.abspath()", errno);
+            e = unc0_fs_makeerr(w, "fs.abspath()", errno);
         else if (!e) {
             if ((e = unc_newstringmove(w, &v, l, p)))
-                unc__mmfree(&w->world->alloc, p);
+                unc0_mmfree(&w->world->alloc, p);
         }
         if (!e) e = unc_pushmove(w, &v, NULL);
         return e;
@@ -1359,7 +1359,7 @@ Unc_RetVal unc__lib_fs_abspath(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_realpath(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_realpath(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1369,14 +1369,14 @@ Unc_RetVal unc__lib_fs_realpath(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
         size_t l;
         char *p;
-        e = unc__realpath_posix(&w->world->alloc, fn, &l, &p);
+        e = unc0_realpath_posix(&w->world->alloc, fn, &l, &p);
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            e = unc__fs_makeerr(w, "fs.realpath()", errno);
+            e = unc0_fs_makeerr(w, "fs.realpath()", errno);
         else if (e == UNCIL_ERR_LOGIC_NOTSUPPORTED)
             e = UNCIL_ERR_LOGIC_NOTSUPPORTED;
         else if (!e) {
             if ((e = unc_newstringmove(w, &v, l, p)))
-                unc__mmfree(&w->world->alloc, p);
+                unc0_mmfree(&w->world->alloc, p);
         }
         if (!e) e = unc_pushmove(w, &v, NULL);
         return e;
@@ -1387,7 +1387,7 @@ Unc_RetVal unc__lib_fs_realpath(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_relpath(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_relpath(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1404,35 +1404,35 @@ Unc_RetVal unc__lib_fs_relpath(Unc_View *w, Unc_Tuple args, void *udata) {
             if (e) return e;
             root_cwd = 0;
         } else {
-            e = unc__getcwd(&w->world->alloc, &bp);
+            e = unc0_getcwd(&w->world->alloc, &bp);
             if (e) {
                 if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-                    return unc__fs_makeerr(w, "fs.relpath() -> fs.getcwd()",
+                    return unc0_fs_makeerr(w, "fs.relpath() -> fs.getcwd()",
                         errno);
                 return e;
             }
             bl = strlen(bp);
             root_cwd = 1;
         }
-        e = unc__abspath_posix(&w->world->alloc, fn, &al, &ap);
+        e = unc0_abspath_posix(&w->world->alloc, fn, &al, &ap);
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            e = unc__fs_makeerr(w, "fs.relpath()", errno);
+            e = unc0_fs_makeerr(w, "fs.relpath()", errno);
         ap[al] = 0;
         if (!e && !root_cwd) {    
-            e = unc__abspath_posix(&w->world->alloc, root, &bl, &bp);
+            e = unc0_abspath_posix(&w->world->alloc, root, &bl, &bp);
             if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-                e = unc__fs_makeerr(w, "fs.relpath()", errno);
+                e = unc0_fs_makeerr(w, "fs.relpath()", errno);
             bp[bl] = 0;
         }
         if (!e) {
-            e = unc__relpath_posix(&w->world->alloc, ap, bp, &l, &p);
+            e = unc0_relpath_posix(&w->world->alloc, ap, bp, &l, &p);
             if (!e) {
                 if ((e = unc_newstringmove(w, &v, l, p)))
-                    unc__mmfree(&w->world->alloc, p);
+                    unc0_mmfree(&w->world->alloc, p);
             }
         }
-        unc__mmfree(&w->world->alloc, bp);
-        unc__mmfree(&w->world->alloc, ap);
+        unc0_mmfree(&w->world->alloc, bp);
+        unc0_mmfree(&w->world->alloc, ap);
         if (!e) e = unc_pushmove(w, &v, NULL);
         return e;
 #else
@@ -1442,7 +1442,7 @@ Unc_RetVal unc__lib_fs_relpath(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_pathjoin(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_pathjoin(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
     int e;
     byte *out_p = NULL;
@@ -1458,13 +1458,13 @@ Unc_RetVal unc__lib_fs_pathjoin(Unc_View *w, Unc_Tuple args, void *udata) {
         if (*fn == '/') {
             out_n = 0;
         } else if (out_n && out_p[out_n - 1] != '/') {
-            e = unc__strpush1(&w->world->alloc, &out_p, &out_n, &out_c, 6, '/');
+            e = unc0_strpush1(&w->world->alloc, &out_p, &out_n, &out_c, 6, '/');
             if (e) {
                 unc_mfree(w, out_p);
                 return e;
             }
         }
-        e = unc__strpush(&w->world->alloc, &out_p, &out_n, &out_c, 6,
+        e = unc0_strpush(&w->world->alloc, &out_p, &out_n, &out_c, 6,
                                             strlen(fn), (const byte *)fn);
         if (e) {
             unc_mfree(w, out_p);
@@ -1472,7 +1472,7 @@ Unc_RetVal unc__lib_fs_pathjoin(Unc_View *w, Unc_Tuple args, void *udata) {
         }
     }
     if ((e = unc_newstringmove(w, &v, out_n, (char *)out_p)))
-        unc__mmfree(&w->world->alloc, out_p);
+        unc0_mmfree(&w->world->alloc, out_p);
     if (!e) e = unc_pushmove(w, &v, NULL);
     return e;
 #else
@@ -1480,7 +1480,7 @@ Unc_RetVal unc__lib_fs_pathjoin(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_fs_pathprefix(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_pathprefix(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1498,7 +1498,7 @@ Unc_RetVal unc__lib_fs_pathprefix(Unc_View *w, Unc_Tuple args, void *udata) {
             if (e) return e;
             if (abs != (*nfn == '/'))
                 return unc_pushmove(w, &v, NULL);
-            prefix = unc__pathprefix_posix(prefix, fn, nfn);
+            prefix = unc0_pathprefix_posix(prefix, fn, nfn);
         }
         e = unc_newstring(w, &v, prefix, fn);
         if (!e) e = unc_pushmove(w, &v, NULL);
@@ -1510,7 +1510,7 @@ Unc_RetVal unc__lib_fs_pathprefix(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_fs_pathsplit(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_pathsplit(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Size ai = 0, an;
@@ -1525,14 +1525,14 @@ Unc_RetVal unc__lib_fs_pathsplit(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
         size_t l;
         const char *p;
-        struct unc__pathsplit_posix_buf b;
-        e = unc__pathsplit_posix_init(&b, fn);
+        struct unc0_pathsplit_posix_buf b;
+        e = unc0_pathsplit_posix_init(&b, fn);
         if (e) {
             unc_unlock(w, &v);
             unc_clear(w, &v);
             return e;
         }
-        while (unc__pathsplit_posix_next(&b, &l, &p)) {
+        while (unc0_pathsplit_posix_next(&b, &l, &p)) {
             if (ai >= an) {
                 Unc_Size aq = an + 8;
                 e = unc_resizearray(w, &v, aq, &ap);
@@ -1554,7 +1554,7 @@ Unc_RetVal unc__lib_fs_pathsplit(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_basename(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_basename(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1574,7 +1574,7 @@ Unc_RetVal unc__lib_fs_basename(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_dirname(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_dirname(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1594,7 +1594,7 @@ Unc_RetVal unc__lib_fs_dirname(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_stat(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_stat(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1605,10 +1605,10 @@ Unc_RetVal unc__lib_fs_stat(Unc_View *w, Unc_Tuple args, void *udata) {
         struct stat st;
         e = stat(fn, &st);
         if (!e) {
-            e = unc__stat_posix_obj(w, &v, fn, &st);
+            e = unc0_stat_posix_obj(w, &v, fn, &st);
             if (!e) e = unc_pushmove(w, &v, NULL);
         } else
-            return unc__fs_makeerr(w, "fs.stat()", errno);
+            return unc0_fs_makeerr(w, "fs.stat()", errno);
         return e;
 #else
         (void)v;
@@ -1617,7 +1617,7 @@ Unc_RetVal unc__lib_fs_stat(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_lstat(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_lstat(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK;
@@ -1628,10 +1628,10 @@ Unc_RetVal unc__lib_fs_lstat(Unc_View *w, Unc_Tuple args, void *udata) {
         struct stat st;
         e = lstat(fn, &st);
         if (!e)  {
-            e = unc__stat_posix_obj(w, &v, fn, &st);
+            e = unc0_stat_posix_obj(w, &v, fn, &st);
             if (!e) e = unc_pushmove(w, &v, NULL);
         } else
-            return unc__fs_makeerr(w, "fs.lstat()", errno);
+            return unc0_fs_makeerr(w, "fs.lstat()", errno);
         return e;
 #else
         (void)v;
@@ -1640,9 +1640,9 @@ Unc_RetVal unc__lib_fs_lstat(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-static Unc_RetVal unc__lib_fs_scan_next(Unc_View *w, Unc_Tuple args,
+static Unc_RetVal unc0_lib_fs_scan_next(Unc_View *w, Unc_Tuple args,
                                         void *udata) {
-    struct unc__scan_posix_buf *buf;
+    struct unc0_scan_posix_buf *buf;
     Unc_Size bn;
     Unc_Size sn;
     Unc_Value v = UNC_BLANK;
@@ -1652,9 +1652,9 @@ static Unc_RetVal unc__lib_fs_scan_next(Unc_View *w, Unc_Tuple args,
     e = unc_lockopaque(w, unc_boundvalue(w, 0), &bn, (void **)&buf);
     if (e) return e;
 #if UNCIL_IS_POSIX
-    e = unc__scan_posix_next(&w->world->alloc, buf, &sn, &ss);
+    e = unc0_scan_posix_next(&w->world->alloc, buf, &sn, &ss);
     if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-        e = unc__fs_makeerr(w, "fs.scan()", errno);
+        e = unc0_fs_makeerr(w, "fs.scan()", errno);
 #else
     sn = 0, ss = NULL;
     e = UNCIL_ERR_LOGIC_NOTSUPPORTED;
@@ -1668,7 +1668,7 @@ static Unc_RetVal unc__lib_fs_scan_next(Unc_View *w, Unc_Tuple args,
     return e;
 }
 
-Unc_RetVal unc__lib_fs_scan(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_scan(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Value v = UNC_BLANK, q = UNC_BLANK;
@@ -1676,18 +1676,18 @@ Unc_RetVal unc__lib_fs_scan(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
     {
 #if UNCIL_IS_POSIX
-        struct unc__scan_posix_buf *buf;
-        e = unc_newopaque(w, &q, NULL, sizeof(struct unc__scan_posix_buf),
-                    (void **)&buf, &unc__scan_posix_destrw, 0, NULL, 0, NULL);
+        struct unc0_scan_posix_buf *buf;
+        e = unc_newopaque(w, &q, NULL, sizeof(struct unc0_scan_posix_buf),
+                    (void **)&buf, &unc0_scan_posix_destrw, 0, NULL, 0, NULL);
         if (e) return e;
-        e = unc__scan_posix_init(&w->world->alloc, buf, fn);
+        e = unc0_scan_posix_init(&w->world->alloc, buf, fn);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.scan()", errno);
+            return unc0_fs_makeerr(w, "fs.scan()", errno);
 #else
         e = UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #endif
         if (!e) {
-            e = unc_newcfunction(w, &v, &unc__lib_fs_scan_next,
+            e = unc_newcfunction(w, &v, &unc0_lib_fs_scan_next,
                             UNC_CFUNC_DEFAULT, 0, 0, 0, NULL, 1, &q, 0, NULL,
                             "fs.scan(),next", NULL);
             if (!e) e = unc_pushmove(w, &v, NULL);
@@ -1697,7 +1697,7 @@ Unc_RetVal unc__lib_fs_scan(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_mkdir(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_mkdir(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     int got_mode = 0, parents;
@@ -1713,11 +1713,11 @@ Unc_RetVal unc__lib_fs_mkdir(Unc_View *w, Unc_Tuple args, void *udata) {
     if (UNCIL_IS_ERR(parents)) return parents;
 #if UNCIL_IS_POSIX
     {
-        e = unc__mkdir_posix(&w->world->alloc, fn,
+        e = unc0_mkdir_posix(&w->world->alloc, fn,
                 got_mode ? (mode_t)mode : DEFAULT_MODE,
                 parents);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.mkdir()", errno);
+            return unc0_fs_makeerr(w, "fs.mkdir()", errno);
         return e;
     }
 #else
@@ -1726,7 +1726,7 @@ Unc_RetVal unc__lib_fs_mkdir(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_fs_chmod(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_chmod(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     Unc_Int mode = 0;
@@ -1736,9 +1736,9 @@ Unc_RetVal unc__lib_fs_chmod(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
 #if UNCIL_IS_POSIX
     {
-        e = unc__chmod_posix(&w->world->alloc, fn, (mode_t)mode);
+        e = unc0_chmod_posix(&w->world->alloc, fn, (mode_t)mode);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.chmod()", errno);
+            return unc0_fs_makeerr(w, "fs.chmod()", errno);
         return e;
     }
 #else
@@ -1746,35 +1746,35 @@ Unc_RetVal unc__lib_fs_chmod(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_fs_remove(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_remove(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     e = unc_getstringc(w, &args.values[0], &fn);
     if (e) return e;
     {
 #if UNCIL_IS_POSIX
-        e = unc__remove_posix(&w->world->alloc, fn);
+        e = unc0_remove_posix(&w->world->alloc, fn);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.remove()", errno);
+            return unc0_fs_makeerr(w, "fs.remove()", errno);
         return e;
 #else
         if (remove(fn))
-            return unc__fs_makeerr(w, "fs.remove()", errno);
+            return unc0_fs_makeerr(w, "fs.remove()", errno);
         return 0;
 #endif
     }
 }
 
-Unc_RetVal unc__lib_fs_rdestroy(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_rdestroy(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn;
     e = unc_getstringc(w, &args.values[0], &fn);
     if (e) return e;
     {
 #if UNCIL_IS_POSIX
-        e = unc__rdestroy_posix(w, fn);
+        e = unc0_rdestroy_posix(w, fn);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.rdestroy()", errno);
+            return unc0_fs_makeerr(w, "fs.rdestroy()", errno);
         return e;
 #else
         return UNCIL_ERR_LOGIC_NOTSUPPORTED;
@@ -1782,7 +1782,7 @@ Unc_RetVal unc__lib_fs_rdestroy(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_copy(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_copy(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn, *fn2;
     int metadata, overwrite;
@@ -1798,12 +1798,12 @@ Unc_RetVal unc__lib_fs_copy(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
         size_t fn1l;
         char *fn1;
-        e = unc__realpath_posix(&w->world->alloc, fn, &fn1l, &fn1);
+        e = unc0_realpath_posix(&w->world->alloc, fn, &fn1l, &fn1);
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.copy()", errno);
-        e = unc__copy_posix(&w->world->alloc, fn1, fn2, metadata, overwrite);
+            return unc0_fs_makeerr(w, "fs.copy()", errno);
+        e = unc0_copy_posix(&w->world->alloc, fn1, fn2, metadata, overwrite);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            e = unc__fs_makeerr(w, "fs.copy()", errno);
+            e = unc0_fs_makeerr(w, "fs.copy()", errno);
         else if (e == UNCIL_POSIX_ERR_EXISTS)
             e = unc_throwexc(w, "value", "fs.copy(): destination exists");
         else if (e == UNCIL_POSIX_ERR_DIRONFILE)
@@ -1815,19 +1815,19 @@ Unc_RetVal unc__lib_fs_copy(Unc_View *w, Unc_Tuple args, void *udata) {
         else if (e == UNCIL_POSIX_ERR_DIRONDIR)
             e = unc_throwexc(w, "value",
                 "fs.copy(): cannot copy directory on non-empty directory");
-        unc__mmfree(&w->world->alloc, fn1);
+        unc0_mmfree(&w->world->alloc, fn1);
         return e;
 #else
-        if (!overwrite && unc__ansiexists(fn2))
+        if (!overwrite && unc0_ansiexists(fn2))
             return unc_throwexc(w, "value", "fs.copy(): destination exists");
-        if (unc__ansicopy(fn, fn2, overwrite))
-            return unc__fs_makeerr(w, "fs.copy()", errno);
+        if (unc0_ansicopy(fn, fn2, overwrite))
+            return unc0_fs_makeerr(w, "fs.copy()", errno);
         return 0;
 #endif
     }
 }
 
-Unc_RetVal unc__lib_fs_lcopy(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_lcopy(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn, *fn2;
     int metadata, overwrite;
@@ -1841,9 +1841,9 @@ Unc_RetVal unc__lib_fs_lcopy(Unc_View *w, Unc_Tuple args, void *udata) {
     if (UNCIL_IS_ERR(overwrite)) return overwrite;
     {
 #if UNCIL_IS_POSIX
-        e = unc__copy_posix(&w->world->alloc, fn, fn2, metadata, overwrite);
+        e = unc0_copy_posix(&w->world->alloc, fn, fn2, metadata, overwrite);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.lcopy()", errno);
+            return unc0_fs_makeerr(w, "fs.lcopy()", errno);
         else if (e == UNCIL_POSIX_ERR_EXISTS)
             return unc_throwexc(w, "value", "fs.lcopy(): destination exists");
         else if (e == UNCIL_POSIX_ERR_DIRONFILE)
@@ -1857,16 +1857,16 @@ Unc_RetVal unc__lib_fs_lcopy(Unc_View *w, Unc_Tuple args, void *udata) {
                 "fs.lcopy(): cannot copy directory on non-empty directory");
         return e;
 #else
-        if (!overwrite && unc__ansiexists(fn2))
+        if (!overwrite && unc0_ansiexists(fn2))
             return unc_throwexc(w, "value", "fs.lcopy(): destination exists");
-        if (unc__ansicopy(fn, fn2, overwrite))
-            return unc__fs_makeerr(w, "fs.lcopy()", errno);
+        if (unc0_ansicopy(fn, fn2, overwrite))
+            return unc0_fs_makeerr(w, "fs.lcopy()", errno);
         return 0;
 #endif
     }
 }
 
-Unc_RetVal unc__lib_fs_rcopy(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_rcopy(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn, *fn2;
     int metadata, overwrite, follow;
@@ -1882,9 +1882,9 @@ Unc_RetVal unc__lib_fs_rcopy(Unc_View *w, Unc_Tuple args, void *udata) {
     if (UNCIL_IS_ERR(overwrite)) return follow;
     {
 #if UNCIL_IS_POSIX
-        e = unc__rcopy_posix(w, fn, fn2, metadata, overwrite, follow);
+        e = unc0_rcopy_posix(w, fn, fn2, metadata, overwrite, follow);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.rcopy()", errno);
+            return unc0_fs_makeerr(w, "fs.rcopy()", errno);
         return e;
 #else
         return UNCIL_ERR_LOGIC_NOTSUPPORTED;
@@ -1892,7 +1892,7 @@ Unc_RetVal unc__lib_fs_rcopy(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-Unc_RetVal unc__lib_fs_move(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_move(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn, *fn2;
     int overwrite;
@@ -1904,23 +1904,23 @@ Unc_RetVal unc__lib_fs_move(Unc_View *w, Unc_Tuple args, void *udata) {
     if (UNCIL_IS_ERR(overwrite)) return overwrite;
     {
 #if UNCIL_IS_POSIX
-        e = unc__move_posix(&w->world->alloc, fn, fn2, overwrite);
+        e = unc0_move_posix(&w->world->alloc, fn, fn2, overwrite);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.move()", errno);
+            return unc0_fs_makeerr(w, "fs.move()", errno);
         else if (e == UNCIL_POSIX_ERR_EXISTS)
             return unc_throwexc(w, "value", "fs.move(): destination exists");
         return e;
 #else
-        if (!overwrite && unc__ansiexists(fn2))
+        if (!overwrite && unc0_ansiexists(fn2))
             return unc_throwexc(w, "value", "fs.move(): destination exists");
         if (rename(fn, fn2))
-            return unc__fs_makeerr(w, "fs.move()", errno);
+            return unc0_fs_makeerr(w, "fs.move()", errno);
         return 0;
 #endif
     }
 }
 
-Unc_RetVal unc__lib_fs_link(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_fs_link(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     const char *fn, *fn2;
     int symbolic;
@@ -1932,9 +1932,9 @@ Unc_RetVal unc__lib_fs_link(Unc_View *w, Unc_Tuple args, void *udata) {
     if (UNCIL_IS_ERR(symbolic)) return symbolic;
     {
 #if UNCIL_IS_POSIX
-        e = unc__link_posix(&w->world->alloc, fn, fn2, symbolic);
+        e = unc0_link_posix(&w->world->alloc, fn, fn2, symbolic);
         if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            return unc__fs_makeerr(w, "fs.link()", errno);
+            return unc0_fs_makeerr(w, "fs.link()", errno);
         return e;
 #else
         return UNCIL_ERR_LOGIC_NOTSUPPORTED;
@@ -1990,111 +1990,111 @@ Unc_RetVal uncilmain_fs(struct Unc_View *w) {
 #endif
 #endif
     if (e) return e;
-    e = unc_exportcfunction(w, "exists", &unc__lib_fs_exists,
+    e = unc_exportcfunction(w, "exists", &unc0_lib_fs_exists,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "isdir", &unc__lib_fs_isdir,
+    e = unc_exportcfunction(w, "isdir", &unc0_lib_fs_isdir,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "isfile", &unc__lib_fs_isfile,
+    e = unc_exportcfunction(w, "isfile", &unc0_lib_fs_isfile,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "getcwd", &unc__lib_fs_getcwd,
+    e = unc_exportcfunction(w, "getcwd", &unc0_lib_fs_getcwd,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "setcwd", &unc__lib_fs_setcwd,
+    e = unc_exportcfunction(w, "setcwd", &unc0_lib_fs_setcwd,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "getext", &unc__lib_fs_getext,
+    e = unc_exportcfunction(w, "getext", &unc0_lib_fs_getext,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "normpath", &unc__lib_fs_normpath,
+    e = unc_exportcfunction(w, "normpath", &unc0_lib_fs_normpath,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "abspath", &unc__lib_fs_abspath,
+    e = unc_exportcfunction(w, "abspath", &unc0_lib_fs_abspath,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "realpath", &unc__lib_fs_realpath,
+    e = unc_exportcfunction(w, "realpath", &unc0_lib_fs_realpath,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "relpath", &unc__lib_fs_relpath,
+    e = unc_exportcfunction(w, "relpath", &unc0_lib_fs_relpath,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "pathjoin", &unc__lib_fs_pathjoin,
+    e = unc_exportcfunction(w, "pathjoin", &unc0_lib_fs_pathjoin,
                             UNC_CFUNC_CONCURRENT,
                             1, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "pathprefix", &unc__lib_fs_pathprefix,
+    e = unc_exportcfunction(w, "pathprefix", &unc0_lib_fs_pathprefix,
                             UNC_CFUNC_CONCURRENT,
                             1, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "pathsplit", &unc__lib_fs_pathsplit,
+    e = unc_exportcfunction(w, "pathsplit", &unc0_lib_fs_pathsplit,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "basename", &unc__lib_fs_basename,
+    e = unc_exportcfunction(w, "basename", &unc0_lib_fs_basename,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "dirname", &unc__lib_fs_dirname,
+    e = unc_exportcfunction(w, "dirname", &unc0_lib_fs_dirname,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "stat", &unc__lib_fs_stat,
+    e = unc_exportcfunction(w, "stat", &unc0_lib_fs_stat,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "lstat", &unc__lib_fs_lstat,
+    e = unc_exportcfunction(w, "lstat", &unc0_lib_fs_lstat,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "scan", &unc__lib_fs_scan,
+    e = unc_exportcfunction(w, "scan", &unc0_lib_fs_scan,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "mkdir", &unc__lib_fs_mkdir,
+    e = unc_exportcfunction(w, "mkdir", &unc0_lib_fs_mkdir,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "chmod", &unc__lib_fs_chmod,
+    e = unc_exportcfunction(w, "chmod", &unc0_lib_fs_chmod,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "remove", &unc__lib_fs_remove,
+    e = unc_exportcfunction(w, "remove", &unc0_lib_fs_remove,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "move", &unc__lib_fs_move,
+    e = unc_exportcfunction(w, "move", &unc0_lib_fs_move,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "copy", &unc__lib_fs_copy,
+    e = unc_exportcfunction(w, "copy", &unc0_lib_fs_copy,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "lcopy", &unc__lib_fs_lcopy,
+    e = unc_exportcfunction(w, "lcopy", &unc0_lib_fs_lcopy,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "rcopy", &unc__lib_fs_rcopy,
+    e = unc_exportcfunction(w, "rcopy", &unc0_lib_fs_rcopy,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "rdestroy", &unc__lib_fs_rdestroy,
+    e = unc_exportcfunction(w, "rdestroy", &unc0_lib_fs_rdestroy,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "link", &unc__lib_fs_link,
+    e = unc_exportcfunction(w, "link", &unc0_lib_fs_link,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

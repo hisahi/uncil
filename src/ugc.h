@@ -35,8 +35,8 @@ typedef struct Unc_GC {
     int entitylimit;
 } Unc_GC;
 
-void unc__gcdefaults(Unc_GC *gc);
-void unc__gccollect(struct Unc_World *w, struct Unc_View *v);
-Unc_Size unc__suggeststacksize(Unc_Size s);
+void unc0_gcdefaults(Unc_GC *gc);
+void unc0_gccollect(struct Unc_World *w, struct Unc_View *v);
+Unc_Size unc0_suggeststacksize(Unc_Size s);
 
 #endif /* UNCIL_UGC_H */

@@ -35,7 +35,7 @@ SOFTWARE.
 #include "uvop.h"
 
 /* init array and copy n values from v */
-int unc__initarray(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
+int unc0_initarray(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
     a->size = a->capacity = n;
     if (!n) {
         a->data = NULL;
@@ -50,7 +50,7 @@ int unc__initarray(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
 }
 
 /* init array and fill with n null values */
-int unc__initarrayn(Unc_View *w, Unc_Array *a, Unc_Size n) {
+int unc0_initarrayn(Unc_View *w, Unc_Array *a, Unc_Size n) {
     a->size = a->capacity = n;
     if (!n) {
         a->data = NULL;
@@ -65,7 +65,7 @@ int unc__initarrayn(Unc_View *w, Unc_Array *a, Unc_Size n) {
 }
 
 /* init array by concatenating two arrays */
-int unc__initarrayfromcat(Unc_View *w, Unc_Array *s,
+int unc0_initarrayfromcat(Unc_View *w, Unc_Array *s,
                           Unc_Size an, Unc_Value *av,
                           Unc_Size bn, Unc_Value *bv) {
     Unc_Size n = an + bn;
@@ -85,20 +85,20 @@ int unc__initarrayfromcat(Unc_View *w, Unc_Array *s,
 }
 
 /* init array and move n values from v */
-int unc__initarrayraw(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
+int unc0_initarrayraw(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
     a->size = a->capacity = n;
     if (!n) {
         a->data = NULL;
     } else {
         a->data = TMALLOC(Unc_Value, &w->world->alloc, Unc_AllocArray, n);
         if (!a->data) return UNCIL_ERR_MEM;
-        unc__memcpy(a->data, v, n * sizeof(Unc_Value));
+        unc0_memcpy(a->data, v, n * sizeof(Unc_Value));
     }
     return UNC_LOCKINITL(a->lock);
 }
 
 /* concatenate n values from v onto a */
-int unc__arraycatr(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
+int unc0_arraycatr(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
     Unc_Size c = a->capacity, s = a->size, ns = s + n, i;
     if (ns > c) {
         Unc_Size nc = (3 * c) / 2;
@@ -117,17 +117,17 @@ int unc__arraycatr(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
 }
 
 /* append/push one value to a */
-int unc__arraypush(Unc_View *w, Unc_Array *a, Unc_Value *v) {
-    return unc__arraycatr(w, a, 1, v);
+int unc0_arraypush(Unc_View *w, Unc_Array *a, Unc_Value *v) {
+    return unc0_arraycatr(w, a, 1, v);
 }
 
 /* concatenate array a2 to a */
-int unc__arraycat(Unc_View *w, Unc_Array *a, const Unc_Array *a2) {
-    return unc__arraycatr(w, a, a2->size, a2->data);
+int unc0_arraycat(Unc_View *w, Unc_Array *a, const Unc_Array *a2) {
+    return unc0_arraycatr(w, a, a2->size, a2->data);
 }
 
 /* append/push N null values to a */
-int unc__arraypushn(Unc_View *w, Unc_Array *a, Unc_Size n) {
+int unc0_arraypushn(Unc_View *w, Unc_Array *a, Unc_Size n) {
     Unc_Size c = a->capacity, s = a->size, ns = s + n, i;
     Unc_Value nl = UNC_BLANK;
     if (ns > c) {
@@ -147,7 +147,7 @@ int unc__arraypushn(Unc_View *w, Unc_Array *a, Unc_Size n) {
 }
 
 /* insert n values from v into a at index i */
-int unc__arrayinsr(Unc_View *w, Unc_Array *a, Unc_Size i,
+int unc0_arrayinsr(Unc_View *w, Unc_Array *a, Unc_Size i,
                     Unc_Size n, Unc_Value *v) {
     Unc_Size c = a->capacity, s = a->size, ns = s + n, j;
     if (i > a->size)
@@ -163,7 +163,7 @@ int unc__arrayinsr(Unc_View *w, Unc_Array *a, Unc_Size i,
         a->capacity = nc;
     }
     if (i < a->size)
-        unc__memmove(a->data + i + n, a->data + i,
+        unc0_memmove(a->data + i + n, a->data + i,
                     (a->size - i) * sizeof(Unc_Value));
     for (j = 0; j < n; ++j)
         VCOPY(w, &a->data[i + j], &v[j]);
@@ -172,24 +172,24 @@ int unc__arrayinsr(Unc_View *w, Unc_Array *a, Unc_Size i,
 }
 
 /* insert value v into a at index i */
-int unc__arrayinsv(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Value *v) {
-    return unc__arrayinsr(w, a, i, 1, v);
+int unc0_arrayinsv(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Value *v) {
+    return unc0_arrayinsr(w, a, i, 1, v);
 }
 
 /* insert array a2 into a at index i */
-int unc__arrayins(Unc_View *w, Unc_Array *a, Unc_Size i, const Unc_Array *a2) {
-    return unc__arrayinsr(w, a, i, a2->size, a2->data);
+int unc0_arrayins(Unc_View *w, Unc_Array *a, Unc_Size i, const Unc_Array *a2) {
+    return unc0_arrayinsr(w, a, i, a2->size, a2->data);
 }
 
 /* delete n items from array a at index i */
-int unc__arraydel(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n) {
+int unc0_arraydel(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n) {
     if (i + n > a->size)
         return UNCIL_ERR_ARG_OUTOFBOUNDS;
     if (n) {
         Unc_Size j, e = i + n;
         for (j = i; j < e; ++j)
             VDECREF(w, &a->data[j]);
-        unc__memmove(a->data + i, a->data + i + n,
+        unc0_memmove(a->data + i, a->data + i + n,
                     (a->size - i - n) * sizeof(Unc_Value));
         a->size -= n;
     }
@@ -197,24 +197,24 @@ int unc__arraydel(Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n) {
 }
 
 /* drop/delete array, destructor */
-void unc__droparray(Unc_View *w, Unc_Array *a) {
+void unc0_droparray(Unc_View *w, Unc_Array *a) {
     Unc_Size s = a->size, i;
     UNC_LOCKFINAL(a->lock);
     for (i = 0; i < s; ++i)
         VDECREF(w, &a->data[i]);
-    unc__sunsetarray(&w->world->alloc, a);
+    unc0_sunsetarray(&w->world->alloc, a);
 }
 
 /* sunset array (free without destructor) */
-void unc__sunsetarray(Unc_Allocator *alloc, Unc_Array *a) {
+void unc0_sunsetarray(Unc_Allocator *alloc, Unc_Array *a) {
     TMFREE(Unc_Value, alloc, a->data, a->capacity);
 }
 
 /* array index getter */
-int unc__agetindx(Unc_View *w, Unc_Array *a,
+int unc0_agetindx(Unc_View *w, Unc_Array *a,
                     Unc_Value *indx, int permissive, Unc_Value *out) {
     Unc_Int i;
-    int e = unc__vgetint(w, indx, &i);
+    int e = unc0_vgetint(w, indx, &i);
     if (e) {
         if (e == UNCIL_ERR_CONVERT_TOINT)
             e = UNCIL_ERR_ARG_INDEXNOTINTEGER;
@@ -234,9 +234,9 @@ int unc__agetindx(Unc_View *w, Unc_Array *a,
 }
 
 /* array index setter */
-int unc__asetindx(Unc_View *w, Unc_Array *a, Unc_Value *indx, Unc_Value *v) {
+int unc0_asetindx(Unc_View *w, Unc_Array *a, Unc_Value *indx, Unc_Value *v) {
     Unc_Int i;
-    int e = unc__vgetint(w, indx, &i);
+    int e = unc0_vgetint(w, indx, &i);
     if (e) {
         if (e == UNCIL_ERR_CONVERT_TOINT)
             e = UNCIL_ERR_ARG_INDEXNOTINTEGER;

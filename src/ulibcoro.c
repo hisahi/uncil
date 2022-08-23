@@ -55,7 +55,7 @@ Unc_RetVal unc_coroutine_destr(Unc_View *w, size_t n, void *data) {
     return 0;
 }
 
-Unc_RetVal unc__lib_coro_c_canresume(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_coro_c_canresume(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine *coro;
 
@@ -83,11 +83,11 @@ Unc_RetVal unc__lib_coro_c_canresume(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_coro_current(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_coro_current(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_push(w, 1, &w->coroutine, NULL);
 }
 
-Unc_RetVal unc__lib_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
                                        void *udata) {
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine *coro;
@@ -117,7 +117,7 @@ Unc_RetVal unc__lib_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_coro_new(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_coro_new(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine coro, *pcoro;
@@ -145,7 +145,7 @@ Unc_RetVal unc__lib_coro_new(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine *coro;
@@ -184,12 +184,12 @@ Unc_RetVal unc__lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 
     cw = coro->view;
-    e = unc__stackpush(cw, &cw->sval, args.count - 1, args.values + 1);
+    e = unc0_stackpush(cw, &cw->sval, args.count - 1, args.values + 1);
     if (!e && init) {
-        e = unc__vmrpush(cw);
-        if (!e) e = unc__fcallv(cw, coro->task, args.count - 1, 1, 1, 0, 0);
+        e = unc0_vmrpush(cw);
+        if (!e) e = unc0_fcallv(cw, coro->task, args.count - 1, 1, 1, 0, 0);
         if (e) {
-            unc__restoredepth(cw, &cw->sval, 0);
+            unc0_restoredepth(cw, &cw->sval, 0);
             cw->region.top = cw->region.base;
         }
     }
@@ -208,7 +208,7 @@ Unc_RetVal unc__lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
     return UNCIL_ERR_TRAMPOLINE;
 }
 
-static Unc_View *unc__coroyield(Unc_View *w, int *e,
+static Unc_View *unc0_coroyield(Unc_View *w, int *e,
                                 int finish, Unc_Tuple retval) {
     int er = *e;
     Unc_View *cw;
@@ -219,10 +219,10 @@ static Unc_View *unc__coroyield(Unc_View *w, int *e,
     cw = coro->returnto;
     ASSERT(cw);
     if (!er) {
-        int ex = unc__stackpush(cw, &cw->sval, retval.count, retval.values);
+        int ex = unc0_stackpush(cw, &cw->sval, retval.count, retval.values);
         if (ex) *e = ex;
     } else
-        unc__errinfocopyfrom(cw, w);
+        unc0_errinfocopyfrom(cw, w);
     coro->status = er ? UNC_CORO_ST_ERROR 
                 : (finish ? UNC_CORO_ST_DONE : UNC_CORO_ST_YIELD);
     UNC_UNLOCKL(s->lock);
@@ -233,23 +233,23 @@ static Unc_View *unc__coroyield(Unc_View *w, int *e,
     return cw;
 }
 
-Unc_View *unc__corofinish(Unc_View *w, int *e) {
+Unc_View *unc0_corofinish(Unc_View *w, int *e) {
     Unc_Tuple rv;
-    rv.count = unc__stackdepth(&w->sval);
+    rv.count = unc0_stackdepth(&w->sval);
     rv.values = w->sval.base;
-    return unc__coroyield(w, e, 1, rv);
+    return unc0_coroyield(w, e, 1, rv);
 }
 
-Unc_RetVal unc__lib_coro_yield(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_coro_yield(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     if (!VGETTYPE(&w->coroutine))
         return unc_throwexc(w, "usage", "cannot yield from main routine");
     e = 0;
-    w->trampoline = unc__coroyield(w, &e, 0, args);
+    w->trampoline = unc0_coroyield(w, &e, 0, args);
     return e ? e : UNCIL_ERR_TRAMPOLINE;
 }
 
-Unc_RetVal unc__lib_coro_canyield(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_coro_canyield(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     unc_setbool(w, &v, VGETTYPE(&w->coroutine));
     return unc_pushmove(w, &v, NULL);
@@ -262,22 +262,22 @@ Unc_RetVal uncilmain_coroutine(Unc_View *w) {
     e = unc_newobject(w, &coro, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "canyield", &unc__lib_coro_canyield,
+    e = unc_exportcfunction(w, "canyield", &unc0_lib_coro_canyield,
                             UNC_CFUNC_CONCURRENT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "current", &unc__lib_coro_current,
+    e = unc_exportcfunction(w, "current", &unc0_lib_coro_current,
                             UNC_CFUNC_CONCURRENT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "new", &unc__lib_coro_new,
+    e = unc_exportcfunction(w, "new", &unc0_lib_coro_new,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 1, NULL, 1, &coro, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "yield", &unc__lib_coro_yield,
+    e = unc_exportcfunction(w, "yield", &unc0_lib_coro_yield,
                             UNC_CFUNC_CONCURRENT,
                             0, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
@@ -293,7 +293,7 @@ Unc_RetVal uncilmain_coroutine(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_coro_c_canresume,
+        e = unc_newcfunction(w, &fn, &unc0_lib_coro_c_canresume,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &coro, 0, NULL, "canresume", NULL);
@@ -301,7 +301,7 @@ Unc_RetVal uncilmain_coroutine(Unc_View *w) {
         e = unc_setattrc(w, &coro, "canresume", &fn);
         if (e) return e;
         
-        e = unc_newcfunction(w, &fn, &unc__lib_coro_c_hasfinished,
+        e = unc_newcfunction(w, &fn, &unc0_lib_coro_c_hasfinished,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &coro, 0, NULL, "hasfinished", NULL);
@@ -309,7 +309,7 @@ Unc_RetVal uncilmain_coroutine(Unc_View *w) {
         e = unc_setattrc(w, &coro, "hasfinished", &fn);
         if (e) return e;
         
-        e = unc_newcfunction(w, &fn, &unc__lib_coro_c_resume,
+        e = unc_newcfunction(w, &fn, &unc0_lib_coro_c_resume,
                              UNC_CFUNC_CONCURRENT,
                              1, 1, 0, NULL,
                              1, &coro, 0, NULL, "resume", NULL);

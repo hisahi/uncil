@@ -31,13 +31,13 @@ SOFTWARE.
 #include "umt.h"
 #include "uprog.h"
 
-Unc_Program *unc__newprogram(Unc_Allocator *alloc) {
+Unc_Program *unc0_newprogram(Unc_Allocator *alloc) {
     Unc_Program *p = TMALLOC(Unc_Program, alloc, 0, 1);
-    if (p) unc__initprogram(p);
+    if (p) unc0_initprogram(p);
     return p;
 }
 
-void unc__initprogram(Unc_Program *program) {
+void unc0_initprogram(Unc_Program *program) {
     program->uncil_version = UNCIL_PROGRAM_VER;
     ATOMICLSET(program->refcount, 0);
     program->code_sz = program->data_sz = 0;
@@ -47,7 +47,7 @@ void unc__initprogram(Unc_Program *program) {
     program->pname = NULL;
 }
 
-int unc__upgradeprogram(Unc_Program *program, Unc_Allocator *alloc) {
+int unc0_upgradeprogram(Unc_Program *program, Unc_Allocator *alloc) {
     if (program->uncil_version == UNCIL_PROGRAM_VER)
         return 0;
     if (program->uncil_version > UNCIL_PROGRAM_VER)
@@ -58,26 +58,26 @@ int unc__upgradeprogram(Unc_Program *program, Unc_Allocator *alloc) {
     return 0;
 }
 
-void unc__dropprogram(Unc_Program *program, Unc_Allocator *alloc) {
-    unc__mfree(alloc, program->code, program->code_sz);
-    unc__mfree(alloc, program->data, program->data_sz);
-    if (program->pname) unc__mmfree(alloc, program->pname);
-    unc__initprogram(program);
+void unc0_dropprogram(Unc_Program *program, Unc_Allocator *alloc) {
+    unc0_mfree(alloc, program->code, program->code_sz);
+    unc0_mfree(alloc, program->data, program->data_sz);
+    if (program->pname) unc0_mmfree(alloc, program->pname);
+    unc0_initprogram(program);
 }
 
-void unc__freeprogram(Unc_Program *program, Unc_Allocator *alloc) {
-    unc__dropprogram(program, alloc);
+void unc0_freeprogram(Unc_Program *program, Unc_Allocator *alloc) {
+    unc0_dropprogram(program, alloc);
     TMFREE(Unc_Program, alloc, program, 1);
 }
 
-Unc_Program *unc__progincref(Unc_Program *program) {
+Unc_Program *unc0_progincref(Unc_Program *program) {
     ATOMICLINC(program->refcount);
     ASSERT(program->refcount);
     return program;
 }
 
-Unc_Program *unc__progdecref(Unc_Program *program, Unc_Allocator *alloc) {
+Unc_Program *unc0_progdecref(Unc_Program *program, Unc_Allocator *alloc) {
     if (!ATOMICLDEC(program->refcount))
-        unc__freeprogram(program, alloc);
+        unc0_freeprogram(program, alloc);
     return NULL;
 }

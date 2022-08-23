@@ -32,11 +32,11 @@ SOFTWARE.
 #include "uvali.h"
 #include "uvop.h"
 
-int unc__stackinit(Unc_View *w, Unc_Stack *s, Unc_Size start) {
+int unc0_stackinit(Unc_View *w, Unc_Stack *s, Unc_Size start) {
     s->base = s->top = s->end = NULL;
     if (start) {
         Unc_Allocator *alloc = &w->world->alloc;
-        Unc_Value *v = unc__malloc(alloc, 0, start * sizeof(Unc_Value));
+        Unc_Value *v = unc0_malloc(alloc, 0, start * sizeof(Unc_Value));
         if (!v)
             return UNCIL_ERR_MEM;
         s->base = s->top = v;
@@ -45,7 +45,7 @@ int unc__stackinit(Unc_View *w, Unc_Stack *s, Unc_Size start) {
     return 0;
 }
 
-int unc__stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
+int unc0_stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     Unc_Size q = s->top - s->base, c = s->end - s->base;
     if (q + n > c) {
         Unc_Allocator *alloc = &w->world->alloc;
@@ -53,7 +53,7 @@ int unc__stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
         Unc_Value *newbase;
         if (q + n > nc)
             nc = q + n + 4;
-        newbase = unc__mrealloc(alloc, 0, s->base,
+        newbase = unc0_mrealloc(alloc, 0, s->base,
                             c * sizeof(Unc_Value), nc * sizeof(Unc_Value));
         if (!newbase)
             return UNCIL_ERR_MEM;
@@ -64,9 +64,9 @@ int unc__stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     return 0;
 }
 
-int unc__stackpush(Unc_View *w, Unc_Stack *s, Unc_Size n, Unc_Value *v) {
+int unc0_stackpush(Unc_View *w, Unc_Stack *s, Unc_Size n, Unc_Value *v) {
     Unc_Size i;
-    int e = unc__stackreserve(w, s, n);
+    int e = unc0_stackreserve(w, s, n);
     if (e) return e;
     for (i = 0; i < n; ++i)
         VIMPOSE(w, &s->top[i], &v[i]);
@@ -74,9 +74,9 @@ int unc__stackpush(Unc_View *w, Unc_Stack *s, Unc_Size n, Unc_Value *v) {
     return 0;
 }
 
-int unc__stackpushn(Unc_View *w, Unc_Stack *s, Unc_Size n) {
+int unc0_stackpushn(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     Unc_Size i;
-    int e = unc__stackreserve(w, s, n);
+    int e = unc0_stackreserve(w, s, n);
     if (e) return e;
     for (i = 0; i < n; ++i)
         VINITNULL(&s->top[i]);
@@ -84,28 +84,28 @@ int unc__stackpushn(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     return 0;
 }
 
-int unc__stackpushv(Unc_View *w, Unc_Stack *s, Unc_Value *v) {
-    int e = unc__stackreserve(w, s, 1);
+int unc0_stackpushv(Unc_View *w, Unc_Stack *s, Unc_Value *v) {
+    int e = unc0_stackreserve(w, s, 1);
     if (e) return e;
     VIMPOSE(w, s->top++, v);
     return 0;
 }
 
-int unc__stackinsert(Unc_View *w, Unc_Stack *s, Unc_Size i, Unc_Value *v) {
-    int e = unc__stackreserve(w, s, 1);
+int unc0_stackinsert(Unc_View *w, Unc_Stack *s, Unc_Size i, Unc_Value *v) {
+    int e = unc0_stackreserve(w, s, 1);
     if (e) return e;
-    unc__memmove(s->base + i + 1, s->base + i,
+    unc0_memmove(s->base + i + 1, s->base + i,
                  sizeof(Unc_Value) * (s->top - s->base - i));
     VIMPOSE(w, &s->base[i], v);
     ++s->top;
     return 0;
 }
 
-int unc__stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
+int unc0_stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
                                                      Unc_Size n, Unc_Value *v) {
-    int e = unc__stackreserve(w, s, n);
+    int e = unc0_stackreserve(w, s, n);
     if (e) return e;
-    unc__memmove(s->base + i + n, s->base + i,
+    unc0_memmove(s->base + i + n, s->base + i,
                  sizeof(Unc_Value) * (s->top - s->base - i));
     s->top += n;
     while (n--)
@@ -113,21 +113,21 @@ int unc__stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
     return 0;
 }
 
-int unc__stackinsertn(struct Unc_View *w, Unc_Stack *s,
+int unc0_stackinsertn(struct Unc_View *w, Unc_Stack *s,
                                                     Unc_Size i, Unc_Value *v) {
-    int e = unc__stackreserve(w, s, 1);
+    int e = unc0_stackreserve(w, s, 1);
     if (e) return e;
-    unc__memmove(s->top - i + 1, s->top - i, sizeof(Unc_Value) * i);
+    unc0_memmove(s->top - i + 1, s->top - i, sizeof(Unc_Value) * i);
     VIMPOSE(w, s->top - i, v);
     ++s->top;
     return 0;
 }
 
-Unc_Value *unc__stackat(Unc_Stack *s, int offset) {
+Unc_Value *unc0_stackat(Unc_Stack *s, int offset) {
     return s->top - 1 - offset;
 }
 
-Unc_Value *unc__stackbeyond(Unc_Stack *s, int offset) {
+Unc_Value *unc0_stackbeyond(Unc_Stack *s, int offset) {
     return s->top + offset;
 }
 
@@ -136,7 +136,7 @@ INLINE void stackdecrefs(Unc_View *w, Unc_Value *v, Unc_Size n) {
         VDECREF(w, --v);
 }
 
-void unc__restoredepth(Unc_View *w, Unc_Stack *s, Unc_Size d) {
+void unc0_restoredepth(Unc_View *w, Unc_Stack *s, Unc_Size d) {
     Unc_Size n = s->top - s->base;
     ASSERT(n >= d);
     if (n > d) {
@@ -145,7 +145,7 @@ void unc__restoredepth(Unc_View *w, Unc_Stack *s, Unc_Size d) {
     }
 }
 
-void unc__stackwunwind(Unc_View *w, Unc_Stack *s, Unc_Size d, int onexit) {
+void unc0_stackwunwind(Unc_View *w, Unc_Stack *s, Unc_Size d, int onexit) {
     Unc_Size n = s->top - s->base;
     ASSERT(n >= d);
     if (n > d) {
@@ -153,14 +153,14 @@ void unc__stackwunwind(Unc_View *w, Unc_Stack *s, Unc_Size d, int onexit) {
         while (n > d) {
             --n;
             --s->top;
-            unc__vdowout(w, s->top);
+            unc0_vdowout(w, s->top);
             VDECREF(w, s->top);
         }
         if (onexit) --w->frames.top;
     }
 }
 
-void unc__stackpullrug(Unc_View *w, Unc_Stack *s, Unc_Size d, Unc_Size e) {
+void unc0_stackpullrug(Unc_View *w, Unc_Stack *s, Unc_Size d, Unc_Size e) {
     Unc_Size n = s->top - s->base;
     ASSERT(n >= d);
     ASSERT(n >= e);
@@ -168,22 +168,22 @@ void unc__stackpullrug(Unc_View *w, Unc_Stack *s, Unc_Size d, Unc_Size e) {
     if (e > d) {
         Unc_Size r = n - e;
         stackdecrefs(w, s->base + e, e - d);
-        unc__memmove(s->base + d, s->base + e, r * sizeof(Unc_Value));
+        unc0_memmove(s->base + d, s->base + e, r * sizeof(Unc_Value));
         s->top = s->base + d + r;
     }
 }
 
-void unc__stackpop(Unc_View *w, Unc_Stack *s, Unc_Size n) {
+void unc0_stackpop(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     stackdecrefs(w, s->top, n);
     s->top -= n;
     if (s->top < s->base)
         s->top = s->base;
 }
 
-void unc__stackfree(Unc_View *w, Unc_Stack *s) {
+void unc0_stackfree(Unc_View *w, Unc_Stack *s) {
     Unc_Allocator *alloc = &w->world->alloc;
     Unc_Size n = s->top - s->base, c = s->end - s->base;
     stackdecrefs(w, s->top, n);
-    unc__mfree(alloc, s->base, c * sizeof(Unc_Value));
+    unc0_mfree(alloc, s->base, c * sizeof(Unc_Value));
     s->base = s->top = s->end = NULL;
 }

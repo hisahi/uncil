@@ -31,7 +31,7 @@ SOFTWARE.
 #include "uhash.h"
 #include "umem.h"
 
-int unc__newcontext(Unc_Context *cxt, Unc_Allocator *alloc) {
+int unc0_newcontext(Unc_Context *cxt, Unc_Allocator *alloc) {
     cxt->alloc = alloc;
     cxt->regbase = 0;
     cxt->extend = 0;
@@ -41,6 +41,6 @@ int unc__newcontext(Unc_Context *cxt, Unc_Allocator *alloc) {
     return 0;
 }
 
-void unc__dropcontext(Unc_Context *cxt) {
+void unc0_dropcontext(Unc_Context *cxt) {
     (void)cxt;
 }

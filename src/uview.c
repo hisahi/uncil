@@ -36,12 +36,12 @@ SOFTWARE.
 #include "uvali.h"
 #include "uview.h"
 
-Unc_World *unc__incept(Unc_Alloc allocfn, void *udata) {
+Unc_World *unc0_incept(Unc_Alloc allocfn, void *udata) {
     Unc_World *world;
     Unc_Allocator alloc;
     int e;
-    unc__initalloc(&alloc, NULL, allocfn, udata);
-    world = unc__malloc(&alloc, 0, sizeof(Unc_World));
+    unc0_initalloc(&alloc, NULL, allocfn, udata);
+    world = unc0_malloc(&alloc, 0, sizeof(Unc_World));
     if (!world) return NULL;
     
     world->alloc = alloc;
@@ -52,42 +52,42 @@ Unc_World *unc__incept(Unc_Alloc allocfn, void *udata) {
     world->view = NULL;
     world->viewlast = NULL;
     world->wmode = 0;
-    if ((e = UNC_LOCKINITF(world->viewlist_lock))) goto unc__incept_fail_l0;
-    if ((e = UNC_LOCKINITF(world->public_lock))) goto unc__incept_fail_l1;
-    if ((e = UNC_LOCKINITF(world->entity_lock))) goto unc__incept_fail_l2;
-    unc__inithtbls(&alloc, &world->pubs);
+    if ((e = UNC_LOCKINITF(world->viewlist_lock))) goto unc0_incept_fail_l0;
+    if ((e = UNC_LOCKINITF(world->public_lock))) goto unc0_incept_fail_l1;
+    if ((e = UNC_LOCKINITF(world->entity_lock))) goto unc0_incept_fail_l2;
+    unc0_inithtbls(&alloc, &world->pubs);
     VINITNULL(&world->met_str);
     VINITNULL(&world->met_blob);
     VINITNULL(&world->met_arr);
     VINITNULL(&world->met_dict);
     VINITNULL(&world->io_file);
     world->ccxt.alloc = NULL;
-    unc__inithtbls(&alloc, &world->modulecache);
-    unc__gcdefaults(&world->gc);
+    unc0_inithtbls(&alloc, &world->modulecache);
+    unc0_gcdefaults(&world->gc);
     VINITNULL(&world->modulepaths);
     VINITNULL(&world->moduledlpaths);
-    unc__initenctable(&alloc, &world->encs);
-    if (0) goto unc__incept_fail;
+    unc0_initenctable(&alloc, &world->encs);
+    if (0) goto unc0_incept_fail;
     ATOMICLSET(world->refs, 0);
     ATOMICSSET(world->finalize, 0);
     return world;
 
-unc__incept_fail:
+unc0_incept_fail:
     UNC_LOCKFINAF(world->entity_lock);
-unc__incept_fail_l2:
+unc0_incept_fail_l2:
     UNC_LOCKFINAF(world->public_lock);
-unc__incept_fail_l1:
+unc0_incept_fail_l1:
     UNC_LOCKFINAF(world->viewlist_lock);
-unc__incept_fail_l0:
-    unc__mfree(&alloc, world, sizeof(Unc_World));
+unc0_incept_fail_l0:
+    unc0_mfree(&alloc, world, sizeof(Unc_World));
     return NULL;
 }
 
-void unc__haltview(Unc_View *w) {
+void unc0_haltview(Unc_View *w) {
     ATOMICSSET(w->flow, UNC_VIEW_FLOW_HALT);
 }
 
-INLINE void unc__waitsubviews(Unc_World *w) {
+INLINE void unc0_waitsubviews(Unc_World *w) {
     Unc_View *v;
     if (ATOMICSXCG(w->finalize, 1)) return;
 #if UNCIL_MT_OK
@@ -95,7 +95,7 @@ INLINE void unc__waitsubviews(Unc_World *w) {
     while (v) {
         if (v->vtype == Unc_ViewTypeSub) {
             if (VGETTYPE(&v->threadme) == Unc_TOpaque)
-                unc__waitonviewthread(v);
+                unc0_waitonviewthread(v);
             else {
                 while (v->vtype >= 0) {
                     UNC_LOCKF(v->runlock);
@@ -111,69 +111,69 @@ INLINE void unc__waitsubviews(Unc_World *w) {
     v = w->view;
     while (v) {
         if (v->vtype >= 0) {
-            unc__haltview(v);
+            unc0_haltview(v);
             v = v->nextview;
         } else {
             Unc_View *vv = v->nextview;
-            unc__freeview(v);
+            unc0_freeview(v);
             v = vv;
         }
     }
     UNC_UNLOCKF(w->viewlist_lock);
 }
 
-void unc__doomsday(Unc_View *v, Unc_World *w) {
+void unc0_doomsday(Unc_View *v, Unc_World *w) {
     Unc_Allocator alloc = w->alloc;
     Unc_Entity *e, *ee;
     if (v) UNC_UNLOCKF(w->viewlist_lock);
     e = w->etop;
-    if (v) unc__dropenctable(v, &w->encs);
+    if (v) unc0_dropenctable(v, &w->encs);
     while (e) {
         if (e->type == Unc_TOpaque)
-            unc__graceopaque(v, LEFTOVER(Unc_Opaque, e));
+            unc0_graceopaque(v, LEFTOVER(Unc_Opaque, e));
         e = e->down;
     }
-    if (w->ccxt.alloc) unc__dropcontext(&w->ccxt);
+    if (w->ccxt.alloc) unc0_dropcontext(&w->ccxt);
     if (v) {
-        unc__drophtbls(v, &w->pubs);
-        unc__drophtbls(v, &w->modulecache);
+        unc0_drophtbls(v, &w->pubs);
+        unc0_drophtbls(v, &w->modulecache);
         unc_clear(v, &w->modulepaths);
         unc_clear(v, &w->moduledlpaths);
     }
     e = w->etop;
     while (e) {
         ee = e->down;
-        unc__scrap(e, &alloc, NULL);
-        unc__efree(e, &alloc);
+        unc0_scrap(e, &alloc, NULL);
+        unc0_efree(e, &alloc);
         e = ee;
     }
     UNC_LOCKFINAF(w->entity_lock);
     UNC_LOCKFINAF(w->public_lock);
     UNC_LOCKFINAF(w->viewlist_lock);
-    unc__mfree(&alloc, w, sizeof(Unc_World));
+    unc0_mfree(&alloc, w, sizeof(Unc_World));
 }
 
 #define INITIAL_REGION_SIZE 8
 #define INITIAL_FRAMES_SIZE 4
 
-Unc_View *unc__newview(Unc_World *w, Unc_ViewType vtype) {
+Unc_View *unc0_newview(Unc_World *w, Unc_ViewType vtype) {
     Unc_Allocator *alloc = &w->alloc;
     Unc_View *view;
     if (w->finalize) return NULL;
-    view = unc__malloc(alloc, 0, sizeof(Unc_View));
+    view = unc0_malloc(alloc, 0, sizeof(Unc_View));
     if (!view) return NULL;
     
     view->world = w;
-    if (unc__stackinit(view, &view->sreg, 16))
+    if (unc0_stackinit(view, &view->sreg, 16))
         goto fail0;
-    if (unc__stackinit(view, &view->sval, 16))
+    if (unc0_stackinit(view, &view->sval, 16))
         goto fail1;
-    if (!(view->frames.base = unc__malloc(alloc, 0, INITIAL_FRAMES_SIZE *
+    if (!(view->frames.base = unc0_malloc(alloc, 0, INITIAL_FRAMES_SIZE *
                                                     sizeof(Unc_Frame))))
         goto fail2;
     view->frames.top = view->frames.base;
     view->frames.end = view->frames.base + INITIAL_FRAMES_SIZE;
-    if (!(view->region.base = unc__malloc(alloc, 0, INITIAL_REGION_SIZE *
+    if (!(view->region.base = unc0_malloc(alloc, 0, INITIAL_REGION_SIZE *
                                                     sizeof(Unc_Value *))))
         goto fail3;
     view->region.top = view->region.base;
@@ -271,66 +271,66 @@ fail5:
     UNC_LOCKFINAF(view->runlock);
 #endif
 fail4:
-    unc__mfree(alloc, view->region.base, sizeof(Unc_Value *) *
+    unc0_mfree(alloc, view->region.base, sizeof(Unc_Value *) *
                                 (view->region.end - view->region.base));
 fail3:
-    unc__mfree(alloc, view->frames.base, sizeof(Unc_Frame) *
+    unc0_mfree(alloc, view->frames.base, sizeof(Unc_Frame) *
                                 (view->frames.end - view->frames.base));
 fail2:
-    unc__stackfree(view, &view->sval);
+    unc0_stackfree(view, &view->sval);
 fail1:
-    unc__stackfree(view, &view->sreg);
+    unc0_stackfree(view, &view->sreg);
 fail0:
-    unc__mfree(alloc, view, sizeof(Unc_View));
+    unc0_mfree(alloc, view, sizeof(Unc_View));
     return NULL;
 }
 
-void unc__freeview(Unc_View *v) {
+void unc0_freeview(Unc_View *v) {
     Unc_Size i;
     Unc_World *w = v->world;
     Unc_Allocator alloc = w->alloc;
     ATOMICSSET(v->paused, 1);
     (void)UNC_LOCKFP(v, w->viewlist_lock);
-    unc__stackwunwind(v, &v->swith, 0, 0);
+    unc0_stackwunwind(v, &v->swith, 0, 0);
     VDECREF(v, &v->exc);
     VDECREF(v, &v->fmain);
     VDECREF(v, &v->coroutine);
 #if UNCIL_MT_OK
     VDECREF(v, &v->threadme);
 #endif
-    if (v->pubs && v->pubs != &w->pubs) unc__drophtbls(v, v->pubs);
-    if (v->exports) unc__drophtbls(v, v->exports);
-    if (v->program) unc__progdecref(v->program, &alloc);
+    if (v->pubs && v->pubs != &w->pubs) unc0_drophtbls(v, v->pubs);
+    if (v->exports) unc0_drophtbls(v, v->exports);
+    if (v->program) unc0_progdecref(v->program, &alloc);
     for (i = 0; i < UNC_SLEEPER_VALUES; ++i)
         if (v->sleepers[i])
-            unc__wreck(v->sleepers[i], w);
-    unc__stackfree(v, &v->sreg);
-    unc__stackfree(v, &v->sval);
-    unc__stackfree(v, &v->swith);
-    unc__mfree(&alloc, v->rwith.base, sizeof(size_t) *
+            unc0_wreck(v->sleepers[i], w);
+    unc0_stackfree(v, &v->sreg);
+    unc0_stackfree(v, &v->sval);
+    unc0_stackfree(v, &v->swith);
+    unc0_mfree(&alloc, v->rwith.base, sizeof(size_t) *
                                 (v->rwith.end - v->rwith.base));
-    unc__mfree(&alloc, v->frames.base, sizeof(Unc_Frame) *
+    unc0_mfree(&alloc, v->frames.base, sizeof(Unc_Frame) *
                                 (v->frames.end - v->frames.base));
-    unc__mfree(&alloc, v->region.base, sizeof(Unc_Value *) *
+    unc0_mfree(&alloc, v->region.base, sizeof(Unc_Value *) *
                                 (v->region.end - v->region.base));
     if (v->prevview) v->prevview->nextview = v->nextview;
     else if (w->view == v) w->view = v->nextview;
     if (v->nextview) v->nextview->prevview = v->prevview;
     else if (w->viewlast == v) w->viewlast = v->prevview;
     if (!v->vtype && !ATOMICLDEC(w->refs))
-        unc__waitsubviews(w);
+        unc0_waitsubviews(w);
 #if UNCIL_MT_OK
     UNC_LOCKFINAF(v->runlock);
 #endif
-    if (!--w->viewc) unc__doomsday(v, w);
+    if (!--w->viewc) unc0_doomsday(v, w);
     else UNC_UNLOCKF(w->viewlist_lock);
-    unc__mfree(&alloc, v, sizeof(Unc_View));
+    unc0_mfree(&alloc, v, sizeof(Unc_View));
 }
 
-void unc__wsetprogram(Unc_View *w, Unc_Program *p) {
+void unc0_wsetprogram(Unc_View *w, Unc_Program *p) {
     Unc_Program *op = w->program;
-    w->program = unc__progincref(p);
-    if (op) unc__progdecref(op, &w->world->alloc);
+    w->program = unc0_progincref(p);
+    if (op) unc0_progdecref(op, &w->world->alloc);
     w->bcode = p->code;
     w->bdata = p->data;
 }

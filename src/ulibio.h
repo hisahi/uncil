@@ -43,42 +43,42 @@ struct Unc_Allocator;
 struct Unc_Value;
 struct Unc_View;
 
-int unc__io_init(struct Unc_View *w);
+int unc0_io_init(struct Unc_View *w);
 
-int unc__io_feof(struct ulib_io_file *file);
-int unc__io_ferror(struct ulib_io_file *file);
+int unc0_io_feof(struct ulib_io_file *file);
+int unc0_io_ferror(struct ulib_io_file *file);
 /*
-int unc__io_fread(struct ulib_io_file *file, Unc_Byte *b,
+int unc0_io_fread(struct ulib_io_file *file, Unc_Byte *b,
                   Unc_Size o, Unc_Size n);
-int unc__io_fwrite(struct ulib_io_file *file, const Unc_Byte *b, Unc_Size n);
-int unc__io_fflush(struct ulib_io_file *file);
-int unc__io_fclose(struct Unc_Allocator *alloc, struct ulib_io_file *file);
+int unc0_io_fwrite(struct ulib_io_file *file, const Unc_Byte *b, Unc_Size n);
+int unc0_io_fflush(struct ulib_io_file *file);
+int unc0_io_fclose(struct Unc_Allocator *alloc, struct ulib_io_file *file);
 */
-int unc__io_makeerr(struct Unc_View *w, const char *prefix, int err);
+int unc0_io_makeerr(struct Unc_View *w, const char *prefix, int err);
 
-int unc__io_fread_p(struct Unc_View *w, struct ulib_io_file *file, Unc_Byte *b,
+int unc0_io_fread_p(struct Unc_View *w, struct ulib_io_file *file, Unc_Byte *b,
                   Unc_Size o, Unc_Size n);
-int unc__io_fwrite_p(struct Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fwrite_p(struct Unc_View *w, struct ulib_io_file *file,
                   const Unc_Byte *b, Unc_Size n);
-int unc__io_fflush_p(struct Unc_View *w, struct ulib_io_file *file);
-int unc__io_fclose_p(struct Unc_View *w,
+int unc0_io_fflush_p(struct Unc_View *w, struct ulib_io_file *file);
+int unc0_io_fclose_p(struct Unc_View *w,
                   struct Unc_Allocator *alloc, struct ulib_io_file *file);
 
 #define UNC_IO_GETC_BUFFER 16
-int unc__io_fgetc_text(struct Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fgetc_text(struct Unc_View *w, struct ulib_io_file *file,
                         char *buffer);
-int unc__io_fwrite_text(struct Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fwrite_text(struct Unc_View *w, struct ulib_io_file *file,
                         const Unc_Byte *b, Unc_Size n);
 
-int unc__io_fwrap(struct Unc_View *w, struct Unc_Value *v, FILE *file, int wr);
-int unc__io_lockfile(struct Unc_View *w, struct Unc_Value *v,
+int unc0_io_fwrap(struct Unc_View *w, struct Unc_Value *v, FILE *file, int wr);
+int unc0_io_lockfile(struct Unc_View *w, struct Unc_Value *v,
                      struct ulib_io_file **file, int ignoreerr);
-void unc__io_unlockfile(struct Unc_View *w, struct Unc_Value *v);
+void unc0_io_unlockfile(struct Unc_View *w, struct Unc_Value *v);
 
-int unc__io_fgetc(struct ulib_io_file *file);
-/*int unc__io_fputc(int c, struct ulib_io_file *file);*/
+int unc0_io_fgetc(struct ulib_io_file *file);
+/*int unc0_io_fputc(int c, struct ulib_io_file *file);*/
 
-int unc__io_fgetc_p(struct Unc_View *w, struct ulib_io_file *file);
-int unc__io_fputc_p(struct Unc_View *w, int c, struct ulib_io_file *file);
+int unc0_io_fgetc_p(struct Unc_View *w, struct ulib_io_file *file);
+int unc0_io_fputc_p(struct Unc_View *w, int c, struct ulib_io_file *file);
 
 #endif /* UNCIL_ULIBIO_H */

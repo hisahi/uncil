@@ -41,16 +41,16 @@ typedef struct Unc_Program {
     byte *data;
     Unc_Size main_doff;
     struct Unc_Program *next;
-    char *pname; /* unc__mmalloc */
+    char *pname; /* unc0_mmalloc */
 } Unc_Program;
 
-Unc_Program *unc__newprogram(Unc_Allocator *alloc);
-void unc__initprogram(Unc_Program *program);
-int unc__upgradeprogram(Unc_Program *program, Unc_Allocator *alloc);
-void unc__dropprogram(Unc_Program *program, Unc_Allocator *alloc);
-void unc__freeprogram(Unc_Program *program, Unc_Allocator *alloc);
+Unc_Program *unc0_newprogram(Unc_Allocator *alloc);
+void unc0_initprogram(Unc_Program *program);
+int unc0_upgradeprogram(Unc_Program *program, Unc_Allocator *alloc);
+void unc0_dropprogram(Unc_Program *program, Unc_Allocator *alloc);
+void unc0_freeprogram(Unc_Program *program, Unc_Allocator *alloc);
 
-Unc_Program *unc__progincref(Unc_Program *program);
-Unc_Program *unc__progdecref(Unc_Program *program, Unc_Allocator *alloc);
+Unc_Program *unc0_progincref(Unc_Program *program);
+Unc_Program *unc0_progdecref(Unc_Program *program, Unc_Allocator *alloc);
 
 #endif /* UNCIL_UVAL_H */

@@ -36,13 +36,13 @@ SOFTWARE.
 
 #if UNC_NONATOMIC
 /* only as a fallback */
-int unc__nonatomictas(Unc_AtomicFlag *v) {
+int unc0_nonatomictas(Unc_AtomicFlag *v) {
     Unc_AtomicFlag a = *v;
     *v = 1;
     return a;
 }
 
-Unc_AtomicSmall unc__nonatomicsxchg(Unc_AtomicSmall *var,
+Unc_AtomicSmall unc0_nonatomicsxchg(Unc_AtomicSmall *var,
                                     Unc_AtomicSmall val) {
     Unc_AtomicSmall old = *var;
     *var = val;
@@ -51,7 +51,7 @@ Unc_AtomicSmall unc__nonatomicsxchg(Unc_AtomicSmall *var,
 #endif
 
 #if UNCIL_MT_OK
-void unc__mtpause(Unc_View *view) {
+void unc0_mtpause(Unc_View *view) {
     Unc_World *w = view->world;
     Unc_View *v;
     if (view) ATOMICSSET(view->paused, 1);
@@ -79,14 +79,14 @@ void unc__mtpause(Unc_View *view) {
 #include <time.h>
 
 #if INLINEEXTOK
-INLINEHERE void unc__locklight_(Unc_AtomicFlag *x);
+INLINEHERE void unc0_locklight_(Unc_AtomicFlag *x);
 #else
-void unc__locklight_(Unc_AtomicFlag *x) {
+void unc0_locklight_(Unc_AtomicFlag *x) {
     while (ATOMICFLAGTAS(*x)) sched_yield();
 }
 #endif
 
-int unc__pthread_init(pthread_mutex_t *mutex) {
+int unc0_pthread_init(pthread_mutex_t *mutex) {
     int e;
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
@@ -96,16 +96,16 @@ int unc__pthread_init(pthread_mutex_t *mutex) {
     return e;
 }
 
-void unc__pthread_lock(pthread_mutex_t *mutex) {
+void unc0_pthread_lock(pthread_mutex_t *mutex) {
     while (pthread_mutex_lock(mutex))
         ;
 }
 
-int unc__pthread_lockorpause(Unc_View *view, pthread_mutex_t *mutex) {
+int unc0_pthread_lockorpause(Unc_View *view, pthread_mutex_t *mutex) {
     int e = 0;
     while (pthread_mutex_trylock(mutex)) {
         if (view->flow) {
-            unc__vmcheckpause(view);
+            unc0_vmcheckpause(view);
             e = 1;
         }
         UNC_YIELD();
@@ -113,11 +113,11 @@ int unc__pthread_lockorpause(Unc_View *view, pthread_mutex_t *mutex) {
     return e;
 }
 
-void unc__pthread_pause(Unc_View *view) {
-    unc__mtpause(view);
+void unc0_pthread_pause(Unc_View *view) {
+    unc0_mtpause(view);
 }
 
-void unc__pthread_resume(Unc_View *view) {
+void unc0_pthread_resume(Unc_View *view) {
     Unc_World *w = view->world;
     Unc_View *v;
     UNC_LOCKF(w->viewlist_lock);
@@ -130,25 +130,25 @@ void unc__pthread_resume(Unc_View *view) {
     if (view) ATOMICSSET(view->paused, 0);
 }
 
-void unc__pthread_paused(Unc_View *view) { (void)view; }
+void unc0_pthread_paused(Unc_View *view) { (void)view; }
 
-void unc__pthread_resumed(Unc_View *view) { (void)view; }
+void unc0_pthread_resumed(Unc_View *view) { (void)view; }
 
 #elif UNCIL_MT_OK && UNCIL_MT_C11
 
-INLINEHERE void unc__locklight_(Unc_AtomicFlag *x);
+INLINEHERE void unc0_locklight_(Unc_AtomicFlag *x);
 
-int unc__c11_init(mtx_t *mutex) {
+int unc0_c11_init(mtx_t *mutex) {
     return mtx_init(mutex, mtx_plain | mtx_recursive) != thrd_success;
 }
 
-INLINEHERE void unc__c11_lock(mtx_t *mutex);
+INLINEHERE void unc0_c11_lock(mtx_t *mutex);
 
-int unc__c11_lockorpause(Unc_View *view, mtx_t *mutex) {
+int unc0_c11_lockorpause(Unc_View *view, mtx_t *mutex) {
     int e = 0;
     while (mtx_trylock(mutex) != thrd_success) {
         if (view->flow) {
-            unc__vmcheckpause(view);
+            unc0_vmcheckpause(view);
             e = 1;
         }
         UNC_YIELD();
@@ -156,11 +156,11 @@ int unc__c11_lockorpause(Unc_View *view, mtx_t *mutex) {
     return e;
 }
 
-void unc__c11_pause(Unc_View *view) {
-    unc__mtpause(view);
+void unc0_c11_pause(Unc_View *view) {
+    unc0_mtpause(view);
 }
 
-void unc__c11_resume(Unc_View *view) {
+void unc0_c11_resume(Unc_View *view) {
     Unc_World *w = view->world;
     Unc_View *v;
     UNC_LOCKF(w->viewlist_lock);
@@ -173,8 +173,8 @@ void unc__c11_resume(Unc_View *view) {
     if (view) ATOMICSSET(view->paused, 0);
 }
 
-void unc__c11_paused(Unc_View *view) { (void)view; }
+void unc0_c11_paused(Unc_View *view) { (void)view; }
 
-void unc__c11_resumed(Unc_View *view) { (void)view; }
+void unc0_c11_resumed(Unc_View *view) { (void)view; }
 
 #endif

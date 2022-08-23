@@ -24,19 +24,19 @@ SOFTWARE.
 
 *******************************************************************************/
 
-int unc__isalpha(int c) {
+int unc0_isalpha(int c) {
     return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
 }
 
-int unc__isdigit(int c) {
+int unc0_isdigit(int c) {
     return '0' <= c && c <= '9';
 }
 
-int unc__isalnum(int c) {
-    return unc__isalpha(c) || unc__isdigit(c);
+int unc0_isalnum(int c) {
+    return unc0_isalpha(c) || unc0_isdigit(c);
 }
 
-int unc__isspace(int c) {
+int unc0_isspace(int c) {
     switch (c) {
     case ' ':
     case '\t':
@@ -49,6 +49,6 @@ int unc__isspace(int c) {
     return 0;
 }
 
-int unc__tolower(int c) {
-    return unc__isalpha(c) ? (c | 0x20) : c;
+int unc0_tolower(int c) {
+    return unc0_isalpha(c) ? (c | 0x20) : c;
 }

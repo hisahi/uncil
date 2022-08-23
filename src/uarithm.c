@@ -65,7 +65,7 @@ static int initBitWidth(void) {
 
 #endif
 
-Unc_Int unc__shiftl(Unc_Int a, Unc_Int b) {
+Unc_Int unc0_shiftl(Unc_Int a, Unc_Int b) {
     INIT_BIT_WIDTH();
     if (b >= BIT_WIDTH)
         return 0; /* too much shifting, stop here */
@@ -73,7 +73,7 @@ Unc_Int unc__shiftl(Unc_Int a, Unc_Int b) {
         return a << b;
 }
 
-Unc_Int unc__shiftr(Unc_Int a, Unc_Int b) {
+Unc_Int unc0_shiftr(Unc_Int a, Unc_Int b) {
     /* check if our right shift is already arithmetic */
     static const int asr = (-9) >> 1 == -5;
     INIT_BIT_WIDTH();
@@ -87,22 +87,22 @@ Unc_Int unc__shiftr(Unc_Int a, Unc_Int b) {
 
 /* can -a be represented correctly (a + (-a) = 0
     and (a > 0) != ((-a) > 0) for nonzero a)? */
-int unc__negovf(Unc_Int a) {
+int unc0_negovf(Unc_Int a) {
     return (a >= 0) != (-a < 0);
 }
 
 /* would a + b overflow or underflow? */
-int unc__addovf(Unc_Int a, Unc_Int b) {
+int unc0_addovf(Unc_Int a, Unc_Int b) {
     return b < 0 ? a < UNC_INT_MIN - b : a > UNC_INT_MAX - b;
 }
 
 /* would a - b overflow or underflow? */
-int unc__subovf(Unc_Int a, Unc_Int b) {
+int unc0_subovf(Unc_Int a, Unc_Int b) {
     return b < 0 ? a > UNC_INT_MAX + b : a < UNC_INT_MIN + b;
 }
 
 /* would a * b overflow or underflow? */
-int unc__mulovf(Unc_Int a, Unc_Int b) {
+int unc0_mulovf(Unc_Int a, Unc_Int b) {
     int negative, h;
     Unc_UInt x, y, q, r, m;
     INIT_BIT_WIDTH();
@@ -129,43 +129,43 @@ int unc__mulovf(Unc_Int a, Unc_Int b) {
     return q > (negative ? -(Unc_UInt)UNC_INT_MIN : (Unc_UInt)-UNC_INT_MAX);
 }
 
-int unc__cmpint(Unc_Int a, Unc_Int b) {
+int unc0_cmpint(Unc_Int a, Unc_Int b) {
     return a == b ? 0 : a < b ? -1 : 1;
 }
 
-int unc__cmpflt(Unc_Float a, Unc_Float b) {
+int unc0_cmpflt(Unc_Float a, Unc_Float b) {
     if (a != a || b != b) /* NAN */
         return UNCIL_ERR_LOGIC_CMPNAN;
     return a == b ? 0 : a < b ? -1 : 1;
 }
 
 /* divide a / b and round down */
-Unc_Int unc__iidiv(Unc_Int a, Unc_Int b) {
+Unc_Int unc0_iidiv(Unc_Int a, Unc_Int b) {
     Unc_Int q = a / b;
     return q - ((q * b != a) & (a < 0));
 }
 
 /* divide a / b and get remainder, use the sign of the divisor */
-Unc_Int unc__imod(Unc_Int a, Unc_Int b) {
+Unc_Int unc0_imod(Unc_Int a, Unc_Int b) {
     return (a % b + b) % b;
 }
 
 /* floored integer division */
-Unc_Float unc__fidiv(Unc_Float a, Unc_Float b) {
+Unc_Float unc0_fidiv(Unc_Float a, Unc_Float b) {
     return floor(a / b);
 }
 
 /* float modulo */
-Unc_Float unc__fmod(Unc_Float a, Unc_Float b) {
+Unc_Float unc0_fmod(Unc_Float a, Unc_Float b) {
     return a - floor(a / b) * b;
 }
 
 /* get fractional portion */
-Unc_Float unc__ffrac(Unc_Float x) {
+Unc_Float unc0_ffrac(Unc_Float x) {
     return x - floor(x);
 }
 
-int unc__fisfinite(Unc_Float x) {
+int unc0_fisfinite(Unc_Float x) {
 #if UNCIL_C99
     return isfinite(x);
 #else
@@ -174,7 +174,7 @@ int unc__fisfinite(Unc_Float x) {
 #endif
 }
 
-Unc_Float unc__fnan(void) {
+Unc_Float unc0_fnan(void) {
 #if UNCIL_C99
     return NAN;
 #elif __STDC_IEC_559__
@@ -184,7 +184,7 @@ Unc_Float unc__fnan(void) {
 #endif
 }
 
-Unc_Float unc__finfty(void) {
+Unc_Float unc0_finfty(void) {
 #if UNCIL_C99
     return INFINITY;
 #elif __STDC_IEC_559__

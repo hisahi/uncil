@@ -41,31 +41,31 @@ typedef struct Unc_Array {
 
 struct Unc_View;
 
-int unc__initarray(struct Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v);
-int unc__initarrayn(struct Unc_View *w, Unc_Array *a, Unc_Size n);
-int unc__initarrayfromcat(struct Unc_View *w, Unc_Array *s,
+int unc0_initarray(struct Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v);
+int unc0_initarrayn(struct Unc_View *w, Unc_Array *a, Unc_Size n);
+int unc0_initarrayfromcat(struct Unc_View *w, Unc_Array *s,
                           Unc_Size an, Unc_Value *av,
                           Unc_Size bn, Unc_Value *bv);
-int unc__initarrayraw(struct Unc_View *w, Unc_Array *a, Unc_Size n,
+int unc0_initarrayraw(struct Unc_View *w, Unc_Array *a, Unc_Size n,
                             Unc_Value *v);
-int unc__arraycatr(struct Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v);
-int unc__arraypush(struct Unc_View *w, Unc_Array *a, Unc_Value *v);
-int unc__arraypushn(struct Unc_View *w, Unc_Array *a, Unc_Size n);
-int unc__arraycat(struct Unc_View *w, Unc_Array *a, const Unc_Array *a2);
-int unc__arrayinsr(struct Unc_View *w, Unc_Array *a, Unc_Size i,
+int unc0_arraycatr(struct Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v);
+int unc0_arraypush(struct Unc_View *w, Unc_Array *a, Unc_Value *v);
+int unc0_arraypushn(struct Unc_View *w, Unc_Array *a, Unc_Size n);
+int unc0_arraycat(struct Unc_View *w, Unc_Array *a, const Unc_Array *a2);
+int unc0_arrayinsr(struct Unc_View *w, Unc_Array *a, Unc_Size i,
                     Unc_Size n, Unc_Value *v);
-int unc__arrayinsv(struct Unc_View *w, Unc_Array *a, Unc_Size i,
+int unc0_arrayinsv(struct Unc_View *w, Unc_Array *a, Unc_Size i,
                     Unc_Value *v);
-int unc__arrayins(struct Unc_View *w, Unc_Array *a, Unc_Size i,
+int unc0_arrayins(struct Unc_View *w, Unc_Array *a, Unc_Size i,
                     const Unc_Array *a2);
-int unc__arraydel(struct Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n);
-void unc__droparray(struct Unc_View *w, Unc_Array *a);
-void unc__sunsetarray(Unc_Allocator *alloc, Unc_Array *a);
+int unc0_arraydel(struct Unc_View *w, Unc_Array *a, Unc_Size i, Unc_Size n);
+void unc0_droparray(struct Unc_View *w, Unc_Array *a);
+void unc0_sunsetarray(Unc_Allocator *alloc, Unc_Array *a);
 
 /* the functions above do not lock, the ones below do */
-int unc__agetindx(struct Unc_View *w, Unc_Array *a,
+int unc0_agetindx(struct Unc_View *w, Unc_Array *a,
                     Unc_Value *indx, int permissive, Unc_Value *out);
-int unc__asetindx(struct Unc_View *w, Unc_Array *a,
+int unc0_asetindx(struct Unc_View *w, Unc_Array *a,
                     Unc_Value *indx, Unc_Value *v);
 
 #endif /* UNCIL_UARR_H */

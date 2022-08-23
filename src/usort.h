@@ -29,6 +29,6 @@ SOFTWARE.
 
 #include "uval.h"
 
-int unc__arrsort(Unc_View *w, Unc_Value *fn, Unc_Size n, Unc_Value *arr);
+int unc0_arrsort(Unc_View *w, Unc_Value *fn, Unc_Size n, Unc_Value *arr);
 
 #endif /* UNCIL_USORT_H */

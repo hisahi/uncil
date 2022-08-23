@@ -87,23 +87,23 @@ typedef struct Unc_FunctionBound {
     Unc_Value fn;
 } Unc_FunctionBound;
 
-int unc__initfuncu(struct Unc_View *w, Unc_Function *fn,
+int unc0_initfuncu(struct Unc_View *w, Unc_Function *fn,
             struct Unc_Program *program, Unc_Size in_off, int fromc);
-int unc__initfuncc(struct Unc_View *w, Unc_Function *fn, Unc_CFunc fc,
+int unc0_initfuncc(struct Unc_View *w, Unc_Function *fn, Unc_CFunc fc,
             Unc_Size argcount, int flags, int cflags,
             Unc_Size optcount, Unc_Value *defaults,
             Unc_Size refcount, Unc_Value *initvalues,
             Unc_Size refcopycount, Unc_Size *refcopies,
             const char *fname, void *udata);
-int unc__initbfunc(struct Unc_View *w, Unc_FunctionBound *bfn,
+int unc0_initbfunc(struct Unc_View *w, Unc_FunctionBound *bfn,
             Unc_Value *fn, Unc_Value *boundto);
 
 /* function calling is in uvm.c */
 
-void unc__dropfunc(struct Unc_View *w, Unc_Function *fn);
-void unc__sunsetfunc(Unc_Allocator *alloc, Unc_Function *fn);
+void unc0_dropfunc(struct Unc_View *w, Unc_Function *fn);
+void unc0_sunsetfunc(Unc_Allocator *alloc, Unc_Function *fn);
 
-void unc__dropbfunc(struct Unc_View *w, Unc_FunctionBound *fn);
-void unc__sunsetbfunc(Unc_Allocator *alloc, Unc_FunctionBound *fn);
+void unc0_dropbfunc(struct Unc_View *w, Unc_FunctionBound *fn);
+void unc0_sunsetbfunc(Unc_Allocator *alloc, Unc_FunctionBound *fn);
 
 #endif /* UNCIL_UFUNC_H */

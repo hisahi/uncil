@@ -106,10 +106,10 @@ static int cbor_decode_file_do(void *p_) {
     struct cbor_decode_file *p = p_;
     int c;
     if (p->err) return p->err;
-    c = unc__io_fgetc(p->fp);
+    c = unc0_io_fgetc(p->fp);
     if (c < 0) {
         p->err = -1;
-        return unc__io_ferror(p->fp) ? -2 : -1;
+        return unc0_io_ferror(p->fp) ? -2 : -1;
     }
     return c;
 }
@@ -522,7 +522,7 @@ INLINE int cbordec_f16(struct cbor_decode_context *c, Unc_Value *v) {
     if (x == 0)
         x = 1;
     else if (x == 31)
-        f = u ? unc__fnan() : unc__finfty();
+        f = u ? unc0_fnan() : unc0_finfty();
     else
         f = ldexp(u | 0x400, x - 25);
     if (neg)
@@ -542,7 +542,7 @@ INLINE int cbordec_f32(struct cbor_decode_context *c, Unc_Value *v) {
             return cbordec_err(c, "value", "CBOR float32 unexpected EOF");
         b[fle ? sizeof(b) - 1 - i : i] = (byte)x;
     }
-    unc__memcpy(&f32, b, sizeof(b));
+    unc0_memcpy(&f32, b, sizeof(b));
     unc_setfloat(c->view, v, f32);
     return 0;
 }
@@ -558,7 +558,7 @@ INLINE int cbordec_f64(struct cbor_decode_context *c, Unc_Value *v) {
             return cbordec_err(c, "value", "CBOR float64 unexpected EOF");
         b[fle ? sizeof(b) - 1 - i : i] = (byte)x;
     }
-    unc__memcpy(&f64, b, sizeof(b));
+    unc0_memcpy(&f64, b, sizeof(b));
     unc_setfloat(c->view, v, f64);
     return 0;
 }
@@ -703,7 +703,7 @@ struct cbor_encode_blob {
 /* 0 = OK, <>0 = error */
 static int cbor_encode_blob_do(Unc_Size n, const byte *c, void *p) {
     struct cbor_encode_blob *s = p;
-    return (s->err = unc__strpushb(s->alloc, &s->s, &s->n, &s->c,
+    return (s->err = unc0_strpushb(s->alloc, &s->s, &s->n, &s->c,
                                    6, n, (const byte *)c));
 }
 
@@ -715,7 +715,7 @@ struct cbor_encode_file {
 
 static int cbor_encode_file_do(Unc_Size n, const byte *c, void *p_) {
     struct cbor_encode_file *p = p_;
-    return (p->err = unc__io_fwrite_p(p->view, p->fp, (const byte *)c, n));
+    return (p->err = unc0_io_fwrite_p(p->view, p->fp, (const byte *)c, n));
 }
 
 struct cbor_encode_context {
@@ -833,8 +833,8 @@ INLINE int cborenc_f32(struct cbor_encode_context *c, float f) {
     byte b[sizeof(float)];
     if ((e = cborenc_raw(c, 7, 26))) return e;
     ASSERT(sizeof(float) == 4);
-    unc__memcpy(b, &f, sizeof(b));
-    if (fle) unc__memrev(b, sizeof(b));
+    unc0_memcpy(b, &f, sizeof(b));
+    if (fle) unc0_memrev(b, sizeof(b));
     return (*c->out)(sizeof(b), b, c->out_data);
 }
 
@@ -844,8 +844,8 @@ INLINE int cborenc_f64(struct cbor_encode_context *c, double f) {
     if (f == (float)f) return cborenc_f32(c, (float)f);
     if ((e = cborenc_raw(c, 7, 27))) return e;
     ASSERT(sizeof(double) == 8);
-    unc__memcpy(b, &f, sizeof(b));
-    if (fle) unc__memrev(b, sizeof(b));
+    unc0_memcpy(b, &f, sizeof(b));
+    if (fle) unc0_memrev(b, sizeof(b));
     return (*c->out)(sizeof(b), b, c->out_data);
 }
 
@@ -1007,11 +1007,11 @@ static int cborenc(struct cbor_encode_context *c, Unc_Value *v) {
 INLINE int is_float_le(void) {
     float f_f = 1.0f;
     byte f_b[sizeof(f_f)];
-    unc__memcpy(f_b, &f_f, sizeof(float));
+    unc0_memcpy(f_b, &f_f, sizeof(float));
     return !f_b[0];
 }
 
-Unc_RetVal unc__lib_cbor_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_cbor_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct cbor_decode_context cxt;
@@ -1037,7 +1037,7 @@ Unc_RetVal unc__lib_cbor_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct cbor_decode_context cxt;
@@ -1045,7 +1045,7 @@ Unc_RetVal unc__lib_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     struct ulib_io_file *pfile;
     (void)ud_;
 
-    e = unc__io_lockfile(w, &args.values[0], &pfile, 0);
+    e = unc0_io_lockfile(w, &args.values[0], &pfile, 0);
     if (e) return e;
 
     buf.fp = pfile;
@@ -1061,14 +1061,14 @@ Unc_RetVal unc__lib_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     e = cbordec(&cxt, &v);
     if (e == CBOR_EOL)
         e = unc_throwexc(w, "value", "unexpected CBOR terminator");
-    else if (unc__io_ferror(pfile))
-        e = unc__io_makeerr(w, "cbor.decodefile()", errno);
-    unc__io_unlockfile(w, &args.values[0]);
+    else if (unc0_io_ferror(pfile))
+        e = unc0_io_makeerr(w, "cbor.decodefile()", errno);
+    unc0_io_unlockfile(w, &args.values[0]);
     if (e) return e;
     return unc_push(w, 1, &v, NULL);
 }
 
-Unc_RetVal unc__lib_cbor_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_cbor_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     Unc_Value v = UNC_BLANK;
     struct cbor_encode_context cxt = { NULL, NULL, 0, NULL, NULL, UNC_BLANK };
@@ -1101,7 +1101,7 @@ Unc_RetVal unc__lib_cbor_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
     return e;
 }
 
-Unc_RetVal unc__lib_cbor_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+Unc_RetVal unc0_lib_cbor_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     int e;
     struct cbor_encode_context cxt = { NULL, NULL, 0, NULL, NULL, UNC_BLANK };
     struct ulib_io_file *pfile;
@@ -1123,16 +1123,16 @@ Unc_RetVal unc__lib_cbor_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     buf.err = 0;
     buf.view = w;
 
-    e = unc__io_lockfile(w, &args.values[0], &pfile, 0);
+    e = unc0_io_lockfile(w, &args.values[0], &pfile, 0);
     if (e) return e;
     buf.fp = pfile;
     
     e = cborenc(&cxt, &args.values[0]);
     if (buf.err < 0)
         e = UNCIL_ERR_INTERNAL;
-    else if (unc__io_ferror(pfile))
-        e = unc__io_makeerr(w, "cbor.encodefile()", errno);
-    unc__io_unlockfile(w, &args.values[0]);
+    else if (unc0_io_ferror(pfile))
+        e = unc0_io_makeerr(w, "cbor.encodefile()", errno);
+    unc0_io_unlockfile(w, &args.values[0]);
     unc_mfree(w, cxt.ents);
     unc_clear(w, &cxt.mapper);
     return e;
@@ -1145,7 +1145,7 @@ Unc_RetVal uncilmain_cbor(Unc_View *w) {
     e = unc_newobject(w, &cbor_tag, NULL);
     if (e) return e;
 
-    e = unc__io_init(w);
+    e = unc0_io_init(w);
     if (e) return e;
 
     {
@@ -1160,22 +1160,22 @@ Unc_RetVal uncilmain_cbor(Unc_View *w) {
     e = unc_setpublicc(w, "semantictag", &cbor_tag);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "decode", &unc__lib_cbor_decode,
+    e = unc_exportcfunction(w, "decode", &unc0_lib_cbor_decode,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 1, &cbor_tag, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "encode", &unc__lib_cbor_encode,
+    e = unc_exportcfunction(w, "encode", &unc0_lib_cbor_encode,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 2, NULL, 1, &cbor_tag, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "decodefile", &unc__lib_cbor_decodefile,
+    e = unc_exportcfunction(w, "decodefile", &unc0_lib_cbor_decodefile,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 1, &cbor_tag, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "encodefile", &unc__lib_cbor_encodefile,
+    e = unc_exportcfunction(w, "encodefile", &unc0_lib_cbor_encodefile,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 2, NULL, 1, &cbor_tag, 0, NULL, NULL);
     if (e) return e;

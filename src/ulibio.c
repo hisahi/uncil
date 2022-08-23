@@ -75,7 +75,7 @@ SOFTWARE.
 #define MKSTEMP_FN "/tmp/uncil_tmpXXXXXX"
 #endif
 
-static int unc__io_fopen(struct ulib_io_file *file,
+static int unc0_io_fopen(struct ulib_io_file *file,
                          const char *fn, char *mode) {
     FILE *f;
     errno = 0;
@@ -85,7 +85,7 @@ static int unc__io_fopen(struct ulib_io_file *file,
     return 0;
 }
 
-static int unc__io_pipe(struct ulib_io_file *files2) {
+static int unc0_io_pipe(struct ulib_io_file *files2) {
 #if UNCIL_IS_POSIX
     FILE *cf;
     int fds[2], e = pipe(fds);
@@ -115,7 +115,7 @@ static int unc__io_pipe(struct ulib_io_file *files2) {
 #define TMPFILE_MEM 1
 #define TMPFILE_FAIL 2
 
-static int unc__io_tmpfile(Unc_Allocator *alloc,
+static int unc0_io_tmpfile(Unc_Allocator *alloc,
                            struct ulib_io_file *file,
                            char *mode) {
     /* check if mode is w+(b) */
@@ -142,7 +142,7 @@ static int unc__io_tmpfile(Unc_Allocator *alloc,
         char tmp[] = MKSTEMP_FN;
         int fd = mkstemp(tmp);
         if (fd == -1) return TMPFILE_FAIL;
-        file->tfn = unc__mmalloc(alloc, Unc_AllocExternal, sizeof(tmp));
+        file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, sizeof(tmp));
         if (!file->tfn) {
             close(fd);
             return TMPFILE_MEM;
@@ -150,7 +150,7 @@ static int unc__io_tmpfile(Unc_Allocator *alloc,
         strcpy(file->tfn, tmp);
         file->f = fdopen(fd, mode);
         if (!file->f) {
-            unc__mmfree(alloc, file->tfn);
+            unc0_mmfree(alloc, file->tfn);
             close(fd);
             return TMPFILE_MEM;
         }
@@ -161,11 +161,11 @@ static int unc__io_tmpfile(Unc_Allocator *alloc,
         char *buf = tmpnam(NULL);
         FILE *f;
         if (!buf) return TMPFILE_FAIL;
-        file->tfn = unc__mmalloc(alloc, Unc_AllocExternal, strlen(buf + 1));
+        file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, strlen(buf + 1));
         if (!file->tfn) return TMPFILE_MEM;
         f = fopen(buf, mode);
         if (!f) {
-            unc__mmfree(alloc, file->tfn);
+            unc0_mmfree(alloc, file->tfn);
             return -1;
         }
         strcpy(file->tfn, buf);
@@ -180,7 +180,7 @@ static int unc__io_tmpfile(Unc_Allocator *alloc,
    (so TMPFILENAME_MAX+1 long), or at least 12 characters long whichever
    is shortest.
    please define TMPFILENAME_MAX! */
-static int unc__io_tmpfilenamed(Unc_Allocator *alloc,
+static int unc0_io_tmpfilenamed(Unc_Allocator *alloc,
                                 struct ulib_io_file *file,
                                 char *out, char *mode) {
 #ifdef MKSTEMP_FN
@@ -189,7 +189,7 @@ static int unc__io_tmpfilenamed(Unc_Allocator *alloc,
     strcpy(out, MKSTEMP_FN);
     fd = mkstemp(out);
     if (fd == -1) return TMPFILE_FAIL;
-    file->tfn = unc__mmalloc(alloc, Unc_AllocExternal, sizeof(MKSTEMP_FN));
+    file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, sizeof(MKSTEMP_FN));
     if (!file->tfn) {
         close(fd);
         return TMPFILE_MEM;
@@ -197,7 +197,7 @@ static int unc__io_tmpfilenamed(Unc_Allocator *alloc,
     strcpy(file->tfn, out);
     file->f = fdopen(fd, mode);
     if (!file->f) {
-        unc__mmfree(alloc, file->tfn);
+        unc0_mmfree(alloc, file->tfn);
         close(fd);
         return TMPFILE_MEM;
     }
@@ -207,11 +207,11 @@ static int unc__io_tmpfilenamed(Unc_Allocator *alloc,
 #define TMPFILENAME_MAX L_tmpnam
     FILE *f;
     if (!tmpnam(out)) return TMPFILE_FAIL;
-    file->tfn = unc__mmalloc(alloc, Unc_AllocExternal, strlen(out + 1));
+    file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, strlen(out + 1));
     if (!file->tfn) return TMPFILE_MEM;
     f = fopen(out, mode);
     if (!f) {
-        unc__mmfree(alloc, file->tfn);
+        unc0_mmfree(alloc, file->tfn);
         return -1;
     }
     strcpy(file->tfn, out);
@@ -221,7 +221,7 @@ static int unc__io_tmpfilenamed(Unc_Allocator *alloc,
 #endif
 }
 
-static int unc__io_fseek(struct ulib_io_file *file, Unc_Int n, int offset,
+static int unc0_io_fseek(struct ulib_io_file *file, Unc_Int n, int offset,
                          Unc_View *w) {
     int e = 0;
     clearerr(file->f);
@@ -237,7 +237,7 @@ static int unc__io_fseek(struct ulib_io_file *file, Unc_Int n, int offset,
     return e;
 }
 
-static int unc__io_ftell(struct ulib_io_file *file, Unc_Int *n) {
+static int unc0_io_ftell(struct ulib_io_file *file, Unc_Int *n) {
     Unc_Int r;
     ASSERT(file->f);
     clearerr(file->f);
@@ -255,36 +255,36 @@ static int unc__io_ftell(struct ulib_io_file *file, Unc_Int *n) {
     return 0;
 }
 
-static int unc__io_setvbuf(struct ulib_io_file *file, char *buf,
+static int unc0_io_setvbuf(struct ulib_io_file *file, char *buf,
                            int mode, size_t size) {
     return setvbuf(file->f, buf, mode, size);
 }
 
-static int unc__io_isopen(struct ulib_io_file *file) {
+static int unc0_io_isopen(struct ulib_io_file *file) {
     return file->f != NULL;
 }
 
-int unc__io_feof(struct ulib_io_file *file) {
+int unc0_io_feof(struct ulib_io_file *file) {
     ASSERT(file->f);
     return feof(file->f);
 }
 
-int unc__io_ferror(struct ulib_io_file *file) {
+int unc0_io_ferror(struct ulib_io_file *file) {
     ASSERT(file->f);
     return ferror(file->f);
 }
 
-int unc__io_fgetc(struct ulib_io_file *file) {
+int unc0_io_fgetc(struct ulib_io_file *file) {
     clearerr(file->f);
     return getc(file->f);
 }
 /*
-int unc__io_fputc(int c, struct ulib_io_file *file) {
+int unc0_io_fputc(int c, struct ulib_io_file *file) {
     clearerr(file->f);
     return putc(c, file->f);
 }*/
 
-int unc__io_fgetc_p(Unc_View *w, struct ulib_io_file *file) {
+int unc0_io_fgetc_p(Unc_View *w, struct ulib_io_file *file) {
     int e;
     clearerr(file->f);
     unc_vmpause(w);
@@ -293,7 +293,7 @@ int unc__io_fgetc_p(Unc_View *w, struct ulib_io_file *file) {
     return e;
 }
 
-int unc__io_fputc_p(Unc_View *w, int c, struct ulib_io_file *file) {
+int unc0_io_fputc_p(Unc_View *w, int c, struct ulib_io_file *file) {
     int e;
     clearerr(file->f);
     unc_vmpause(w);
@@ -303,15 +303,15 @@ int unc__io_fputc_p(Unc_View *w, int c, struct ulib_io_file *file) {
 }
 
 /*
-int unc__io_fread(struct ulib_io_file *file, byte *b, Unc_Size o, Unc_Size n) {
+int unc0_io_fread(struct ulib_io_file *file, byte *b, Unc_Size o, Unc_Size n) {
     size_t e;
     ASSERT(file->f);
     clearerr(file->f);
     e = fread(b + o, 1, n, file->f);
-    return e < n && unc__io_ferror(file) ? EOF : 0;
+    return e < n && unc0_io_ferror(file) ? EOF : 0;
 }
 
-int unc__io_fwrite(struct ulib_io_file *file, const byte *b, Unc_Size n) {
+int unc0_io_fwrite(struct ulib_io_file *file, const byte *b, Unc_Size n) {
     ASSERT(file->f);
     clearerr(file->f);
     errno = 0;
@@ -328,13 +328,13 @@ int unc__io_fwrite(struct ulib_io_file *file, const byte *b, Unc_Size n) {
     return !fwrite(b, n, 1, file->f);
 }
 
-int unc__io_fflush(struct ulib_io_file *file) {
+int unc0_io_fflush(struct ulib_io_file *file) {
     ASSERT(file->f);
     clearerr(file->f);
     return fflush(file->f);
 }
 
-static int unc__io_fclose(Unc_Allocator *alloc, struct ulib_io_file *file) {
+static int unc0_io_fclose(Unc_Allocator *alloc, struct ulib_io_file *file) {
     int e = 0;
     if (file->f) {
         clearerr(file->f);
@@ -343,7 +343,7 @@ static int unc__io_fclose(Unc_Allocator *alloc, struct ulib_io_file *file) {
             int errno_store = errno;
             file->flags &= ~UNCIL_IO_FILE_FLAG_DELETEONCLOSE;
             remove(file->tfn);
-            unc__mmfree(alloc, file->tfn);
+            unc0_mmfree(alloc, file->tfn);
             errno = errno_store;
         }
         file->f = NULL;
@@ -351,7 +351,7 @@ static int unc__io_fclose(Unc_Allocator *alloc, struct ulib_io_file *file) {
     return e;
 }*/
 
-int unc__io_fread_p(Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fread_p(Unc_View *w, struct ulib_io_file *file,
                     byte *b, Unc_Size o, Unc_Size n) {
     size_t e;
     ASSERT(file->f);
@@ -359,10 +359,10 @@ int unc__io_fread_p(Unc_View *w, struct ulib_io_file *file,
     unc_vmpause(w);
     e = fread(b + o, 1, n, file->f);
     unc_vmresume(w);
-    return e < n && unc__io_ferror(file) ? EOF : 0;
+    return e < n && unc0_io_ferror(file) ? EOF : 0;
 }
 
-int unc__io_fwrite_p(Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fwrite_p(Unc_View *w, struct ulib_io_file *file,
                      const byte *b, Unc_Size n) {
     int e;
     ASSERT(file->f);
@@ -386,7 +386,7 @@ int unc__io_fwrite_p(Unc_View *w, struct ulib_io_file *file,
     return e;
 }
 
-int unc__io_fflush_p(Unc_View *w, struct ulib_io_file *file) {
+int unc0_io_fflush_p(Unc_View *w, struct ulib_io_file *file) {
     int e;
     ASSERT(file->f);
     clearerr(file->f);
@@ -396,7 +396,7 @@ int unc__io_fflush_p(Unc_View *w, struct ulib_io_file *file) {
     return e;
 }
 
-int unc__io_fclose_p(Unc_View *w, Unc_Allocator *alloc,
+int unc0_io_fclose_p(Unc_View *w, Unc_Allocator *alloc,
                      struct ulib_io_file *file) {
     int e = 0;
     if (file->f) {
@@ -408,7 +408,7 @@ int unc__io_fclose_p(Unc_View *w, Unc_Allocator *alloc,
             file->flags &= ~UNCIL_IO_FILE_FLAG_DELETEONCLOSE;
             remove(file->tfn);
             unc_vmresume(w);
-            unc__mmfree(alloc, file->tfn);
+            unc0_mmfree(alloc, file->tfn);
             errno = errno_store;
         } else
             unc_vmresume(w);
@@ -417,22 +417,22 @@ int unc__io_fclose_p(Unc_View *w, Unc_Allocator *alloc,
     return e;
 }
 
-int unc__io_makeerr(Unc_View *w, const char *prefix, int err) {
-    return unc__std_makeerr(w, "io", prefix, err);
+int unc0_io_makeerr(Unc_View *w, const char *prefix, int err) {
+    return unc0_std_makeerr(w, "io", prefix, err);
 }
 
-static Unc_RetVal unc__io_file_destr(Unc_View *w, size_t n, void *data) {
+static Unc_RetVal unc0_io_file_destr(Unc_View *w, size_t n, void *data) {
     struct ulib_io_file *file = data;
-    if (unc__io_fclose_p(w, &w->world->alloc, file))
-        return unc__io_makeerr(w, "io.file.close()", errno);
+    if (unc0_io_fclose_p(w, &w->world->alloc, file))
+        return unc0_io_makeerr(w, "io.file.close()", errno);
     return 0;
 }
 
-int unc__io_fwrap(Unc_View *w, Unc_Value *v, FILE *file, int write) {
+int unc0_io_fwrap(Unc_View *w, Unc_Value *v, FILE *file, int write) {
     struct ulib_io_file *pfile;
     int e = unc_newopaque(w, v, &w->world->io_file,
                           sizeof(struct ulib_io_file), (void **)&pfile,
-                          &unc__io_file_destr, 0, NULL, 0, NULL);
+                          &unc0_io_file_destr, 0, NULL, 0, NULL);
     if (e) return e;
     pfile->f = file;
     pfile->encoding = UNCIL_IO_FILE_ENC_BINARY;
@@ -442,7 +442,7 @@ int unc__io_fwrap(Unc_View *w, Unc_Value *v, FILE *file, int write) {
     return 0;
 }
 
-int unc__io_lockfile(Unc_View *w, Unc_Value *v,
+int unc0_io_lockfile(Unc_View *w, Unc_Value *v,
                      struct ulib_io_file **pf, int ignoreerr) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
@@ -468,11 +468,11 @@ int unc__io_lockfile(Unc_View *w, Unc_Value *v,
     return 0;
 }
 
-void unc__io_unlockfile(Unc_View *w, Unc_Value *v) {
+void unc0_io_unlockfile(Unc_View *w, Unc_Value *v) {
     unc_unlock(w, v);
 }
 
-Unc_RetVal unc__lib_io_file_close(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_close(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -486,14 +486,14 @@ Unc_RetVal unc__lib_io_file_close(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    e = unc__io_fclose_p(w, &w->world->alloc, file);
+    e = unc0_io_fclose_p(w, &w->world->alloc, file);
     unc_unlock(w, &args.values[0]);
     if (e)
-        return e == EOF ? unc__io_makeerr(w, "io.file.close()", errno) : e;
+        return e == EOF ? unc0_io_makeerr(w, "io.file.close()", errno) : e;
     return 0;
 }
 
-Unc_RetVal unc__lib_io_file_seek(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_seek(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     Unc_Int i;
@@ -539,22 +539,22 @@ Unc_RetVal unc__lib_io_file_seek(Unc_View *w, Unc_Tuple args, void *udata) {
             return unc_throwexc(w, "value", "invalid seek origin");
         }
     }
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
 #ifdef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    e = unc__io_fseek(file, i, origin, w);
+    e = unc0_io_fseek(file, i, origin, w);
 #ifndef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    if (e) return unc__io_makeerr(w, "io.file.seek()", errno);
+    if (e) return unc0_io_makeerr(w, "io.file.seek()", errno);
     return 0;
 }
 
-Unc_RetVal unc__lib_io_file_tell(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_tell(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     Unc_Int i;
@@ -569,23 +569,23 @@ Unc_RetVal unc__lib_io_file_tell(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
 #ifdef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    e = unc__io_ftell(file, &i);
+    e = unc0_io_ftell(file, &i);
 #ifndef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    if (e) return e == EOF ? unc__io_makeerr(w, "io.file.tell()", errno) : e;
+    if (e) return e == EOF ? unc0_io_makeerr(w, "io.file.tell()", errno) : e;
     unc_setint(w, &v, i);
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_flush(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_flush(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -599,22 +599,22 @@ Unc_RetVal unc__lib_io_file_flush(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
 #ifdef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    e = unc__io_fflush_p(w, file);
+    e = unc0_io_fflush_p(w, file);
 #ifndef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    if (e) return unc__io_makeerr(w, "io.file.flush()", errno);
+    if (e) return unc0_io_makeerr(w, "io.file.flush()", errno);
     return 0;
 }
 
-Unc_RetVal unc__lib_io_file_isopen(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_isopen(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -628,12 +628,12 @@ Unc_RetVal unc__lib_io_file_isopen(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    unc_setbool(w, &v, unc__io_isopen(file));
+    unc_setbool(w, &v, unc0_io_isopen(file));
     unc_unlock(w, &args.values[0]);
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_iseof(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_iseof(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -647,12 +647,12 @@ Unc_RetVal unc__lib_io_file_iseof(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    unc_setbool(w, &v, unc__io_feof(file));
+    unc_setbool(w, &v, unc0_io_feof(file));
     unc_unlock(w, &args.values[0]);
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_canread(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_canread(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -679,7 +679,7 @@ Unc_RetVal unc__lib_io_file_canread(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_canwrite(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_canwrite(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -706,7 +706,7 @@ Unc_RetVal unc__lib_io_file_canwrite(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_canseek(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_canseek(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -735,7 +735,7 @@ Unc_RetVal unc__lib_io_file_canseek(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_getbinary(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_io_file_getbinary(Unc_View *w, Unc_Tuple args,
                                       void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
@@ -755,7 +755,7 @@ Unc_RetVal unc__lib_io_file_getbinary(Unc_View *w, Unc_Tuple args,
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_getencoding(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_io_file_getencoding(Unc_View *w, Unc_Tuple args,
                                         void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
@@ -777,7 +777,7 @@ Unc_RetVal unc__lib_io_file_getencoding(Unc_View *w, Unc_Tuple args,
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_setbinary(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_io_file_setbinary(Unc_View *w, Unc_Tuple args,
                                         void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
@@ -802,7 +802,7 @@ Unc_RetVal unc__lib_io_file_setbinary(Unc_View *w, Unc_Tuple args,
     return 0;
 }
 
-Unc_RetVal unc__lib_io_file_setencoding(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_io_file_setencoding(Unc_View *w, Unc_Tuple args,
                                         void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
@@ -824,7 +824,7 @@ Unc_RetVal unc__lib_io_file_setencoding(Unc_View *w, Unc_Tuple args,
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "type", "encoding must be a string");
     }
-    ec = unc__resolveencindex(w, sn, (const byte *)sb);
+    ec = unc0_resolveencindex(w, sn, (const byte *)sb);
     if (ec < 0)
         return unc_throwexc(w, "value", "unrecognized or unsupported encoding");
     file->encodingtext = ec ? -ec : UNCIL_IO_FILE_ENC_UTF8;
@@ -834,8 +834,8 @@ Unc_RetVal unc__lib_io_file_setencoding(Unc_View *w, Unc_Tuple args,
     return 0;
 }
 
-static int unc__io_fgetc__(void *v) {
-    return unc__io_fgetc((struct ulib_io_file *)v);
+static int unc0_io_fgetc__(void *v) {
+    return unc0_io_fgetc((struct ulib_io_file *)v);
 }
 
 struct unc_woutwrap {
@@ -845,7 +845,7 @@ struct unc_woutwrap {
     int fail;
 };
 
-static int unc__io_rutf8_w_(void *v, Unc_Size n, const byte *b) {
+static int unc0_io_rutf8_w_(void *v, Unc_Size n, const byte *b) {
     struct unc_woutwrap *w = v;
     int e;
 #if UNCIL_CONVERT_CRLF
@@ -860,11 +860,11 @@ static int unc__io_rutf8_w_(void *v, Unc_Size n, const byte *b) {
             w->fail = UNCIL_ERR_MEM;
             return 1;
         }
-        unc__memcpy(w->b + w->n, b, n);
+        unc0_memcpy(w->b + w->n, b, n);
         w->n += n;
         return 0;
     }
-    e = unc__strpush(w->alloc, &w->b, &w->n, &w->c, 6, n, b);
+    e = unc0_strpush(w->alloc, &w->b, &w->n, &w->c, 6, n, b);
     if (e) {
         w->fail = e;
         return 1;
@@ -872,7 +872,7 @@ static int unc__io_rutf8_w_(void *v, Unc_Size n, const byte *b) {
     return 0;
 }
 
-static int unc__io_rutf8_wn_(void *v, Unc_Size n, const byte *b) {
+static int unc0_io_rutf8_wn_(void *v, Unc_Size n, const byte *b) {
     struct unc_woutwrap *w = v;
     int e;
 #if UNCIL_CONVERT_CRLF
@@ -881,7 +881,7 @@ static int unc__io_rutf8_wn_(void *v, Unc_Size n, const byte *b) {
         return -1;
     }
 #endif
-    e = unc__strpush(w->alloc, &w->b, &w->n, &w->c, 6, n, b);
+    e = unc0_strpush(w->alloc, &w->b, &w->n, &w->c, 6, n, b);
     if (e) {
         w->fail = e;
         return 1;
@@ -891,19 +891,19 @@ static int unc__io_rutf8_wn_(void *v, Unc_Size n, const byte *b) {
 
 #if UNCIL_CONVERT_CRLF
 static const char newline[2] = "\r\n";
-int unc__io_fwrite_convnl(struct Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fwrite_convnl(struct Unc_View *w, struct ulib_io_file *file,
                           const byte *b, Unc_Size *pn) {
     Unc_Size n = *pn;
     const byte *s = b, *x, *d = s + n;
     while ((n = memchr(s, '\n', d - s))) {
-        if (unc__io_fwrite_p(w, file, s, n - s))
+        if (unc0_io_fwrite_p(w, file, s, n - s))
             return 1;
-        if (unc__io_fwrite_p(w, file, (const byte *)newline, 2))
+        if (unc0_io_fwrite_p(w, file, (const byte *)newline, 2))
             return 1;
         s = n + 1;
         *++pn;
     }
-    return unc__io_fwrite_p(w, file, s, d - s);
+    return unc0_io_fwrite_p(w, file, s, d - s);
 }
 #endif
 
@@ -930,18 +930,18 @@ static int uncdec_out_wrapper(void *data, Unc_Size n, const byte *b) {
     struct uncdec_out_buffer *buf = data;
     if (buf->n + n >= UNC_INT_MAX - 1) return -1;
 #if UNCIL_CONVERT_CRLF
-    e = unc__io_fwrite_convnl(buf->view, buf->file, b, &n);
+    e = unc0_io_fwrite_convnl(buf->view, buf->file, b, &n);
 #else
-    e = unc__io_fwrite_p(buf->view, buf->file, b, n);
+    e = unc0_io_fwrite_p(buf->view, buf->file, b, n);
 #endif
     if (!e) buf->n += n;
     return 0;
 }
 
-int unc__io_fgetc_text(Unc_View *w, struct ulib_io_file *file, char *buffer) {
+int unc0_io_fgetc_text(Unc_View *w, struct ulib_io_file *file, char *buffer) {
     switch (file->encoding) {
     case UNCIL_IO_FILE_ENC_BINARY:
-        return unc__io_fread_p(w, file, (byte *)buffer, 0, 1) ? -1 : 1;
+        return unc0_io_fread_p(w, file, (byte *)buffer, 0, 1) ? -1 : 1;
     case UNCIL_IO_FILE_ENC_UTF8:
     {
         struct unc_woutwrap wo;
@@ -950,48 +950,48 @@ int unc__io_fgetc_text(Unc_View *w, struct ulib_io_file *file, char *buffer) {
         wo.n = 0;
         wo.c = UNC_IO_GETC_BUFFER;
         wo.fail = 0;
-        if (unc__cconv_utf8ts(&unc__io_fgetc__, file,
-                              &unc__io_rutf8_w_, &wo, 1)) {
-            return (wo.fail || unc__io_ferror(file) || unc__io_feof(file))
+        if (unc0_cconv_utf8ts(&unc0_io_fgetc__, file,
+                              &unc0_io_rutf8_w_, &wo, 1)) {
+            return (wo.fail || unc0_io_ferror(file) || unc0_io_feof(file))
                     ? -1 : -2;
         }
-        if (!wo.n && unc__io_feof(file)) return -1;
+        if (!wo.n && unc0_io_feof(file)) return -1;
         return wo.n;
     }
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Dec dec = unc__getbyencindex(w, -file->encoding)->dec;
+            Unc_CConv_Dec dec = unc0_getbyencindex(w, -file->encoding)->dec;
             struct unc_woutwrap wo;
             wo.alloc = NULL;
             wo.b = (byte *)buffer;
             wo.n = 0;
             wo.c = UNC_IO_GETC_BUFFER;
             wo.fail = 0;
-            if ((*dec)(&unc__io_fgetc__, file, &unc__io_rutf8_w_, &wo, 1)) {
-                return (wo.fail || unc__io_ferror(file) || unc__io_feof(file))
+            if ((*dec)(&unc0_io_fgetc__, file, &unc0_io_rutf8_w_, &wo, 1)) {
+                return (wo.fail || unc0_io_ferror(file) || unc0_io_feof(file))
                         ? -1 : -2;
             }
-            if (!wo.n && unc__io_feof(file)) return -1;
+            if (!wo.n && unc0_io_feof(file)) return -1;
             return wo.n;
         }
         NEVER();
     }
 }
 
-int unc__io_fwrite_text(Unc_View *w, struct ulib_io_file *file,
+int unc0_io_fwrite_text(Unc_View *w, struct ulib_io_file *file,
                         const byte *b, Unc_Size n) {
     switch (file->encoding) {
     case UNCIL_IO_FILE_ENC_BINARY:
-        return unc__io_fwrite_p(w, file, b, n);
+        return unc0_io_fwrite_p(w, file, b, n);
     case UNCIL_IO_FILE_ENC_UTF8:
 #if UNCIL_CONVERT_CRLF
-        return unc__io_fwrite_convnl(w, file, (const byte *)b, &n);
+        return unc0_io_fwrite_convnl(w, file, (const byte *)b, &n);
 #else
-        return unc__io_fwrite_p(w, file, (const byte *)b, n);
+        return unc0_io_fwrite_p(w, file, (const byte *)b, n);
 #endif
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Enc enc = unc__getbyencindex(w, -file->encoding)->enc;
+            Unc_CConv_Enc enc = unc0_getbyencindex(w, -file->encoding)->enc;
             struct uncdec_in_buffer ibuf;
             struct uncdec_out_buffer obuf;
             ibuf.n = n;
@@ -1000,14 +1000,14 @@ int unc__io_fwrite_text(Unc_View *w, struct ulib_io_file *file,
             obuf.n = 0;
             obuf.view = w;
             if ((*enc)(&uncdec_in_wrapper, &ibuf, &uncdec_out_wrapper, &obuf)) {
-                return unc__io_ferror(file) ? 1 : -1;
+                return unc0_io_ferror(file) ? 1 : -1;
             }
         }
         NEVER();
     }
 }
 
-Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     Unc_Int i;
@@ -1037,11 +1037,11 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
         return unc_throwexc(w, "system", "read size too large");
     }
     sz = (size_t)i;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
-    if (unc__io_feof(file)) {
+    if (unc0_io_feof(file)) {
         unc_setnull(w, &p);
         unc_unlock(w, &args.values[0]);
         return unc_pushmove(w, &p, NULL);
@@ -1053,12 +1053,12 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        e = unc__io_fread_p(w, file, j, 0, sz);
+        e = unc0_io_fread_p(w, file, j, 0, sz);
 #ifndef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
         if (e)
-            return e == EOF ? unc__io_makeerr(w, "io.file.read()", errno) : e;
+            return e == EOF ? unc0_io_makeerr(w, "io.file.read()", errno) : e;
         e = unc_newblobmove(w, &p, j);
         if (e) {
             unc_mfree(w, j);
@@ -1077,12 +1077,12 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (unc__cconv_utf8ts(&unc__io_fgetc__, file,
-                              &unc__io_rutf8_w_, &wo, sz)) {
-            if (unc__io_ferror(file)) {
+        if (unc0_cconv_utf8ts(&unc0_io_fgetc__, file,
+                              &unc0_io_rutf8_w_, &wo, sz)) {
+            if (unc0_io_ferror(file)) {
                 unc_unlock(w, &args.values[0]);
-                return unc__io_makeerr(w, "io.file.read()", errno);
-            } else if (unc__io_feof(file)) {
+                return unc0_io_makeerr(w, "io.file.read()", errno);
+            } else if (unc0_io_feof(file)) {
                 if (!wo.n) {
                     unc_unlock(w, &args.values[0]);
                     unc_setnull(w, &p);
@@ -1098,13 +1098,13 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifndef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (!wo.b && unc__io_feof(file)) {
+        if (!wo.b && unc0_io_feof(file)) {
             unc_setnull(w, &p);
             return unc_pushmove(w, &p, NULL);
         }
         e = unc_newstringmove(w, &p, wo.n, (char *)wo.b);
         if (e) {
-            unc__mmfree(wo.alloc, wo.b);
+            unc0_mmfree(wo.alloc, wo.b);
             return e;
         }
         e = unc_pushmove(w, &p, NULL);
@@ -1112,7 +1112,7 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Dec dec = unc__getbyencindex(w, -file->encoding)->dec;
+            Unc_CConv_Dec dec = unc0_getbyencindex(w, -file->encoding)->dec;
             struct unc_woutwrap wo;
             wo.alloc = &w->world->alloc;
             wo.b = NULL;
@@ -1121,11 +1121,11 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            if ((*dec)(&unc__io_fgetc__, file, &unc__io_rutf8_w_, &wo, sz)) {
-                if (unc__io_ferror(file)) {
+            if ((*dec)(&unc0_io_fgetc__, file, &unc0_io_rutf8_w_, &wo, sz)) {
+                if (unc0_io_ferror(file)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.read()", errno);
-                } else if (unc__io_feof(file)) {
+                    return unc0_io_makeerr(w, "io.file.read()", errno);
+                } else if (unc0_io_feof(file)) {
                     if (!wo.n) {
                         unc_unlock(w, &args.values[0]);
                         unc_setnull(w, &p);
@@ -1141,13 +1141,13 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            if (!wo.b && unc__io_feof(file)) {
+            if (!wo.b && unc0_io_feof(file)) {
                 unc_setnull(w, &p);
                 return unc_pushmove(w, &p, NULL);
             }
             e = unc_newstringmove(w, &p, wo.n, (char *)wo.b);
             if (e) {
-                unc__mmfree(wo.alloc, wo.b);
+                unc0_mmfree(wo.alloc, wo.b);
                 return e;
             }
             e = unc_pushmove(w, &p, NULL);
@@ -1158,7 +1158,7 @@ Unc_RetVal unc__lib_io_file_read(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1172,11 +1172,11 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
-    if (unc__io_feof(file)) {
+    if (unc0_io_feof(file)) {
         unc_unlock(w, &args.values[0]);
         unc_setnull(w, &p);
         return unc_pushmove(w, &p, NULL);
@@ -1191,11 +1191,11 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_unlock(w, &args.values[0]);
 #endif
         for (;;) {
-            c = unc__io_fgetc(file);
+            c = unc0_io_fgetc(file);
             if (c < 0) {
-                if (unc__io_ferror(file)) {
+                if (unc0_io_ferror(file)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.readline()", errno);
+                    return unc0_io_makeerr(w, "io.file.readline()", errno);
                 }
                 /* EOF */
                 if (!j) {
@@ -1206,7 +1206,7 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
                 break;
             }
             jt = c;
-            if ((e = unc__strpushb(&w->world->alloc, &j, &jn, &jc,
+            if ((e = unc0_strpushb(&w->world->alloc, &j, &jn, &jc,
                                    6, 1, &jt))) {
                 unc_unlock(w, &args.values[0]);
                 return e;
@@ -1236,12 +1236,12 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (unc__cconv_utf8ts(&unc__io_fgetc__, file, &unc__io_rutf8_wn_, &wo,
+        if (unc0_cconv_utf8ts(&unc0_io_fgetc__, file, &unc0_io_rutf8_wn_, &wo,
                                                         UNC_SIZE_MAX)) {
-            if (unc__io_ferror(file)) {
+            if (unc0_io_ferror(file)) {
                 unc_unlock(w, &args.values[0]);
-                return unc__io_makeerr(w, "io.file.readline()", errno);
-            } else if (unc__io_feof(file)) {
+                return unc0_io_makeerr(w, "io.file.readline()", errno);
+            } else if (unc0_io_feof(file)) {
                 if (!wo.n) {
                     unc_unlock(w, &args.values[0]);
                     unc_setnull(w, &p);
@@ -1256,13 +1256,13 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifndef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (!wo.b && unc__io_feof(file)) {
+        if (!wo.b && unc0_io_feof(file)) {
             unc_setnull(w, &p);
             return unc_pushmove(w, &p, NULL);
         }
         e = unc_newstringmove(w, &p, wo.n, (char *)wo.b);
         if (e) {
-            unc__mmfree(wo.alloc, wo.b);
+            unc0_mmfree(wo.alloc, wo.b);
             return e;
         }
         e = unc_pushmove(w, &p, NULL);
@@ -1270,7 +1270,7 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Dec dec = unc__getbyencindex(w, -file->encoding)->dec;
+            Unc_CConv_Dec dec = unc0_getbyencindex(w, -file->encoding)->dec;
             struct unc_woutwrap wo;
             wo.alloc = &w->world->alloc;
             wo.b = NULL;
@@ -1279,12 +1279,12 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            if ((*dec)(&unc__io_fgetc__, file, &unc__io_rutf8_wn_, &wo,
+            if ((*dec)(&unc0_io_fgetc__, file, &unc0_io_rutf8_wn_, &wo,
                                                             UNC_SIZE_MAX)) {
-                if (unc__io_ferror(file)) {
+                if (unc0_io_ferror(file)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.readline()", errno);
-                } else if (unc__io_feof(file)) {
+                    return unc0_io_makeerr(w, "io.file.readline()", errno);
+                } else if (unc0_io_feof(file)) {
                     if (!wo.n) {
                         unc_unlock(w, &args.values[0]);
                         unc_setnull(w, &p);
@@ -1300,13 +1300,13 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            if (!wo.b && unc__io_feof(file)) {
+            if (!wo.b && unc0_io_feof(file)) {
                 unc_setnull(w, &p);
                 return unc_pushmove(w, &p, NULL);
             }
             e = unc_newstringmove(w, &p, wo.n, (char *)wo.b);
             if (e) {
-                unc__mmfree(wo.alloc, wo.b);
+                unc0_mmfree(wo.alloc, wo.b);
                 return e;
             }
             e = unc_pushmove(w, &p, NULL);
@@ -1317,7 +1317,7 @@ Unc_RetVal unc__lib_io_file_readline(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1331,11 +1331,11 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
-    if (unc__io_feof(file)) {
+    if (unc0_io_feof(file)) {
         unc_unlock(w, &args.values[0]);
         unc_setnull(w, &p);
         return unc_pushmove(w, &p, NULL);
@@ -1350,11 +1350,11 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_unlock(w, &args.values[0]);
 #endif
         for (;;) {
-            c = unc__io_fgetc(file);
+            c = unc0_io_fgetc(file);
             if (c < 0) {
-                if (unc__io_ferror(file)) {
+                if (unc0_io_ferror(file)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.readall()", errno);
+                    return unc0_io_makeerr(w, "io.file.readall()", errno);
                 }
                 /* EOF */
                 if (!j) {
@@ -1365,7 +1365,7 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
                 break;
             }
             jt = c;
-            if ((e = unc__strpushb(&w->world->alloc, &j, &jn, &jc,
+            if ((e = unc0_strpushb(&w->world->alloc, &j, &jn, &jc,
                                     6, 1, &jt))) {
                 unc_unlock(w, &args.values[0]);
                 return e;
@@ -1393,12 +1393,12 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (unc__cconv_utf8ts(&unc__io_fgetc__, file, &unc__io_rutf8_w_, &wo,
+        if (unc0_cconv_utf8ts(&unc0_io_fgetc__, file, &unc0_io_rutf8_w_, &wo,
                                                         UNC_SIZE_MAX)) {
-            if (unc__io_ferror(file)) {
+            if (unc0_io_ferror(file)) {
                 unc_unlock(w, &args.values[0]);
-                return unc__io_makeerr(w, "io.file.readall()", errno);
-            } else if (unc__io_feof(file)) {
+                return unc0_io_makeerr(w, "io.file.readall()", errno);
+            } else if (unc0_io_feof(file)) {
                 if (!wo.n) {
                     unc_unlock(w, &args.values[0]);
                     unc_setnull(w, &p);
@@ -1413,13 +1413,13 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifndef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (!wo.b && unc__io_feof(file)) {
+        if (!wo.b && unc0_io_feof(file)) {
             unc_setnull(w, &p);
             return unc_pushmove(w, &p, NULL);
         }
         e = unc_newstringmove(w, &p, wo.n, (char *)wo.b);
         if (e) {
-            unc__mmfree(wo.alloc, wo.b);
+            unc0_mmfree(wo.alloc, wo.b);
             return e;
         }
         e = unc_pushmove(w, &p, NULL);
@@ -1427,7 +1427,7 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Dec dec = unc__getbyencindex(w, -file->encoding)->dec;
+            Unc_CConv_Dec dec = unc0_getbyencindex(w, -file->encoding)->dec;
             struct unc_woutwrap wo;
             wo.alloc = &w->world->alloc;
             wo.b = NULL;
@@ -1436,12 +1436,12 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            if ((*dec)(&unc__io_fgetc__, file, &unc__io_rutf8_w_, &wo,
+            if ((*dec)(&unc0_io_fgetc__, file, &unc0_io_rutf8_w_, &wo,
                                                             UNC_SIZE_MAX)) {
-                if (unc__io_ferror(file)) {
+                if (unc0_io_ferror(file)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.readall()", errno);
-                } else if (unc__io_feof(file)) {
+                    return unc0_io_makeerr(w, "io.file.readall()", errno);
+                } else if (unc0_io_feof(file)) {
                     if (!wo.n) {
                         unc_unlock(w, &args.values[0]);
                         unc_setnull(w, &p);
@@ -1457,13 +1457,13 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            if (!wo.b && unc__io_feof(file)) {
+            if (!wo.b && unc0_io_feof(file)) {
                 unc_setnull(w, &p);
                 return unc_pushmove(w, &p, NULL);
             }
             e = unc_newstringmove(w, &p, wo.n, (char *)wo.b);
             if (e) {
-                unc__mmfree(wo.alloc, wo.b);
+                unc0_mmfree(wo.alloc, wo.b);
                 return e;
             }
             e = unc_pushmove(w, &p, NULL);
@@ -1474,7 +1474,7 @@ Unc_RetVal unc__lib_io_file_readall(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1488,7 +1488,7 @@ Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
@@ -1511,12 +1511,12 @@ Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (unc__io_fwrite_p(w, file, b, sz)) {
+        if (unc0_io_fwrite_p(w, file, b, sz)) {
             unc_unlock(w, &args.values[1]);
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            return unc__io_makeerr(w, "io.file.write()", errno);
+            return unc0_io_makeerr(w, "io.file.write()", errno);
         }
         unc_unlock(w, &args.values[1]);
 #ifndef STDIO_FILE_THREADSAFE
@@ -1544,14 +1544,14 @@ Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_unlock(w, &args.values[0]);
 #endif
 #if UNCIL_CONVERT_CRLF
-        if (unc__io_fwrite_convnl(w, file, (const byte *)b, &sz)) {
+        if (unc0_io_fwrite_convnl(w, file, (const byte *)b, &sz)) {
 #else
-        if (unc__io_fwrite_p(w, file, (const byte *)b, sz)) {
+        if (unc0_io_fwrite_p(w, file, (const byte *)b, sz)) {
 #endif
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            return unc__io_makeerr(w, "io.file.write()", errno);
+            return unc0_io_makeerr(w, "io.file.write()", errno);
         }
 #ifndef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
@@ -1562,7 +1562,7 @@ Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Enc enc = unc__getbyencindex(w, -file->encoding)->enc;
+            Unc_CConv_Enc enc = unc0_getbyencindex(w, -file->encoding)->enc;
             struct uncdec_in_buffer ibuf;
             struct uncdec_out_buffer obuf;
             Unc_Size sz;
@@ -1583,8 +1583,8 @@ Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
             if ((*enc)(&uncdec_in_wrapper, &ibuf, &uncdec_out_wrapper, &obuf)) {
                 unc_unlock(w, &args.values[0]);
-                if (unc__io_ferror(file)) {
-                    return unc__io_makeerr(w, "io.file.write()", errno);
+                if (unc0_io_ferror(file)) {
+                    return unc0_io_makeerr(w, "io.file.write()", errno);
                 } else {
                     return unc_throwexc(w, "encoding",
                             "cannot encode string with current encoding");
@@ -1602,7 +1602,7 @@ Unc_RetVal unc__lib_io_file_write(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1616,7 +1616,7 @@ Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) 
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
@@ -1639,19 +1639,19 @@ Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) 
 #ifdef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
 #endif
-        if (unc__io_fwrite_p(w, file, b, sz)) {
+        if (unc0_io_fwrite_p(w, file, b, sz)) {
             unc_unlock(w, &args.values[1]);
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            return unc__io_makeerr(w, "io.file.writeline()", errno);
+            return unc0_io_makeerr(w, "io.file.writeline()", errno);
         }
         unc_unlock(w, &args.values[1]);
-        if (unc__io_fwrite_p(w, file, (const byte *)"\n", 1)) {
+        if (unc0_io_fwrite_p(w, file, (const byte *)"\n", 1)) {
 #ifndef STDIO_FILE_THREADSAFE
             unc_unlock(w, &args.values[0]);
 #endif
-            return unc__io_makeerr(w, "io.file.writeline()", errno);
+            return unc0_io_makeerr(w, "io.file.writeline()", errno);
         }
 #ifndef STDIO_FILE_THREADSAFE
         unc_unlock(w, &args.values[0]);
@@ -1679,24 +1679,24 @@ Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) 
         unc_unlock(w, &args.values[0]);
 #endif
 #if UNCIL_CONVERT_CRLF
-        if (unc__io_fwrite_convnl(w, file, (const byte *)b, &sz)) {
+        if (unc0_io_fwrite_convnl(w, file, (const byte *)b, &sz)) {
             unc_unlock(w, &args.values[0]);
-            return unc__io_makeerr(w, "io.file.writeline()", errno);
+            return unc0_io_makeerr(w, "io.file.writeline()", errno);
         }
-        if (unc__io_fwrite_convnl(w, file, (const byte *)newline,
+        if (unc0_io_fwrite_convnl(w, file, (const byte *)newline,
                                     sizeof(newline) - 1)) {
             unc_unlock(w, &args.values[0]);
-            return unc__io_makeerr(w, "io.file.writeline()", errno);
+            return unc0_io_makeerr(w, "io.file.writeline()", errno);
         }
         sz += sizeof(newline) - 1;
 #else
-        if (unc__io_fwrite_p(w, file, (const byte *)b, sz)) {
+        if (unc0_io_fwrite_p(w, file, (const byte *)b, sz)) {
             unc_unlock(w, &args.values[0]);
-            return unc__io_makeerr(w, "io.file.writeline()", errno);
+            return unc0_io_makeerr(w, "io.file.writeline()", errno);
         }
-        if (unc__io_fwrite_p(w, file, (const byte *)"\n", 1)) {
+        if (unc0_io_fwrite_p(w, file, (const byte *)"\n", 1)) {
             unc_unlock(w, &args.values[0]);
-            return unc__io_makeerr(w, "io.file.writeline()", errno);
+            return unc0_io_makeerr(w, "io.file.writeline()", errno);
         }
         sz += 1;
 #endif
@@ -1709,7 +1709,7 @@ Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) 
     }
     default:
         if (file->encoding < 0) {
-            Unc_CConv_Enc enc = unc__getbyencindex(w, -file->encoding)->enc;
+            Unc_CConv_Enc enc = unc0_getbyencindex(w, -file->encoding)->enc;
             struct uncdec_in_buffer ibuf;
             struct uncdec_out_buffer obuf;
             Unc_Size sz;
@@ -1730,24 +1730,24 @@ Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) 
 #endif
             if ((*enc)(&uncdec_in_wrapper, &ibuf, &uncdec_out_wrapper, &obuf)) {
                 unc_unlock(w, &args.values[0]);
-                if (unc__io_ferror(file)) {
-                    return unc__io_makeerr(w, "io.file.write()", errno);
+                if (unc0_io_ferror(file)) {
+                    return unc0_io_makeerr(w, "io.file.write()", errno);
                 } else {
                     return unc_throwexc(w, "encoding",
                             "cannot encode string with current encoding");
                 }
             } else {
 #if UNCIL_CONVERT_CRLF
-                if (unc__io_fwrite_conv(w, file, (const byte *)newline,
+                if (unc0_io_fwrite_conv(w, file, (const byte *)newline,
                                             sizeof(newline) - 1)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.writeline()", errno);
+                    return unc0_io_makeerr(w, "io.file.writeline()", errno);
                 }
                 obuf.n += sizeof(newline) - 1;
 #else
-                if (unc__io_fwrite_p(w, file, (const byte *)"\n", 1)) {
+                if (unc0_io_fwrite_p(w, file, (const byte *)"\n", 1)) {
                     unc_unlock(w, &args.values[0]);
-                    return unc__io_makeerr(w, "io.file.writeline()", errno);
+                    return unc0_io_makeerr(w, "io.file.writeline()", errno);
                 }
                 obuf.n += 1;
 #endif
@@ -1764,7 +1764,7 @@ Unc_RetVal unc__lib_io_file_writeline(Unc_View *w, Unc_Tuple args, void *udata) 
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_readbyte(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_readbyte(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1778,11 +1778,11 @@ Unc_RetVal unc__lib_io_file_readbyte(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
-    if (unc__io_feof(file)) {
+    if (unc0_io_feof(file)) {
         unc_unlock(w, &args.values[0]);
         unc_setint(w, &p, -1);
         return unc_pushmove(w, &p, NULL);
@@ -1795,10 +1795,10 @@ Unc_RetVal unc__lib_io_file_readbyte(Unc_View *w, Unc_Tuple args, void *udata) {
 #ifdef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    e = unc__io_fgetc(file);
+    e = unc0_io_fgetc(file);
     if (e == EOF) {
-        if (unc__io_ferror(file))
-            return unc__io_makeerr(w, "io.file.readbyte()", errno);
+        if (unc0_io_ferror(file))
+            return unc0_io_makeerr(w, "io.file.readbyte()", errno);
         e = -1;
     }
 #ifndef STDIO_FILE_THREADSAFE
@@ -1809,7 +1809,7 @@ Unc_RetVal unc__lib_io_file_readbyte(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_writebyte(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_writebyte(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1825,7 +1825,7 @@ Unc_RetVal unc__lib_io_file_writebyte(Unc_View *w, Unc_Tuple args, void *udata) 
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e)
         return e;
-    if (!unc__io_isopen(file)) {
+    if (!unc0_io_isopen(file)) {
         unc_unlock(w, &args.values[0]);
         return unc_throwexc(w, "io", "file is closed");
     }
@@ -1847,18 +1847,18 @@ Unc_RetVal unc__lib_io_file_writebyte(Unc_View *w, Unc_Tuple args, void *udata) 
 #ifdef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
-    e = unc__io_fwrite_p(w, file, &b, 1);
+    e = unc0_io_fwrite_p(w, file, &b, 1);
 #ifndef STDIO_FILE_THREADSAFE
     unc_unlock(w, &args.values[0]);
 #endif
     if (e)
-        return unc__io_makeerr(w, "io.file.writebyte()", errno);
+        return unc0_io_makeerr(w, "io.file.writebyte()", errno);
     unc_setint(w, &p, 1);
     e = unc_pushmove(w, &p, NULL);
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_lines_next(Unc_View *w,
+Unc_RetVal unc0_lib_io_file_lines_next(Unc_View *w,
                                        Unc_Tuple args, void *udata) {
     int e;
     Unc_Value *fd, *readl;
@@ -1880,7 +1880,7 @@ Unc_RetVal unc__lib_io_file_lines_next(Unc_View *w,
     return 0;
 }
 
-Unc_RetVal unc__lib_io_file_lines(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_lines(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK, p = UNC_BLANK;
     struct ulib_io_file *file;
     int e;
@@ -1894,7 +1894,7 @@ Unc_RetVal unc__lib_io_file_lines(Unc_View *w, Unc_Tuple args, void *udata) {
     unc_clear(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&file);
     if (e) return e;
-    e = unc_newcfunction(w, &v, &unc__lib_io_file_lines_next,
+    e = unc_newcfunction(w, &v, &unc0_lib_io_file_lines_next,
                          UNC_CFUNC_DEFAULT, 0, 0, 0, NULL, 1, &args.values[0],
                          1, refcopies, "io.file.lines.next", NULL);
     unc_unlock(w, &args.values[0]);
@@ -1902,7 +1902,7 @@ Unc_RetVal unc__lib_io_file_lines(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_io_file_open(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_open(Unc_View *w, Unc_Tuple args, void *udata) {
     int e, flags, fflags = 0, bufspec = 0, bufmode;
     size_t mn, bufsize;
     const char *sb, *mb;
@@ -1990,9 +1990,9 @@ Unc_RetVal unc__lib_io_file_open(Unc_View *w, Unc_Tuple args, void *udata) {
 
 #if !UNCIL_C11
     if (flags & 4) { /* simulate 'x' */
-        e = unc__io_fopen(&file, sb, "rb");
+        e = unc0_io_fopen(&file, sb, "rb");
         if (!e) {
-            unc__io_fclose_p(w, &w->world->alloc, &file);
+            unc0_io_fclose_p(w, &w->world->alloc, &file);
             return unc_throwexc(w, "io",
                 "x specified, but file already exists");
         }
@@ -2004,36 +2004,36 @@ Unc_RetVal unc__lib_io_file_open(Unc_View *w, Unc_Tuple args, void *udata) {
         e = unc_getstring(w, &args.values[2], &mn, &mb);
         if (e)
             return unc_throwexc(w, "type", "encoding must be null or a string");
-        ec = unc__resolveencindex(w, mn, (const byte *)mb);
+        ec = unc0_resolveencindex(w, mn, (const byte *)mb);
         if (ec < 0)
             return unc_throwexc(w, "value", "unknown or unsupported encoding");
         file.encodingtext = ec ? -ec : UNCIL_IO_FILE_ENC_UTF8;
     } else
         file.encodingtext = UNCIL_IO_FILE_ENC_UTF8;
-    e = unc__io_fopen(&file, sb, mode);
-    if (e) return unc__io_makeerr(w, "io.open()", errno);
+    e = unc0_io_fopen(&file, sb, mode);
+    if (e) return unc0_io_makeerr(w, "io.open()", errno);
     file.encoding = !(flags & 1) ? file.encodingtext
                                  : UNCIL_IO_FILE_ENC_BINARY;
     file.flags |= fflags;
 
     if (bufspec) {
         errno = 0;
-        if ((e = unc__io_setvbuf(&file, NULL, bufmode, bufsize))) {
+        if ((e = unc0_io_setvbuf(&file, NULL, bufmode, bufsize))) {
             if (errno)
-                e = unc__io_makeerr(w, "io.open(), setvbuf()", errno);
+                e = unc0_io_makeerr(w, "io.open(), setvbuf()", errno);
             else
                 e = unc_throwexc(w, "io",
                     "could not set buffer for opened file");
-            unc__io_fclose_p(w, &w->world->alloc, &file);
+            unc0_io_fclose_p(w, &w->world->alloc, &file);
             return e;
         }
     }
 
     e = unc_newopaque(w, &result, unc_boundvalue(w, 0),
                         sizeof(struct ulib_io_file), (void **)&pfile,
-                        &unc__io_file_destr, 0, NULL, 0, NULL);
+                        &unc0_io_file_destr, 0, NULL, 0, NULL);
     if (e) {
-        unc__io_fclose_p(w, &w->world->alloc, &file);
+        unc0_io_fclose_p(w, &w->world->alloc, &file);
         return e;
     }
 
@@ -2043,7 +2043,7 @@ Unc_RetVal unc__lib_io_file_open(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_tempfile(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_tempfile(Unc_View *w, Unc_Tuple args, void *udata) {
     int e, flags, fflags = 0, bufspec = 0, bufmode, hastmpfilename;
     size_t mn, bufsize;
     const char *mb;
@@ -2143,7 +2143,7 @@ Unc_RetVal unc__lib_io_file_tempfile(Unc_View *w, Unc_Tuple args, void *udata) {
         e = unc_getstring(w, &args.values[2], &mn, &mb);
         if (e)
             return unc_throwexc(w, "type", "encoding must be null or a string");
-        ec = unc__resolveencindex(w, mn, (const byte *)mb);
+        ec = unc0_resolveencindex(w, mn, (const byte *)mb);
         if (ec < 0)
             return unc_throwexc(w, "value",
                 "unrecognized or unsupported encoding");
@@ -2151,15 +2151,15 @@ Unc_RetVal unc__lib_io_file_tempfile(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         file.encodingtext = UNCIL_IO_FILE_ENC_UTF8;
     if ((hastmpfilename = e))
-        e = unc__io_tmpfilenamed(&w->world->alloc, &file, tmpfilename, mode);
+        e = unc0_io_tmpfilenamed(&w->world->alloc, &file, tmpfilename, mode);
     else
-        e = unc__io_tmpfile(&w->world->alloc, &file, mode);
+        e = unc0_io_tmpfile(&w->world->alloc, &file, mode);
     if (e) {
         if (e == TMPFILE_MEM)
             return UNCIL_ERR_MEM;
         if (e == TMPFILE_FAIL)
             return unc_throwexc(w, "io", "could not create temporary file");
-        return unc__io_makeerr(w, "io.tempfile()", errno);
+        return unc0_io_makeerr(w, "io.tempfile()", errno);
     }
     file.encoding = !(flags & 1) ? file.encodingtext
                                  : UNCIL_IO_FILE_ENC_BINARY;
@@ -2167,22 +2167,22 @@ Unc_RetVal unc__lib_io_file_tempfile(Unc_View *w, Unc_Tuple args, void *udata) {
 
     if (bufspec) {
         errno = 0;
-        if ((e = unc__io_setvbuf(&file, NULL, bufmode, bufsize))) {
+        if ((e = unc0_io_setvbuf(&file, NULL, bufmode, bufsize))) {
             if (errno)
-                e = unc__io_makeerr(w, "io.tempfile(), setvbuf()", errno);
+                e = unc0_io_makeerr(w, "io.tempfile(), setvbuf()", errno);
             else
                 e = unc_throwexc(w, "io",
                     "could not set buffer for opened file");
-            unc__io_fclose_p(w, &w->world->alloc, &file);
+            unc0_io_fclose_p(w, &w->world->alloc, &file);
             return e;
         }
     }
 
     e = unc_newopaque(w, &result, unc_boundvalue(w, 0),
                         sizeof(struct ulib_io_file), (void **)&pfile,
-                        &unc__io_file_destr, 0, NULL, 0, NULL);
+                        &unc0_io_file_destr, 0, NULL, 0, NULL);
     if (e) {
-        unc__io_fclose_p(w, &w->world->alloc, &file);
+        unc0_io_fclose_p(w, &w->world->alloc, &file);
         return e;
     }
 
@@ -2200,16 +2200,16 @@ Unc_RetVal unc__lib_io_file_tempfile(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_io_file_pipe(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_io_file_pipe(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     struct ulib_io_file pipes[2], *pfile;
     Unc_Value result = UNC_BLANK;
 
     errno = 0;
-    e = unc__io_pipe(pipes);
+    e = unc0_io_pipe(pipes);
     if (e) {
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
-            e = unc__io_makeerr(w, "io.pipe()", errno);
+            e = unc0_io_makeerr(w, "io.pipe()", errno);
         else
             return e;
     }
@@ -2224,26 +2224,26 @@ Unc_RetVal unc__lib_io_file_pipe(Unc_View *w, Unc_Tuple args, void *udata) {
     
     e = unc_newopaque(w, &result, unc_boundvalue(w, 0),
                         sizeof(struct ulib_io_file), (void **)&pfile,
-                        &unc__io_file_destr, 0, NULL, 0, NULL);
+                        &unc0_io_file_destr, 0, NULL, 0, NULL);
     if (e) {
-        unc__io_fclose_p(w, &w->world->alloc, &pipes[1]);
-        unc__io_fclose_p(w, &w->world->alloc, &pipes[0]);
+        unc0_io_fclose_p(w, &w->world->alloc, &pipes[1]);
+        unc0_io_fclose_p(w, &w->world->alloc, &pipes[0]);
         return e;
     }
     *pfile = pipes[0];
     unc_unlock(w, &result);
     e = unc_push(w, 1, &result, NULL);
     if (e) {
-        unc__io_fclose_p(w, &w->world->alloc, &pipes[1]);
+        unc0_io_fclose_p(w, &w->world->alloc, &pipes[1]);
         unc_clear(w, &result);
         return e;
     }
 
     e = unc_newopaque(w, &result, unc_boundvalue(w, 0),
                         sizeof(struct ulib_io_file), (void **)&pfile,
-                        &unc__io_file_destr, 0, NULL, 0, NULL);
+                        &unc0_io_file_destr, 0, NULL, 0, NULL);
     if (e) {
-        unc__io_fclose_p(w, &w->world->alloc, &pipes[1]);
+        unc0_io_fclose_p(w, &w->world->alloc, &pipes[1]);
         return e;
     }
     *pfile = pipes[1];
@@ -2253,13 +2253,13 @@ Unc_RetVal unc__lib_io_file_pipe(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-static int unc__lib_io_filewrap(Unc_View *w, FILE *f,
+static int unc0_lib_io_filewrap(Unc_View *w, FILE *f,
                                 Unc_Value *proto, Unc_Value *result,
                                 int encoding, int flags) {
     struct ulib_io_file *pfile;
     int e = unc_newopaque(w, result, proto,
                         sizeof(struct ulib_io_file), (void **)&pfile,
-                        &unc__io_file_destr, 0, NULL, 0, NULL);
+                        &unc0_io_file_destr, 0, NULL, 0, NULL);
     if (e) return e;
 
     pfile->f = f;
@@ -2269,7 +2269,7 @@ static int unc__lib_io_filewrap(Unc_View *w, FILE *f,
     return 0;
 }
 
-static int unc__io_init_i(Unc_View *w) {
+static int unc0_io_init_i(Unc_View *w) {
     int e;
     Unc_Value io_file = UNC_BLANK;
 
@@ -2278,7 +2278,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_close,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_close,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "close", NULL);
@@ -2292,7 +2292,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_flush,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_flush,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "flush", NULL);
@@ -2304,7 +2304,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_seek,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_seek,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 1, NULL,
                              1, &io_file, 0, NULL, "seek", NULL);
@@ -2316,7 +2316,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_tell,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_tell,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "tell", NULL);
@@ -2328,7 +2328,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_isopen,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_isopen,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "isopen", NULL);
@@ -2340,7 +2340,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_iseof,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_iseof,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "iseof", NULL);
@@ -2352,7 +2352,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_canread,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_canread,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "canread", NULL);
@@ -2364,7 +2364,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_canwrite,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_canwrite,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "canwrite", NULL);
@@ -2376,7 +2376,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_canseek,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_canseek,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "canseek", NULL);
@@ -2388,7 +2388,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_getbinary,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_getbinary,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "getbinary", NULL);
@@ -2400,7 +2400,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_getencoding,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_getencoding,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "getencoding", NULL);
@@ -2412,7 +2412,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_setbinary,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_setbinary,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 0, NULL,
                              1, &io_file, 0, NULL, "setbinary", NULL);
@@ -2424,7 +2424,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_setencoding,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_setencoding,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 0, NULL,
                              1, &io_file, 0, NULL, "setencoding", NULL);
@@ -2436,7 +2436,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_read,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_read,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 0, NULL,
                              1, &io_file, 0, NULL, "read", NULL);
@@ -2448,7 +2448,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_write,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_write,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 0, NULL,
                              1, &io_file, 0, NULL, "write", NULL);
@@ -2460,7 +2460,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_readbyte,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_readbyte,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "readbyte", NULL);
@@ -2472,7 +2472,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_writebyte,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_writebyte,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 0, NULL,
                              1, &io_file, 0, NULL, "writebyte", NULL);
@@ -2484,7 +2484,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_readline,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_readline,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "readline", NULL);
@@ -2496,7 +2496,7 @@ static int unc__io_init_i(Unc_View *w) {
             Unc_Value binds[2] = UNC_BLANKS;
             unc_copy(w, &binds[0], &io_file);
             unc_copy(w, &binds[1], &fn);
-            e = unc_newcfunction(w, &fn2, &unc__lib_io_file_lines,
+            e = unc_newcfunction(w, &fn2, &unc0_lib_io_file_lines,
                                 UNC_CFUNC_CONCURRENT,
                                 1, 0, 0, NULL,
                                 2, binds, 0, NULL, "lines", NULL);
@@ -2511,7 +2511,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_writeline,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_writeline,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 0, NULL,
                              1, &io_file, 0, NULL, "writeline", NULL);
@@ -2523,7 +2523,7 @@ static int unc__io_init_i(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_readall,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_readall,
                              UNC_CFUNC_CONCURRENT,
                              1, 0, 0, NULL,
                              1, &io_file, 0, NULL, "readall", NULL);
@@ -2549,12 +2549,12 @@ static int unc__io_init_i(Unc_View *w) {
 UNC_LOCKSTATICF(ioinitlock)
 UNC_LOCKSTATICFINIT0(ioinitlock)
 
-int unc__io_init(Unc_View *w) {
+int unc0_io_init(Unc_View *w) {
     int e = 0;
     UNC_LOCKSTATICFINIT1(ioinitlock);
     UNC_LOCKF(ioinitlock);
     if (!VGETTYPE(&w->world->io_file))
-        e = unc__io_init_i(w);
+        e = unc0_io_init_i(w);
     UNC_UNLOCKF(ioinitlock);
     return e;
 }
@@ -2563,7 +2563,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
     Unc_RetVal e;
     Unc_Value io_file;
 
-    if ((e = unc__io_init(w))) return e;
+    if ((e = unc0_io_init(w))) return e;
     io_file = VGETRAW(&w->world->io_file);
 
     e = unc_setpublicc(w, "file", &io_file);
@@ -2571,7 +2571,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_open,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_open,
                              UNC_CFUNC_CONCURRENT,
                              2, 0, 2, NULL,
                              1, &io_file, 0, NULL, "open", NULL);
@@ -2583,7 +2583,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_tempfile,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_tempfile,
                              UNC_CFUNC_DEFAULT,
                              0, 0, 3, NULL,
                              1, &io_file, 0, NULL, "tempfile", NULL);
@@ -2595,7 +2595,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
 
     {
         Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc__lib_io_file_pipe,
+        e = unc_newcfunction(w, &fn, &unc0_lib_io_file_pipe,
                              UNC_CFUNC_DEFAULT,
                              0, 0, 0, NULL,
                              1, &io_file, 0, NULL, "pipe", NULL);
@@ -2607,7 +2607,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
 
     {
         Unc_Value s = UNC_BLANK;
-        e = unc__lib_io_filewrap(w, stdin, &io_file, &s,
+        e = unc0_lib_io_filewrap(w, stdin, &io_file, &s,
                                  UNCIL_IO_FILE_ENC_UTF8,
                                  UNCIL_IO_FILE_FLAG_READABLE);
         if (e) return e;    
@@ -2621,7 +2621,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
 
     {
         Unc_Value s = UNC_BLANK;
-        e = unc__lib_io_filewrap(w, stdout, &io_file, &s,
+        e = unc0_lib_io_filewrap(w, stdout, &io_file, &s,
                                  UNCIL_IO_FILE_ENC_UTF8,
                                  UNCIL_IO_FILE_FLAG_WRITABLE);
         if (e) return e;    
@@ -2635,7 +2635,7 @@ Unc_RetVal uncilmain_io(Unc_View *w) {
 
     {
         Unc_Value s = UNC_BLANK;
-        e = unc__lib_io_filewrap(w, stderr, &io_file, &s,
+        e = unc0_lib_io_filewrap(w, stderr, &io_file, &s,
                                  UNCIL_IO_FILE_ENC_UTF8,
                                  UNCIL_IO_FILE_FLAG_WRITABLE);
         if (e) return e;    

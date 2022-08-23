@@ -55,7 +55,7 @@ SOFTWARE.
 
 #define CHECKHALT(w) if (w->flow == UNC_VIEW_FLOW_HALT) return UNCIL_ERR_HALT;
 
-int unc__stdlibinit(Unc_World *w, Unc_View *v);
+int unc0_stdlibinit(Unc_World *w, Unc_View *v);
 
 int unc_getversion_major(void) {
     return UNCIL_VER_MAJOR;
@@ -82,18 +82,18 @@ Unc_View *unc_create(void) {
 }
     
 Unc_View *unc_createex(Unc_Alloc alloc, void *udata, Unc_MMask mmask) {
-    Unc_World *world = unc__incept(alloc, udata);
+    Unc_World *world = unc0_incept(alloc, udata);
     Unc_View *view;
     if (!world) return NULL;
     world->mmask = mmask;
     
-    view = unc__newview(world, Unc_ViewTypeNormal);
+    view = unc0_newview(world, Unc_ViewTypeNormal);
     if (view) {
         int e;
-        e = unc__makeexception(view, "memory", "out of memory",
+        e = unc0_makeexception(view, "memory", "out of memory",
                                &world->exc_oom);
         if (!e) {
-            e = unc__stdlibinit(world, view);
+            e = unc0_stdlibinit(world, view);
             if (!e) {    
                 VIMPOSE(view, &world->met_str, &view->met_str);
                 VIMPOSE(view, &world->met_blob, &view->met_blob);
@@ -102,17 +102,17 @@ Unc_View *unc_createex(Unc_Alloc alloc, void *udata, Unc_MMask mmask) {
                 return view;
             }
         }
-        unc__freeview(view);
+        unc0_freeview(view);
         return NULL;
     }
-    unc__doomsday(NULL, world);
+    unc0_doomsday(NULL, world);
     return NULL;
 }
 
 Unc_View *unc_dup(Unc_View *w) {
     Unc_View *w2;
     (void)UNC_LOCKFP(w, w->world->viewlist_lock);
-    w2 = unc__newview(w->world, Unc_ViewTypeNormal);
+    w2 = unc0_newview(w->world, Unc_ViewTypeNormal);
     UNC_UNLOCKF(w->world->viewlist_lock);
     return w2;
 }
@@ -120,7 +120,7 @@ Unc_View *unc_dup(Unc_View *w) {
 Unc_View *unc_fork(Unc_View *w, int daemon) {
     Unc_View *w2;
     (void)UNC_LOCKFP(w, w->world->viewlist_lock);
-    w2 = unc__newview(w->world, daemon ? Unc_ViewTypeSubDaemon
+    w2 = unc0_newview(w->world, daemon ? Unc_ViewTypeSubDaemon
                                        : Unc_ViewTypeSub);
     UNC_UNLOCKF(w->world->viewlist_lock);
     return w2;
@@ -131,7 +131,7 @@ int unc_coinhabited(Unc_View *w1, Unc_View *w2) {
 }
 
 void unc_copyprogram(Unc_View *w1, Unc_View *w2) {
-    unc__wsetprogram(w1, w2->program);
+    unc0_wsetprogram(w1, w2->program);
     VCOPY(w1, &w1->fmain, &w2->fmain);
 }
 
@@ -155,64 +155,64 @@ Unc_RetVal unc_compilestream(Unc_View *w, int (*getch)(void *), void *udata) {
         program = NULL;
 
     if (!program) {
-        program = unc__newprogram(alloc);
+        program = unc0_newprogram(alloc);
         if (!program)
             return UNCIL_ERR_MEM;
         if (w->world->wmode == Unc_ModeREPL) {
             const char pname[] = "<repl>";
-            if (!(program->pname = unc__mmalloc(alloc,
+            if (!(program->pname = unc0_mmalloc(alloc,
                                    Unc_AllocExternal, sizeof(pname))))
                 return UNCIL_ERR_MEM;
-            unc__memcpy(program->pname, pname, sizeof(pname));
+            unc0_memcpy(program->pname, pname, sizeof(pname));
         }
-        en = unc__wake(w, Unc_TFunction);
+        en = unc0_wake(w, Unc_TFunction);
         if (!en) {
-            unc__freeprogram(program, alloc);
+            unc0_freeprogram(program, alloc);
             return UNCIL_ERR_MEM;
         }
     }
 
-    if (!cxt.alloc && (e = unc__newcontext(&cxt, alloc)))
+    if (!cxt.alloc && (e = unc0_newcontext(&cxt, alloc)))
         return e;
-    if ((e = unc__lexcode(&cxt, &lexout, getch, udata))) {
+    if ((e = unc0_lexcode(&cxt, &lexout, getch, udata))) {
         w->comperrlineno = lexout.lineno;
         goto unc_compilestream_fail;
     }
     cxt.extend = w->world->wmode;
-    if ((e = unc__parsec1(&cxt, &qcode, &lexout))) {
+    if ((e = unc0_parsec1(&cxt, &qcode, &lexout))) {
         w->comperrlineno = qcode.lineno;
         goto unc_compilestream_fail;
     }
-    if ((e = unc__optqcode(&cxt, &qcode)))
+    if ((e = unc0_optqcode(&cxt, &qcode)))
         goto unc_compilestream_fail;
-    if ((e = unc__parsec2(&cxt, program, &qcode)))
+    if ((e = unc0_parsec2(&cxt, program, &qcode)))
         goto unc_compilestream_fail;
     
     program->main_doff = cxt.main_off;
-    e = unc__initfuncu(w, &newm, program, cxt.main_off, 1);
+    e = unc0_initfuncu(w, &newm, program, cxt.main_off, 1);
     if (e) goto unc_compilestream_fail;
 
     if (!w->import && w->world->wmode == Unc_ModeREPL) {
         w->world->ccxt = cxt;
         if (w->fmain.type == Unc_TFunction)
-            unc__dropfunc(w, LEFTOVER(Unc_Function, VGETENT(&w->fmain)));
+            unc0_dropfunc(w, LEFTOVER(Unc_Function, VGETENT(&w->fmain)));
         if (program != w->program)
-            unc__wsetprogram(w, program);
+            unc0_wsetprogram(w, program);
         w->bcode = program->code;
         w->bdata = program->data;
     } else {
-        unc__dropcontext(&cxt);
-        unc__wsetprogram(w, program);
+        unc0_dropcontext(&cxt);
+        unc0_wsetprogram(w, program);
     }
 
     *LEFTOVER(Unc_Function, en) = newm;
     VINITENT(&w->fmain, Unc_TFunction, en);
     return 0;
 unc_compilestream_fail:
-    unc__dropcontext(&cxt);
+    unc0_dropcontext(&cxt);
     if (program != w->program) {
-        unc__unwake(en, w);
-        unc__freeprogram(program, alloc);
+        unc0_unwake(en, w);
+        unc0_freeprogram(program, alloc);
     }
     return e;
 }
@@ -266,7 +266,7 @@ Unc_RetVal unc_compilefile(Unc_View *w, FILE *file) {
     return unc_compilestream(w, &getch_file_, file);
 }
 
-static int unc__streamreadc(int (*getch)(void *), void *udata,
+static int unc0_streamreadc(int (*getch)(void *), void *udata,
                             byte *buf, Unc_Size n) {
     Unc_Size i;
     int c;
@@ -279,7 +279,7 @@ static int unc__streamreadc(int (*getch)(void *), void *udata,
     return 0;
 }
 
-static int unc__streamread0(int (*getch)(void *), void *udata, int n) {
+static int unc0_streamread0(int (*getch)(void *), void *udata, int n) {
     int i, c;
     for (i = 0; i < n; ++i) {
         c = getch(udata);
@@ -289,12 +289,12 @@ static int unc__streamread0(int (*getch)(void *), void *udata, int n) {
     return 0;
 }
 
-static int unc__streamreadz(int (*getch)(void *), void *udata,
+static int unc0_streamreadz(int (*getch)(void *), void *udata,
                             byte *buf, Unc_Size n, Unc_Size *out) {
     Unc_Size s, p;
     int e;
     ASSERT(n > 0);
-    e = unc__streamreadc(getch, udata, buf, n);
+    e = unc0_streamreadc(getch, udata, buf, n);
     if (e) return e;
     p = s = 0;
     while (n--) {
@@ -343,43 +343,43 @@ Unc_RetVal unc_loadstream(Unc_View *w, int (*getch)(void *), void *udata) {
     Unc_Function newm;
     Unc_Entity *en;
 
-    if ((e = unc__streamreadz(getch, udata, buf, 4, &z))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 4, &z))) return e;
     if (z != 0x636E558BUL) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 4, &v))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 4, &v))) return e;
     if (v > INT_MAX) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 2, &z))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 2, &z))) return e;
     if (z != CHAR_BIT) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 2, &z))) return e;
-    if (z != unc__getendianness()) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 4, &z))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 2, &z))) return e;
+    if (z != unc0_getendianness()) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
+    if ((e = unc0_streamreadz(getch, udata, buf, 4, &z))) return e;
     if (z != sizeof(Unc_Size)) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 4, &z))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 4, &z))) return e;
     if (z != sizeof(Unc_Int)) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 4, &z))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 4, &z))) return e;
     if (z != sizeof(Unc_Float)) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadc(getch, udata, dbuf, sizeof(Unc_Float)))) return e;
-    unc__memcpy(&f, dbuf, sizeof(Unc_Float));
+    if ((e = unc0_streamreadc(getch, udata, dbuf, sizeof(Unc_Float)))) return e;
+    unc0_memcpy(&f, dbuf, sizeof(Unc_Float));
     if (f != (Unc_Float)GAMMA) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamread0(getch, udata,
+    if ((e = unc0_streamread0(getch, udata,
                             (4 - (sizeof(Unc_Float) & 3)) & 3))) return e;
-    if ((e = unc__streamread0(getch, udata, 12))) return e;
-    if ((e = unc__streamreadz(getch, udata, buf, 8, &z))) return e;
+    if ((e = unc0_streamread0(getch, udata, 12))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 8, &z))) return e;
     if (z != UNC_BYTES_IN_FCODEADDR) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
-    if ((e = unc__streamreadz(getch, udata, buf, 8, &sc))) return e;
-    if ((e = unc__streamreadz(getch, udata, buf, 8, &om))) return e;
-    if ((e = unc__streamreadz(getch, udata, buf, 8, &sd))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 8, &sc))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 8, &om))) return e;
+    if ((e = unc0_streamreadz(getch, udata, buf, 8, &sd))) return e;
 
-    prog = unc__newprogram(&w->world->alloc);
+    prog = unc0_newprogram(&w->world->alloc);
     if (!prog) {
         e = UNCIL_ERR_MEM;
         goto unc_loadstream_fail0;
     }
-    pc = unc__malloc(&w->world->alloc, 0, sc);
+    pc = unc0_malloc(&w->world->alloc, 0, sc);
     if (!pc) {
         e = UNCIL_ERR_MEM;
         goto unc_loadstream_fail1;
     }
-    pd = unc__malloc(&w->world->alloc, 0, sd);
+    pd = unc0_malloc(&w->world->alloc, 0, sd);
     if (!pd) {
         e = UNCIL_ERR_MEM;
         goto unc_loadstream_fail2;
@@ -392,34 +392,34 @@ Unc_RetVal unc_loadstream(Unc_View *w, int (*getch)(void *), void *udata) {
     prog->data = pd;
     prog->main_doff = om;
 
-    if ((e = unc__streamreadc(getch, udata, pc, sc)))
+    if ((e = unc0_streamreadc(getch, udata, pc, sc)))
         goto unc_loadstream_fail2;
-    if ((e = unc__streamreadc(getch, udata, pd, sd)))
+    if ((e = unc0_streamreadc(getch, udata, pd, sd)))
         goto unc_loadstream_fail2;
 
-    if ((e = unc__upgradeprogram(prog, &w->world->alloc)))
+    if ((e = unc0_upgradeprogram(prog, &w->world->alloc)))
         goto unc_loadstream_fail2;
-    if ((e = unc__initfuncu(w, &newm, prog, om, 1)))
+    if ((e = unc0_initfuncu(w, &newm, prog, om, 1)))
         goto unc_loadstream_fail3;
 
-    en = unc__wake(w, Unc_TFunction);
+    en = unc0_wake(w, Unc_TFunction);
     if (!en) {
         e = UNCIL_ERR_MEM;
         goto unc_loadstream_fail3;
     }
-    unc__wsetprogram(w, prog);
+    unc0_wsetprogram(w, prog);
     *LEFTOVER(Unc_Function, en) = newm;
     VSETENT(w, &w->fmain, Unc_TFunction, en);
     return 0;
 
 unc_loadstream_fail3:
-    unc__dropfunc(w, &newm);
+    unc0_dropfunc(w, &newm);
 unc_loadstream_fail2:
-    unc__mfree(&w->world->alloc, pd, sd);
+    unc0_mfree(&w->world->alloc, pd, sd);
 unc_loadstream_fail1:
-    unc__mfree(&w->world->alloc, pc, sc);
+    unc0_mfree(&w->world->alloc, pc, sc);
 unc_loadstream_fail0:
-    unc__freeprogram(prog, &w->world->alloc);
+    unc0_freeprogram(prog, &w->world->alloc);
     return e;
 }
 
@@ -427,11 +427,11 @@ Unc_RetVal unc_loadfile(Unc_View *w, FILE *file) {
     return unc_loadstream(w, &getch_file_, file);
 }
 
-static void unc__copyprogname(Unc_View *w, const char *fn) {
+static void unc0_copyprogname(Unc_View *w, const char *fn) {
     size_t sl = strlen(fn);
     if ((w->program->pname =
-            unc__mmalloc(&w->world->alloc, Unc_AllocExternal, sl + 1)))
-        unc__memcpy(w->program->pname, fn, sl + 1);
+            unc0_mmalloc(&w->world->alloc, Unc_AllocExternal, sl + 1)))
+        unc0_memcpy(w->program->pname, fn, sl + 1);
 }
 
 Unc_RetVal unc_loadfileauto(Unc_View *w, const char *fn) {
@@ -445,7 +445,7 @@ Unc_RetVal unc_loadfileauto(Unc_View *w, const char *fn) {
     }
     if (c != EOF && 0x80 <= c && c < 0xc0) {
         e = unc_loadfile(w, file);
-        if (!e) unc__copyprogname(w, fn);
+        if (!e) unc0_copyprogname(w, fn);
         fclose(file);
         return e;
     }
@@ -453,12 +453,12 @@ Unc_RetVal unc_loadfileauto(Unc_View *w, const char *fn) {
     file = fopen(fn, "r");
     if (!file) return UNCIL_ERR_IO_GENERIC;
     e = unc_compilefile(w, file);
-    if (!e) unc__copyprogname(w, fn);
+    if (!e) unc0_copyprogname(w, fn);
     fclose(file);
     return e;
 }
 
-static int unc__streamwritec(int (*putch)(int, void *), void *udata,
+static int unc0_streamwritec(int (*putch)(int, void *), void *udata,
                              Unc_Size n, byte *buf) {
     Unc_Size i;
     for (i = 0; i < n; ++i)
@@ -467,7 +467,7 @@ static int unc__streamwritec(int (*putch)(int, void *), void *udata,
     return 0;
 }
 
-static int unc__streamwrite0(int (*putch)(int, void *), void *udata, int n) {
+static int unc0_streamwrite0(int (*putch)(int, void *), void *udata, int n) {
     Unc_Size i;
     for (i = 0; i < n; ++i)
         if (putch(0, udata) < 0)
@@ -475,7 +475,7 @@ static int unc__streamwrite0(int (*putch)(int, void *), void *udata, int n) {
     return 0;
 }
 
-static int unc__streamwritez(int (*putch)(int, void *), void *udata,
+static int unc0_streamwritez(int (*putch)(int, void *), void *udata,
                              Unc_Size n, Unc_Size v) {
     ASSERT(n > 0);
     while (n--) {
@@ -497,39 +497,39 @@ Unc_RetVal unc_dumpstream(Unc_View *w, int (*putch)(int, void *), void *udata) {
     Unc_Program *prog = w->program;
     byte buf[sizeof(Unc_Float)];
     Unc_Float g = (Unc_Float)GAMMA;
-    unc__memcpy(buf, &g, sizeof(Unc_Float));
+    unc0_memcpy(buf, &g, sizeof(Unc_Float));
 
-    if ((e = unc__streamwritez(putch, udata, 4, 0x636E558BUL)))
+    if ((e = unc0_streamwritez(putch, udata, 4, 0x636E558BUL)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 4, prog->uncil_version)))
+    if ((e = unc0_streamwritez(putch, udata, 4, prog->uncil_version)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 2, CHAR_BIT)))
+    if ((e = unc0_streamwritez(putch, udata, 2, CHAR_BIT)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 2, unc__getendianness())))
+    if ((e = unc0_streamwritez(putch, udata, 2, unc0_getendianness())))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 4, sizeof(Unc_Size))))
+    if ((e = unc0_streamwritez(putch, udata, 4, sizeof(Unc_Size))))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 4, sizeof(Unc_Int))))
+    if ((e = unc0_streamwritez(putch, udata, 4, sizeof(Unc_Int))))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 4, sizeof(Unc_Float))))
+    if ((e = unc0_streamwritez(putch, udata, 4, sizeof(Unc_Float))))
         return e;
-    if ((e = unc__streamwritec(putch, udata, sizeof(buf), buf)))
+    if ((e = unc0_streamwritec(putch, udata, sizeof(buf), buf)))
         return e;
-    if ((e = unc__streamwrite0(putch, udata, (4 - (sizeof(buf) & 3)) & 3)))
+    if ((e = unc0_streamwrite0(putch, udata, (4 - (sizeof(buf) & 3)) & 3)))
         return e;
-    if ((e = unc__streamwrite0(putch, udata, 12)))
+    if ((e = unc0_streamwrite0(putch, udata, 12)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 8, UNC_BYTES_IN_FCODEADDR)))
+    if ((e = unc0_streamwritez(putch, udata, 8, UNC_BYTES_IN_FCODEADDR)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 8, prog->code_sz)))
+    if ((e = unc0_streamwritez(putch, udata, 8, prog->code_sz)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 8, prog->main_doff)))
+    if ((e = unc0_streamwritez(putch, udata, 8, prog->main_doff)))
         return e;
-    if ((e = unc__streamwritez(putch, udata, 8, prog->data_sz)))
+    if ((e = unc0_streamwritez(putch, udata, 8, prog->data_sz)))
         return e;
-    if ((e = unc__streamwritec(putch, udata, prog->code_sz, prog->code)))
+    if ((e = unc0_streamwritec(putch, udata, prog->code_sz, prog->code)))
         return e;
-    if ((e = unc__streamwritec(putch, udata, prog->data_sz, prog->data)))
+    if ((e = unc0_streamwritec(putch, udata, prog->data_sz, prog->data)))
         return e;
     return 0;
 }
@@ -556,18 +556,18 @@ void unc_swap(Unc_View *w, Unc_Value *va, Unc_Value *vb) {
 Unc_RetVal unc_load(Unc_View *w, Unc_Program *p) {
     int e;
     Unc_Function newm;
-    e = unc__upgradeprogram(p, &w->world->alloc);
+    e = unc0_upgradeprogram(p, &w->world->alloc);
     if (!e)
-        e = unc__initfuncu(w, &newm, p, p->main_doff, 1);
+        e = unc0_initfuncu(w, &newm, p, p->main_doff, 1);
     if (e)
-        unc__dropfunc(w, &newm);
+        unc0_dropfunc(w, &newm);
     else {
-        Unc_Entity *en = unc__wake(w, Unc_TFunction);
+        Unc_Entity *en = unc0_wake(w, Unc_TFunction);
         if (!en) {
-            unc__dropfunc(w, &newm);
+            unc0_dropfunc(w, &newm);
             return UNCIL_ERR_MEM;
         }
-        unc__wsetprogram(w, p);
+        unc0_wsetprogram(w, p);
         *LEFTOVER(Unc_Function, en) = newm;
         VSETENT(w, &w->fmain, Unc_TFunction, en);
     }
@@ -578,7 +578,7 @@ Unc_RetVal unc_getpublic(Unc_View *w, Unc_Size nl, const char *name,
                          Unc_Value *value) {
     Unc_Value *v;
     (void)UNC_LOCKFP(w, w->world->public_lock);
-    v = unc__gethtbls(w, w->pubs, nl, (const byte *)name);
+    v = unc0_gethtbls(w, w->pubs, nl, (const byte *)name);
     if (v) {
         VCOPY(w, value, v);
         UNC_UNLOCKF(w->world->public_lock);
@@ -595,14 +595,14 @@ Unc_RetVal unc_setpublic(Unc_View *w, Unc_Size nl, const char *name,
     int e;
     (void)UNC_LOCKFP(w, w->world->public_lock);
     if (w->import) {
-        e = unc__puthtbls(w, w->exports, nl, (const byte *)name, &ptr);
+        e = unc0_puthtbls(w, w->exports, nl, (const byte *)name, &ptr);
         if (e) {
             UNC_UNLOCKF(w->world->public_lock);
             return e;
         }
         VCOPY(w, ptr, value);
     }
-    e = unc__puthtbls(w, w->pubs, nl, (const byte *)name, &ptr);
+    e = unc0_puthtbls(w, w->pubs, nl, (const byte *)name, &ptr);
     if (e) {
         UNC_UNLOCKF(w->world->public_lock);
         return e;
@@ -664,15 +664,15 @@ Unc_RetVal unc_getbool(Unc_View *w, Unc_Value *v, Unc_RetVal nul) {
 }
 
 Unc_RetVal unc_converttobool(Unc_View *w, Unc_Value *v) {
-    return unc__vcvt2bool(w, v);
+    return unc0_vcvt2bool(w, v);
 }
 
 Unc_RetVal unc_getint(Unc_View *w, Unc_Value *v, Unc_Int *ret) {
-    return unc__vgetint(w, v, ret);
+    return unc0_vgetint(w, v, ret);
 }
 
 Unc_RetVal unc_getfloat(Unc_View *w, Unc_Value *v, Unc_Float *ret) {
-    return unc__vgetfloat(w, v, ret);
+    return unc0_vgetfloat(w, v, ret);
 }
 
 Unc_RetVal unc_getstring(Unc_View *w, Unc_Value *v,
@@ -682,7 +682,7 @@ Unc_RetVal unc_getstring(Unc_View *w, Unc_Value *v,
         return UNCIL_ERR_TYPE_NOTSTR;
     s = LEFTOVER(Unc_String, VGETENT(v));
     *n = s->size;
-    *p = (const char *)unc__getstringdata(s);
+    *p = (const char *)unc0_getstringdata(s);
     return 0;
 }
 
@@ -692,7 +692,7 @@ Unc_RetVal unc_getstringc(Unc_View *w, Unc_Value *v, const char **p) {
     if (v->type != Unc_TString)
         return UNCIL_ERR_TYPE_NOTSTR;
     s = LEFTOVER(Unc_String, VGETENT(v));
-    sp = (const char *)unc__getstringdata(s);
+    sp = (const char *)unc0_getstringdata(s);
     if (memchr(sp, 0, s->size))
         return UNCIL_ERR_ARG_NULLCHAR;
     *p = sp;
@@ -707,11 +707,11 @@ Unc_RetVal unc_resizeblob(Unc_View *w, Unc_Value *v, Unc_Size n, byte **p) {
     s = LEFTOVER(Unc_Blob, VGETENT(v));
     z = s->size;
     if (n > z) {
-        int e = unc__blobaddn(&w->world->alloc, s, n - z);
+        int e = unc0_blobaddn(&w->world->alloc, s, n - z);
         if (e)
             return e;
     } else if (n < z) {
-        int e = unc__blobdel(&w->world->alloc, s, n, z - n);
+        int e = unc0_blobdel(&w->world->alloc, s, n, z - n);
         if (e)
             return e;
     }
@@ -728,11 +728,11 @@ Unc_RetVal unc_resizearray(Unc_View *w, Unc_Value *v,
     s = LEFTOVER(Unc_Array, VGETENT(v));
     z = s->size;
     if (n > z) {
-        int e = unc__arraypushn(w, s, n - z);
+        int e = unc0_arraypushn(w, s, n - z);
         if (e)
             return e;
     } else if (n < z) {
-        int e = unc__arraydel(w, s, n, z - n);
+        int e = unc0_arraydel(w, s, n, z - n);
         if (e)
             return e;
     }
@@ -840,40 +840,40 @@ void unc_unlock(Unc_View *w, Unc_Value *v) {
 Unc_RetVal unc_getindex(Unc_View *w, Unc_Value *v, Unc_Value *i,
                         Unc_Value *out) {
     Unc_Value o = UNC_BLANK;
-    int e = unc__vgetindx(w, v, i, 0, &o);
+    int e = unc0_vgetindx(w, v, i, 0, &o);
     if (!e) VCOPY(w, out, &o);
     return e;
 }
 
 Unc_RetVal unc_setindex(Unc_View *w, Unc_Value *v, Unc_Value *i,
                         Unc_Value *in) {
-    return unc__vsetindx(w, v, i, in);
+    return unc0_vsetindx(w, v, i, in);
 }
 
 Unc_RetVal unc_getattrv(Unc_View *w, Unc_Value *v, Unc_Value *a,
                         Unc_Value *out) {
     Unc_Value o = UNC_BLANK;
-    int e = unc__vgetattrv(w, v, a, 0, &o);
+    int e = unc0_vgetattrv(w, v, a, 0, &o);
     if (!e) VCOPY(w, out, &o);
     return e;
 }
 
 Unc_RetVal unc_setattrv(Unc_View *w, Unc_Value *v, Unc_Value *a,
                         Unc_Value *in) {
-    return unc__vsetattrv(w, v, a, in);
+    return unc0_vsetattrv(w, v, a, in);
 }
 
 Unc_RetVal unc_getattrs(Unc_View *w, Unc_Value *v, Unc_Size an, const char *as,
                         Unc_Value *out) {
     Unc_Value o = UNC_BLANK;
-    int e = unc__vgetattr(w, v, an, (const byte *)as, 0, &o);
+    int e = unc0_vgetattr(w, v, an, (const byte *)as, 0, &o);
     if (!e) VCOPY(w, out, &o);
     return e;
 }
 
 Unc_RetVal unc_setattrs(Unc_View *w, Unc_Value *v, Unc_Size an, const char *as,
                         Unc_Value *in) {
-    return unc__vsetattr(w, v, an, (const byte *)as, in);
+    return unc0_vsetattr(w, v, an, (const byte *)as, in);
 }
 
 Unc_RetVal unc_getattrc(Unc_View *w, Unc_Value *v, const char *as,
@@ -943,14 +943,14 @@ void unc_setfloat(Unc_View *w, Unc_Value *v, Unc_Float f) {
 Unc_RetVal unc_newstring(Unc_View *w, Unc_Value *v, Unc_Size n, const char *c) {
     int e;
     Unc_Value tmp;
-    if (unc__utf8validate(n, c))
+    if (unc0_utf8validate(n, c))
         return UNCIL_ERR_IO_INVALIDENCODING;
-    e = unc__vrefnew(w, &tmp, Unc_TString);
+    e = unc0_vrefnew(w, &tmp, Unc_TString);
     if (e) return e;
-    e = unc__initstring(&w->world->alloc, LEFTOVER(Unc_String, VGETENT(&tmp)),
+    e = unc0_initstring(&w->world->alloc, LEFTOVER(Unc_String, VGETENT(&tmp)),
                             n, (const byte *)c);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -964,24 +964,24 @@ Unc_RetVal unc_newstringmove(Unc_View *w, Unc_Value *v, Unc_Size n, char *c) {
     int e;
     size_t an;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TString);
+    e = unc0_vrefnew(w, &tmp, Unc_TString);
     if (e) return e;
-    an = unc__mmgetsize(&w->world->alloc, c);
-    if (unc__utf8validate(n, c))
+    an = unc0_mmgetsize(&w->world->alloc, c);
+    if (unc0_utf8validate(n, c))
         return UNCIL_ERR_IO_INVALIDENCODING;
-    c = unc__mmunwinds(&w->world->alloc, c, &an);
+    c = unc0_mmunwinds(&w->world->alloc, c, &an);
     if (n >= an)
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     if (n + 1 < an) {
-        c = unc__mrealloc(&w->world->alloc, Unc_AllocString, c, an, n + 1);
+        c = unc0_mrealloc(&w->world->alloc, Unc_AllocString, c, an, n + 1);
         c[n] = 0;
         an = n + 1;
     }
-    e = unc__initstringmove(&w->world->alloc,
+    e = unc0_initstringmove(&w->world->alloc,
                             LEFTOVER(Unc_String, VGETENT(&tmp)),
                             n, (byte *)c);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -989,8 +989,8 @@ Unc_RetVal unc_newstringmove(Unc_View *w, Unc_Value *v, Unc_Size n, char *c) {
 
 Unc_RetVal unc_newstringcmove(Unc_View *w, Unc_Value *v, char *c) {
     size_t an, sn; 
-    an = unc__mmgetsize(&w->world->alloc, c);
-    sn = unc__strnlen(c, an);
+    an = unc0_mmgetsize(&w->world->alloc, c);
+    sn = unc0_strnlen(c, an);
     if (sn >= an)
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     return unc_newstringmove(w, v, sn, c);
@@ -999,12 +999,12 @@ Unc_RetVal unc_newstringcmove(Unc_View *w, Unc_Value *v, char *c) {
 Unc_RetVal unc_newblob(Unc_View *w, Unc_Value *v, Unc_Size n, byte **data) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TBlob);
+    e = unc0_vrefnew(w, &tmp, Unc_TBlob);
     if (e) return e;
-    e = unc__initblobraw(&w->world->alloc,
+    e = unc0_initblobraw(&w->world->alloc,
                         LEFTOVER(Unc_Blob, VGETENT(&tmp)), n, data);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else {
         VCOPY(w, v, &tmp);
         if (!w->cfunc || !(w->cfunc->cflags & UNC_CFUNC_EXCLUSIVE))
@@ -1017,7 +1017,7 @@ Unc_RetVal unc_newblobfrom(Unc_View *w, Unc_Value *v, Unc_Size n, byte *data) {
     byte *p;
     int e = unc_newblob(w, v, n, &p);
     if (e) return e;
-    unc__memcpy(p, data, n);
+    unc0_memcpy(p, data, n);
     UNC_UNLOCKL(LEFTOVER(Unc_Blob, VGETENT(v))->lock);
     return 0;
 }
@@ -1026,13 +1026,13 @@ Unc_RetVal unc_newblobmove(Unc_View *w, Unc_Value *v, byte *data) {
     int e;
     size_t n;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TBlob);
+    e = unc0_vrefnew(w, &tmp, Unc_TBlob);
     if (e) return e;
-    data = unc__mmunwind(&w->world->alloc, data, &n);
-    e = unc__initblobmove(&w->world->alloc,
+    data = unc0_mmunwind(&w->world->alloc, data, &n);
+    e = unc0_initblobmove(&w->world->alloc,
                         LEFTOVER(Unc_Blob, VGETENT(&tmp)), n, data);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -1041,11 +1041,11 @@ Unc_RetVal unc_newblobmove(Unc_View *w, Unc_Value *v, byte *data) {
 Unc_RetVal unc_newarrayempty(Unc_View *w, Unc_Value *v) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TArray);
+    e = unc0_vrefnew(w, &tmp, Unc_TArray);
     if (e) return e;
-    e = unc__initarray(w, LEFTOVER(Unc_Array, VGETENT(&tmp)), 0, NULL);
+    e = unc0_initarray(w, LEFTOVER(Unc_Array, VGETENT(&tmp)), 0, NULL);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -1055,12 +1055,12 @@ Unc_RetVal unc_newarray(Unc_View *w, Unc_Value *v, Unc_Size n, Unc_Value **p) {
     int e;
     Unc_Value tmp;
     Unc_Array *s;
-    e = unc__vrefnew(w, &tmp, Unc_TArray);
+    e = unc0_vrefnew(w, &tmp, Unc_TArray);
     if (e) return e;
     s = LEFTOVER(Unc_Array, VGETENT(&tmp));
-    e = unc__initarrayn(w, LEFTOVER(Unc_Array, VGETENT(&tmp)), n);
+    e = unc0_initarrayn(w, LEFTOVER(Unc_Array, VGETENT(&tmp)), n);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else {
         if (!w->cfunc || !(w->cfunc->cflags & UNC_CFUNC_EXCLUSIVE))
             UNC_LOCKL(s->lock);
@@ -1074,11 +1074,11 @@ Unc_RetVal unc_newarrayfrom(Unc_View *w, Unc_Value *v,
                             Unc_Size n, Unc_Value *a) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TArray);
+    e = unc0_vrefnew(w, &tmp, Unc_TArray);
     if (e) return e;
-    e = unc__initarray(w, LEFTOVER(Unc_Array, VGETENT(&tmp)), n, a);
+    e = unc0_initarray(w, LEFTOVER(Unc_Array, VGETENT(&tmp)), n, a);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -1087,11 +1087,11 @@ Unc_RetVal unc_newarrayfrom(Unc_View *w, Unc_Value *v,
 Unc_RetVal unc_newtable(Unc_View *w, Unc_Value *v) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TTable);
+    e = unc0_vrefnew(w, &tmp, Unc_TTable);
     if (e) return e;
-    e = unc__initdict(w, LEFTOVER(Unc_Dict, VGETENT(&tmp)));
+    e = unc0_initdict(w, LEFTOVER(Unc_Dict, VGETENT(&tmp)));
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -1100,11 +1100,11 @@ Unc_RetVal unc_newtable(Unc_View *w, Unc_Value *v) {
 Unc_RetVal unc_newobject(Unc_View *w, Unc_Value *v, Unc_Value *prototype) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TObject);
+    e = unc0_vrefnew(w, &tmp, Unc_TObject);
     if (e) return e;
-    e = unc__initobj(w, LEFTOVER(Unc_Object, VGETENT(&tmp)), prototype);
+    e = unc0_initobj(w, LEFTOVER(Unc_Object, VGETENT(&tmp)), prototype);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -1117,14 +1117,14 @@ Unc_RetVal unc_newopaque(Unc_View *w, Unc_Value *v, Unc_Value *prototype,
                     Unc_Size refcopycount, Unc_Size *refcopies) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TOpaque);
+    e = unc0_vrefnew(w, &tmp, Unc_TOpaque);
     if (e) return e;
-    e = unc__initopaque(w, LEFTOVER(Unc_Opaque, VGETENT(&tmp)), 
+    e = unc0_initopaque(w, LEFTOVER(Unc_Opaque, VGETENT(&tmp)), 
                         n, data, prototype,
                         destructor, refcount, initvalues,
                         refcopycount, refcopies);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else {
         VCOPY(w, v, &tmp);
         if (!w->cfunc || !(w->cfunc->cflags & UNC_CFUNC_EXCLUSIVE))
@@ -1141,14 +1141,14 @@ Unc_RetVal unc_newcfunction(Unc_View *w, Unc_Value *v, Unc_CFunc func,
                     const char *fname, void *udata) {
     int e;
     Unc_Value tmp;
-    e = unc__vrefnew(w, &tmp, Unc_TFunction);
+    e = unc0_vrefnew(w, &tmp, Unc_TFunction);
     if (e) return e;
-    e = unc__initfuncc(w, LEFTOVER(Unc_Function, VGETENT(&tmp)), func, argcount,
+    e = unc0_initfuncc(w, LEFTOVER(Unc_Function, VGETENT(&tmp)), func, argcount,
                         ellipsis ? UNC_FUNCTION_FLAG_ELLIPSIS : 0, cflags,
                         optcount, defaults, refcount, initvalues,
                         refcopycount, refcopies, fname, udata);
     if (e)
-        unc__unwake(VGETENT(&tmp), w);
+        unc0_unwake(VGETENT(&tmp), w);
     else
         VCOPY(w, v, &tmp);
     return e;
@@ -1170,7 +1170,7 @@ int unc_yield(Unc_View *w) {
         if (w->cfunc->cflags & UNC_CFUNC_EXCLUSIVE)
             return 0;
     }
-    return unc__vmcheckpause(w);
+    return unc0_vmcheckpause(w);
 }
 
 int unc_yieldfull(Unc_View *w) {
@@ -1178,7 +1178,7 @@ int unc_yieldfull(Unc_View *w) {
     if (w->cfunc) {
         if (!(w->cfunc->cflags & UNC_CFUNC_CONCURRENT))
             UNC_UNLOCKF(w->cfunc->lock);
-        e = unc__vmcheckpause(w);
+        e = unc0_vmcheckpause(w);
         if (!(w->cfunc->cflags & UNC_CFUNC_CONCURRENT))
             UNC_LOCKF(w->cfunc->lock);
     }
@@ -1196,7 +1196,7 @@ int unc_vmresume(Unc_View *w) {
     /* do not call unless you know what you are doing! */
 #if UNCIL_MT_OK
     ATOMICSSET(w->paused, 0);
-    return unc__vmcheckpause(w);
+    return unc0_vmcheckpause(w);
 #else
     return 0;
 #endif
@@ -1237,18 +1237,18 @@ void unc_clearmany(Unc_View *w, Unc_Size n, Unc_Value *v) {
 }
 
 Unc_RetVal unc_reserve(Unc_View *w, Unc_Size n) {
-    return unc__stackreserve(w, &w->sval, n);
+    return unc0_stackreserve(w, &w->sval, n);
 }
 
 Unc_RetVal unc_push(Unc_View *w, Unc_Size n, Unc_Value *v, Unc_Size *counter) {
-    int e = n ? unc__stackpush(w, &w->sval, n, v) : 0;
+    int e = n ? unc0_stackpush(w, &w->sval, n, v) : 0;
     if (e) return e;
     if (counter) *counter += n;
     return 0;
 }
 
 Unc_RetVal unc_pushmove(Unc_View *w, Unc_Value *v, Unc_Size *counter) {
-    int e = unc__stackpushn(w, &w->sval, 1);
+    int e = unc0_stackpushn(w, &w->sval, 1);
     if (e)
         return e;
     w->sval.top[-1] = *v;
@@ -1264,15 +1264,15 @@ void unc_pop(Unc_View *w, Unc_Size n, Unc_Size *counter) {
         *counter -= n;
     }
     if (n)
-        unc__stackpop(w, &w->sval, n);
+        unc0_stackpop(w, &w->sval, n);
 }
 
 Unc_RetVal unc_shove(Unc_View *w, Unc_Size d, Unc_Size n,
                      Unc_Value *v, Unc_Size *counter) {
-    Unc_Size m = unc__stackdepth(&w->sval);
+    Unc_Size m = unc0_stackdepth(&w->sval);
     int e;
     m = m < d ? 0 : m - d;
-    e = n ? unc__stackinsertm(w, &w->sval, m, n, v) : 0;
+    e = n ? unc0_stackinsertm(w, &w->sval, m, n, v) : 0;
     if (e) return e;
     if (counter) *counter += n;
     return 0;
@@ -1285,9 +1285,9 @@ void unc_yank(Unc_View *w, Unc_Size d, Unc_Size n, Unc_Size *counter) {
         *counter -= n;
     }
     if (n) {
-        Unc_Size m = unc__stackdepth(&w->sval);
+        Unc_Size m = unc0_stackdepth(&w->sval);
         if (n > d) n = d;
-        unc__stackpullrug(w, &w->sval, m - d, m - n);
+        unc0_stackpullrug(w, &w->sval, m - d, m - n);
     }
 }
 
@@ -1299,19 +1299,19 @@ Unc_RetVal unc_throw(Unc_View *w, Unc_Value *vr) {
 
 Unc_RetVal unc_throwex(Unc_View *w, Unc_Value *type, Unc_Value *message) {
     CHECKHALT(w);
-    unc__makeexceptionvoroom(w, &w->exc, type, message);
+    unc0_makeexceptionvoroom(w, &w->exc, type, message);
     return UNCIL_ERR_UNCIL;
 }
 
 Unc_RetVal unc_throwext(Unc_View *w, const char *type, Unc_Value *message) {
     CHECKHALT(w);
-    unc__makeexceptiontoroom(w, &w->exc, type, message);
+    unc0_makeexceptiontoroom(w, &w->exc, type, message);
     return UNCIL_ERR_UNCIL;
 }
 
 Unc_RetVal unc_throwexc(Unc_View *w, const char *type, const char *message) {
     CHECKHALT(w);
-    unc__makeexceptionoroom(w, &w->exc, type, message);
+    unc0_makeexceptionoroom(w, &w->exc, type, message);
     return UNCIL_ERR_UNCIL;
 }
 
@@ -1340,7 +1340,7 @@ int unc_iscallable(Unc_View *w, Unc_Value *v) {
         Unc_Value *o;
         int e;
 unc_iscallable_again:
-        e = unc__getprotomethod(w, v, PASSSTRL(OPOVERLOAD(call)), &o);
+        e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(call)), &o);
         if (e) return e;
         if (o) {
             switch (o->type) {
@@ -1371,7 +1371,7 @@ void unc_unlockthisfunc(Unc_View *w) {
 
 Unc_RetVal unc_newpile(Unc_View *w, Unc_Pile *pile) {
     pile->r = w->region.top - w->region.base;
-    return unc__vmrpush(w);
+    return unc0_vmrpush(w);
 }
 
 Unc_RetVal unc_callex(Unc_View *w, Unc_Value *func, Unc_Size argn,
@@ -1381,11 +1381,11 @@ Unc_RetVal unc_callex(Unc_View *w, Unc_Value *func, Unc_Size argn,
         return UNCIL_ERR_ARG_NOPROGRAMLOADED;
     if (ret->r + 1 != w->region.top - w->region.base)
         return UNCIL_ERR_ARG_NOTMOSTRECENT;
-    e = func ? unc__fcallv(w, func, argn, 1, 1, 1, 0)
-             : unc__fcall(w, NULL, argn, 1, 1, 1, 0);
+    e = func ? unc0_fcallv(w, func, argn, 1, 1, 1, 0)
+             : unc0_fcall(w, NULL, argn, 1, 1, 1, 0);
     if (e)
         return UNCIL_IS_ERR(e) ? e : 0;
-    return unc__run(w);
+    return unc0_run(w);
 }
 
 Unc_RetVal unc_call(Unc_View *w, Unc_Value *func,
@@ -1405,7 +1405,7 @@ void unc_getexception(Unc_View *w, Unc_Value *out) {
 
 void unc_getexceptionfromcode(Unc_View *w, Unc_Value *out, int e) {
     if (e != UNCIL_ERR_UNCIL)
-        unc__errtoexcept(w, e, out);
+        unc0_errtoexcept(w, e, out);
     else
         VCOPY(w, out, &w->exc);
 }
@@ -1422,7 +1422,7 @@ static int valuetostring_wrapper(Unc_Size n, const byte *s, void *udata) {
     if (r) {
         if (n > r)
             n = r;
-        unc__memcpy(buffer->c + p, s, n);
+        unc0_memcpy(buffer->c + p, s, n);
         buffer->n = p + n;
     }
     return 0;
@@ -1435,7 +1435,7 @@ Unc_RetVal unc_valuetostring(Unc_View *w, Unc_Value *v, Unc_Size *n, char *c) {
     buffer.n = 0;
     if (!*n) return 0;
     buffer.q = *n - 1;
-    e = unc__vcvt2str(w, v, &valuetostring_wrapper, &buffer);
+    e = unc0_vcvt2str(w, v, &valuetostring_wrapper, &buffer);
     buffer.c[buffer.n] = 0;
     *n = buffer.n + 1;
     return e;
@@ -1450,7 +1450,7 @@ struct valuetostringn_buffer {
 
 static int valuetostringn_wrapper(Unc_Size n, const byte *s, void *udata) {
     struct valuetostringn_buffer *buffer = udata;
-    return unc__strpush(buffer->alloc, &buffer->c, &buffer->n, &buffer->q,
+    return unc0_strpush(buffer->alloc, &buffer->c, &buffer->n, &buffer->q,
                                             6, n, s);
 }
 
@@ -1461,15 +1461,15 @@ Unc_RetVal unc_valuetostringn(Unc_View *w, Unc_Value *v, Unc_Size *n, char **c) 
     buffer.c = NULL;
     buffer.q = 0;
     buffer.n = 0;
-    e = unc__vcvt2str(w, v, &valuetostringn_wrapper, &buffer);
+    e = unc0_vcvt2str(w, v, &valuetostringn_wrapper, &buffer);
     if (!e)
-        e = unc__strpush1(buffer.alloc, &buffer.c, &buffer.n, &buffer.q, 6, 0);
-    *c = unc__mmrealloc(&w->world->alloc, Unc_AllocString, buffer.c, buffer.n);
+        e = unc0_strpush1(buffer.alloc, &buffer.c, &buffer.n, &buffer.q, 6, 0);
+    *c = unc0_mmrealloc(&w->world->alloc, Unc_AllocString, buffer.c, buffer.n);
     *n = buffer.n - 1;
     return e;
 }
 
-Unc_RetVal unc__exceptiontostring(Unc_View *w, Unc_Value *exc,
+Unc_RetVal unc0_exceptiontostring(Unc_View *w, Unc_Value *exc,
                         int (*out)(char outp, void *udata), void *udata) {
     int e, nomsg = 0;
     Unc_Value etype = UNC_BLANK, emsg = UNC_BLANK;
@@ -1492,9 +1492,9 @@ Unc_RetVal unc__exceptiontostring(Unc_View *w, Unc_Value *exc,
     if (!nomsg) {
         if (n1 > INT_MAX / 4) n1 = INT_MAX / 4;
         if (n2 > INT_MAX / 4) n2 = INT_MAX / 4;
-        unc__xprintf(out, udata, "%.*S error: %.*S", n1, p1, n2, p2);
+        unc0_xprintf(out, udata, "%.*S error: %.*S", n1, p1, n2, p2);
     } else {
-        unc__xprintf(out, udata, "%.*S error", n1, p1);
+        unc0_xprintf(out, udata, "%.*S error", n1, p1);
     }
     {
         Unc_Value estack = UNC_BLANK;
@@ -1509,7 +1509,7 @@ Unc_RetVal unc__exceptiontostring(Unc_View *w, Unc_Value *exc,
                 for (i = 0; i < sfn; ++i) {
                     e = unc_getstring(w, &sfv[i], &sfsn, &sfss);
                     if (!e)
-                        unc__xprintf(out, udata, "\n    in %.*S", sfsn, sfss);
+                        unc0_xprintf(out, udata, "\n    in %.*S", sfsn, sfss);
                 }
             }
             unc_unlock(w, &estack);
@@ -1546,7 +1546,7 @@ Unc_RetVal unc_exceptiontostring(Unc_View *w, Unc_Value *exc, Unc_Size *n,
     buf.c = (byte *)c;
     buf.q = *n - 1;
     buf.n = 0;
-    e = unc__exceptiontostring(w, exc, &exceptiontostring_wrapper, &buf);
+    e = unc0_exceptiontostring(w, exc, &exceptiontostring_wrapper, &buf);
     if (!e) {
         c[buf.n] = 0;
         *n = buf.n;
@@ -1563,7 +1563,7 @@ struct exceptiontostringn_buffer {
 
 static int exceptiontostringn_wrapper(char outp, void *udata) {
     struct exceptiontostringn_buffer *buf = udata;
-    return unc__strpush1(buf->alloc, &buf->c, &buf->n, &buf->q, 6, outp);
+    return unc0_strpush1(buf->alloc, &buf->c, &buf->n, &buf->q, 6, outp);
 }
 
 Unc_RetVal unc_exceptiontostringn(Unc_View *w, Unc_Value *exc, Unc_Size *n,
@@ -1576,14 +1576,14 @@ Unc_RetVal unc_exceptiontostringn(Unc_View *w, Unc_Value *exc, Unc_Size *n,
     buf.c = NULL;
     buf.q = 0;
     buf.n = 0;
-    e = unc__exceptiontostring(w, exc, &exceptiontostringn_wrapper, &buf);
+    e = unc0_exceptiontostring(w, exc, &exceptiontostringn_wrapper, &buf);
     if (!e)
-        e = unc__strpush1(buf.alloc, &buf.c, &buf.n, &buf.q, 6, 0);
+        e = unc0_strpush1(buf.alloc, &buf.c, &buf.n, &buf.q, 6, 0);
     if (!e) {
         *n = buf.n - 1;
-        *c = unc__mmrealloc(&w->world->alloc, Unc_AllocString, buf.c, buf.n);
+        *c = unc0_mmrealloc(&w->world->alloc, Unc_AllocString, buf.c, buf.n);
     } else {
-        unc__mmfree(&w->world->alloc, buf.c);
+        unc0_mmfree(&w->world->alloc, buf.c);
     }
     return e;
 }
@@ -1591,7 +1591,7 @@ Unc_RetVal unc_exceptiontostringn(Unc_View *w, Unc_Value *exc, Unc_Size *n,
 void unc_returnvalues(Unc_View *w, Unc_Pile *pile, Unc_Tuple *tuple) {
     Unc_Size r = pile->r;
     Unc_Size otop = (r + 1 == w->region.top - w->region.base
-                    ? unc__stackdepth(&w->sval)
+                    ? unc0_stackdepth(&w->sval)
                     : w->region.base[r + 1]);
     tuple->values = &w->sval.base[w->region.base[r]];
     ASSERT(otop >= w->region.base[r]);
@@ -1602,12 +1602,12 @@ Unc_RetVal unc_discard(Unc_View *w, Unc_Pile *pile) {
     Unc_Size r = pile->r;
     if (r + 1 != w->region.top - w->region.base)
         return UNCIL_ERR_ARG_NOTMOSTRECENT;
-    unc__restoredepth(w, &w->sval, *--w->region.top);
+    unc0_restoredepth(w, &w->sval, *--w->region.top);
     return 0;
 }
 
 Unc_RetVal unc_getiterator(Unc_View *w, Unc_Value *v, Unc_Value *res) {
-    return unc__vgetiter(w, res, v);
+    return unc0_vgetiter(w, res, v);
 }
 
 const Unc_Program *unc_getprogram(Unc_View *w) {
@@ -1615,11 +1615,11 @@ const Unc_Program *unc_getprogram(Unc_View *w) {
 }
 
 void unc_halt(Unc_View *w) {
-    unc__haltview(w);
+    unc0_haltview(w);
 }
 
 void unc_unload(Unc_View *w) {
-    if (w->program) w->program = unc__progdecref(w->program, &w->world->alloc);
+    if (w->program) w->program = unc0_progdecref(w->program, &w->world->alloc);
     VSETNULL(w, &w->fmain);
 }
 
@@ -1630,17 +1630,17 @@ void unc_destroy(Unc_View *w) {
         w->vtype = Unc_ViewTypeFinalized;
         return;
     }
-    unc__freeview(w);
+    unc0_freeview(w);
 }
 
 void *unc_malloc(Unc_View *w, size_t n) {
-    return unc__mmallocz(&w->world->alloc, Unc_AllocExternal, n);
+    return unc0_mmallocz(&w->world->alloc, Unc_AllocExternal, n);
 }
 
 void *unc_mrealloc(Unc_View *w, void *p, size_t n) {
-    return unc__mmreallocz(&w->world->alloc, Unc_AllocExternal, p, n);
+    return unc0_mmreallocz(&w->world->alloc, Unc_AllocExternal, p, n);
 }
 
 void unc_mfree(Unc_View *w, void *p) {
-    unc__mmfree(&w->world->alloc, p);
+    unc0_mmfree(&w->world->alloc, p);
 }

@@ -31,18 +31,18 @@ SOFTWARE.
 #include "ufunc.h"
 #include "uncil.h"
 
-int unc__fcall(Unc_View *w, Unc_Function *fn, Unc_Size argc,
+int unc0_fcall(Unc_View *w, Unc_Function *fn, Unc_Size argc,
                int spew, int fromc, int allowc, Unc_RegFast target);
-int unc__fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
+int unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
                 int spew, int fromc, int allowc, Unc_RegFast target);
-int unc__vmrpush(Unc_View *w);
-int unc__vmcheckpause(Unc_View *w);
-int unc__run(Unc_View *w);
+int unc0_vmrpush(Unc_View *w);
+int unc0_vmcheckpause(Unc_View *w);
+int unc0_run(Unc_View *w);
 
 #ifdef UNCIL_DEFINES
-void unc__loadstrpx(const byte *offp, Unc_Size *l, const byte **b);
-int unc__vveq_j(Unc_View *w, Unc_Value *a, Unc_Value *b);
-int unc__vvclt_j(Unc_View *w, Unc_Value *a, Unc_Value *b);
+void unc0_loadstrpx(const byte *offp, Unc_Size *l, const byte **b);
+int unc0_vveq_j(Unc_View *w, Unc_Value *a, Unc_Value *b);
+int unc0_vvclt_j(Unc_View *w, Unc_Value *a, Unc_Value *b);
 #endif
 
 #endif /* UNCIL_UVM_H */

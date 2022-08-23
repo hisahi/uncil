@@ -43,14 +43,14 @@ SOFTWARE.
 
 #define SLEEPING UCHAR_MAX
 
-static void unc__link(Unc_Entity **top, Unc_Entity *e) {   
+static void unc0_link(Unc_Entity **top, Unc_Entity *e) {   
     e->up = NULL;
     if ((e->down = *top))
         e->down->up = e;
     *top = e;
 }
 
-static void unc__unlink(Unc_Entity **top, Unc_Entity *e) {
+static void unc0_unlink(Unc_Entity **top, Unc_Entity *e) {
     if (e->up)
         e->up->down = e->down;
     else
@@ -59,7 +59,7 @@ static void unc__unlink(Unc_Entity **top, Unc_Entity *e) {
         e->down->up = e->up;
 }
 
-static void unc__relink(Unc_Entity **top, Unc_Entity *e) {
+static void unc0_relink(Unc_Entity **top, Unc_Entity *e) {
     if (*top != e) {
         ASSERT(*top);
         ASSERT(e->up);
@@ -72,13 +72,13 @@ static void unc__relink(Unc_Entity **top, Unc_Entity *e) {
     }
 }
 
-static void unc__unbind(Unc_Entity *e, Unc_View *w) {
+static void unc0_unbind(Unc_Entity *e, Unc_View *w) {
     Unc_ValueRef *r = LEFTOVER(Unc_ValueRef, e);
     VDECREF(w, &r->v);
     UNC_LOCKFINAL(r->lock);
 }
 
-int unc__bind(Unc_Entity *e, Unc_View *w, Unc_Value *v) {
+int unc0_bind(Unc_Entity *e, Unc_View *w, Unc_Value *v) {
     Unc_ValueRef *r = LEFTOVER(Unc_ValueRef, e);
     int err = UNC_LOCKINITL(r->lock);
     if (!err) {
@@ -119,7 +119,7 @@ INLINE size_t entitysize(Unc_ValueType type) {
     return 0;
 }
 
-void unc__scrap(Unc_Entity *e, Unc_Allocator *alloc, Unc_View *w) {
+void unc0_scrap(Unc_Entity *e, Unc_Allocator *alloc, Unc_View *w) {
     if (IS_SLEEPING(e)) return;
     if (w) {
         if (w->recurse >= w->recurselimit * 2) return;
@@ -134,45 +134,45 @@ void unc__scrap(Unc_Entity *e, Unc_Allocator *alloc, Unc_View *w) {
     case Unc_TRef:
         UNC_LOCKFINAL(LEFTOVER(Unc_ValueRef, e)->lock);
         if (w)
-            unc__unbind(e, w), --w->recurse;
+            unc0_unbind(e, w), --w->recurse;
         break;
     case Unc_TString:
         if (w) --w->recurse;
-        unc__dropstring(alloc, LEFTOVER(Unc_String, e));
+        unc0_dropstring(alloc, LEFTOVER(Unc_String, e));
         break;
     case Unc_TBlob:
         if (w) --w->recurse;
-        unc__dropblob(alloc, LEFTOVER(Unc_Blob, e));
+        unc0_dropblob(alloc, LEFTOVER(Unc_Blob, e));
         break;
     case Unc_TArray:
         if (w)
-            unc__droparray(w, LEFTOVER(Unc_Array, e)), --w->recurse;
+            unc0_droparray(w, LEFTOVER(Unc_Array, e)), --w->recurse;
         else
-            unc__sunsetarray(alloc, LEFTOVER(Unc_Array, e));
+            unc0_sunsetarray(alloc, LEFTOVER(Unc_Array, e));
         break;
     case Unc_TTable:
         if (w)
-            unc__dropdict(w, LEFTOVER(Unc_Dict, e)), --w->recurse;
+            unc0_dropdict(w, LEFTOVER(Unc_Dict, e)), --w->recurse;
         else
-            unc__sunsetdict(alloc, LEFTOVER(Unc_Dict, e));
+            unc0_sunsetdict(alloc, LEFTOVER(Unc_Dict, e));
         break;
     case Unc_TObject:
         if (w)
-            unc__dropobj(w, LEFTOVER(Unc_Object, e)), --w->recurse;
+            unc0_dropobj(w, LEFTOVER(Unc_Object, e)), --w->recurse;
         else
-            unc__sunsetobj(alloc, LEFTOVER(Unc_Object, e));
+            unc0_sunsetobj(alloc, LEFTOVER(Unc_Object, e));
         break;
     case Unc_TFunction:
         if (w)
-            unc__dropfunc(w, LEFTOVER(Unc_Function, e)), --w->recurse;
+            unc0_dropfunc(w, LEFTOVER(Unc_Function, e)), --w->recurse;
         else
-            unc__sunsetfunc(alloc, LEFTOVER(Unc_Function, e));
+            unc0_sunsetfunc(alloc, LEFTOVER(Unc_Function, e));
         break;
     case Unc_TOpaque:
         if (w)
-            unc__dropopaque(w, LEFTOVER(Unc_Opaque, e)), --w->recurse;
+            unc0_dropopaque(w, LEFTOVER(Unc_Opaque, e)), --w->recurse;
         else
-            unc__sunsetopaque(alloc, LEFTOVER(Unc_Opaque, e));
+            unc0_sunsetopaque(alloc, LEFTOVER(Unc_Opaque, e));
         break;
     case Unc_TWeakRef:
         if (w) {
@@ -186,17 +186,17 @@ void unc__scrap(Unc_Entity *e, Unc_Allocator *alloc, Unc_View *w) {
         break;
     case Unc_TBoundFunction:
         if (w)
-            unc__dropbfunc(w, LEFTOVER(Unc_FunctionBound, e)), --w->recurse;
+            unc0_dropbfunc(w, LEFTOVER(Unc_FunctionBound, e)), --w->recurse;
         else
-            unc__sunsetbfunc(alloc, LEFTOVER(Unc_FunctionBound, e));
+            unc0_sunsetbfunc(alloc, LEFTOVER(Unc_FunctionBound, e));
         break;
     default:
         break;
     }
 }
 
-void unc__efree(Unc_Entity *e, Unc_Allocator *alloc) {
-    unc__mfree(alloc, e, entitysize(e->type));
+void unc0_efree(Unc_Entity *e, Unc_Allocator *alloc) {
+    unc0_mfree(alloc, e, entitysize(e->type));
 }
 
 INLINE Unc_Entity *prepent(Unc_View *w, Unc_Entity *e) {
@@ -208,14 +208,14 @@ INLINE Unc_Entity *prepent(Unc_View *w, Unc_Entity *e) {
     return e;
 }
 
-static Unc_Entity *unc__draft(Unc_View *w, Unc_ValueType type) {
+static Unc_Entity *unc0_draft(Unc_View *w, Unc_ValueType type) {
     Unc_Entity *e;
     (void)UNC_LOCKFP(w, w->world->entity_lock);
     if (w->world->gc.enabled && ++w->entityload >= w->world->gc.entitylimit)
-        unc__gccollect(w->world, w);
-    e = unc__malloc(&w->world->alloc, Unc_AllocEntity, entitysize(type));
+        unc0_gccollect(w->world, w);
+    e = unc0_malloc(&w->world->alloc, Unc_AllocEntity, entitysize(type));
     if (e) {
-        unc__link(&w->world->etop, e);
+        unc0_link(&w->world->etop, e);
         ATOMICLSET(e->refs, 0);
         e->type = type;
         e->mark = 0;
@@ -225,7 +225,7 @@ static Unc_Entity *unc__draft(Unc_View *w, Unc_ValueType type) {
     return e;
 }
 
-Unc_Entity *unc__wake(struct Unc_View *w, Unc_ValueType type) {
+Unc_Entity *unc0_wake(struct Unc_View *w, Unc_ValueType type) {
     Unc_Entity **p = &w->sleepers[0], *e;
     int s = UNC_SLEEPER_VALUES;
     while (--s) {
@@ -238,26 +238,26 @@ Unc_Entity *unc__wake(struct Unc_View *w, Unc_ValueType type) {
                 break;
             }
             *p = NULL;
-            unc__relink(&w->world->etop, e);
+            unc0_relink(&w->world->etop, e);
             UNC_UNLOCKF(w->world->entity_lock);
             return prepent(w, e);
         }
         ++p;
     }
-    return prepent(w, unc__draft(w, type));
+    return prepent(w, unc0_draft(w, type));
 }
 
-void unc__wreck(Unc_Entity *e, struct Unc_World *w) {
-    unc__unlink(&w->etop, e);
-    unc__efree(e, &w->alloc);
+void unc0_wreck(Unc_Entity *e, struct Unc_World *w) {
+    unc0_unlink(&w->etop, e);
+    unc0_efree(e, &w->alloc);
 }
 
-void unc__unwake(Unc_Entity *e, struct Unc_View *w) {
+void unc0_unwake(Unc_Entity *e, struct Unc_View *w) {
     int i = w->sleeper_next;
     if (w->sleepers[i]) {
         if (!UNC_LOCKFP(w, w->world->entity_lock) || w->sleepers[i]) {
             ASSERT(w->sleepers[i]->mark == SLEEPING);
-            unc__wreck(w->sleepers[i], w->world);
+            unc0_wreck(w->sleepers[i], w->world);
             --w->entityload;
         }
         UNC_UNLOCKF(w->world->entity_lock);
@@ -267,12 +267,12 @@ void unc__unwake(Unc_Entity *e, struct Unc_View *w) {
     e->mark = SLEEPING;
 }
 
-void unc__hibernate(Unc_Entity *e, Unc_View *w) {
-    unc__scrap(e, &w->world->alloc, w);
-    unc__unwake(e, w);
+void unc0_hibernate(Unc_Entity *e, Unc_View *w) {
+    unc0_scrap(e, &w->world->alloc, w);
+    unc0_unwake(e, w);
 }
 
-static const char * const unc__valueTypeNames[] = {
+static const char * const unc0_valueTypeNames[] = {
     "null",
     "bool",
     "int",
@@ -280,7 +280,7 @@ static const char * const unc__valueTypeNames[] = {
     "optr",
 };
 
-static const char * const unc__valueRefTypeNames[] = {
+static const char * const unc0_valueRefTypeNames[] = {
     "string",
     "array",
     "table",
@@ -292,21 +292,21 @@ static const char * const unc__valueRefTypeNames[] = {
     "boundfunction"
 };
 
-const char *unc__getvaluetypename(Unc_ValueType t) {
+const char *unc0_getvaluetypename(Unc_ValueType t) {
     int i = t;
     if (i < 0) {
         i = -i - 1;
-        if (i < ARRAYSIZE(unc__valueRefTypeNames))
-            return unc__valueRefTypeNames[i];
+        if (i < ARRAYSIZE(unc0_valueRefTypeNames))
+            return unc0_valueRefTypeNames[i];
     } else {
-        if (i < ARRAYSIZE(unc__valueTypeNames))
-            return unc__valueTypeNames[i];
+        if (i < ARRAYSIZE(unc0_valueTypeNames))
+            return unc0_valueTypeNames[i];
     }
     NEVER_();
     return "";
 }
 
-int unc__makeweak(Unc_View *w, Unc_Value *from, Unc_Value *to) {
+int unc0_makeweak(Unc_View *w, Unc_Value *from, Unc_Value *to) {
     if (IS_OF_REFTYPE(from)) {
         Unc_Entity *e = VGETENT(from);
         Unc_Value res;
@@ -316,7 +316,7 @@ int unc__makeweak(Unc_View *w, Unc_Value *from, Unc_Value *to) {
             res.v.c = UNLEFTOVER(e->weaks);
         } else {
             Unc_WeakCounter *wc;
-            res.v.c = unc__wake(w, Unc_TWeakRef);
+            res.v.c = unc0_wake(w, Unc_TWeakRef);
             if (!res.v.c) {
                 UNC_UNLOCKF(w->world->entity_lock);
                 return UNCIL_ERR_MEM;
@@ -332,7 +332,7 @@ int unc__makeweak(Unc_View *w, Unc_Value *from, Unc_Value *to) {
         return UNCIL_ERR_ARG_CANNOTWEAK;
 }
 
-void unc__fetchweak(struct Unc_View *w, Unc_Value *wp, Unc_Value *dst) {
+void unc0_fetchweak(struct Unc_View *w, Unc_Value *wp, Unc_Value *dst) {
     Unc_Entity *e;
     ASSERT(wp->type == Unc_TWeakRef);
     (void)UNC_LOCKFP(w, w->world->entity_lock);
@@ -346,29 +346,29 @@ void unc__fetchweak(struct Unc_View *w, Unc_Value *wp, Unc_Value *dst) {
     }
 }
 
-int unc__vrefnew(Unc_View *w, Unc_Value *v, Unc_ValueType type) {
-    Unc_Entity *e = unc__wake(w, type);
+int unc0_vrefnew(Unc_View *w, Unc_Value *v, Unc_ValueType type) {
+    Unc_Entity *e = unc0_wake(w, type);
     if (!e) return UNCIL_ERR_MEM;
     VINITENT(v, type, e);
     return 0;
 }
 
-int unc__hashvalue(Unc_View *w, Unc_Value *v, unsigned *hash) {
+int unc0_hashvalue(Unc_View *w, Unc_Value *v, unsigned *hash) {
     switch (VGETTYPE(v)) {
     case Unc_TNull:
         *hash = 0;
         return 0;
     case Unc_TBool:
     case Unc_TInt:
-        *hash = unc__hashint(VGETINT(v));
+        *hash = unc0_hashint(VGETINT(v));
         return 0;
     case Unc_TFloat:
-        *hash = unc__hashflt(VGETFLT(v));
+        *hash = unc0_hashflt(VGETFLT(v));
         return 0;
     case Unc_TString:
     {
         Unc_String *s = LEFTOVER(Unc_String, VGETENT(v));
-        *hash = unc__hashstr(s->size, unc__getstringdata(s));
+        *hash = unc0_hashstr(s->size, unc0_getstringdata(s));
         return 0;
     }
     case Unc_TObject:
@@ -379,16 +379,16 @@ int unc__hashvalue(Unc_View *w, Unc_Value *v, unsigned *hash) {
     {
         int e;
         Unc_Value vout;
-        e = unc__vovlunary(w, v, &vout, PASSSTRL(OPOVERLOAD(hash)));
+        e = unc0_vovlunary(w, v, &vout, PASSSTRL(OPOVERLOAD(hash)));
         if (e) {
             int r;
             if (UNCIL_IS_ERR(e)) return e;
             if (w->recurse >= w->recurselimit)
                 return UNCIL_ERR_TOODEEP;
             ++w->recurse;
-            r = unc__hashvalue(w, vout, hash);
+            r = unc0_hashvalue(w, vout, hash);
             --w->recurse;
-            unc__decref(w, vout);
+            unc0_decref(w, vout);
             return r;
         }
     }*/
@@ -405,7 +405,7 @@ int unc__hashvalue(Unc_View *w, Unc_Value *v, unsigned *hash) {
     }
 }
 
-int unc__vcangetint(Unc_Value *v) {
+int unc0_vcangetint(Unc_Value *v) {
     switch (VGETTYPE(v)) {
     case Unc_TInt:
         return 1;
@@ -414,7 +414,7 @@ int unc__vcangetint(Unc_Value *v) {
     }
 }
 
-int unc__vcangetfloat(Unc_Value *v) {
+int unc0_vcangetfloat(Unc_Value *v) {
     switch (VGETTYPE(v)) {
     case Unc_TInt:
     case Unc_TFloat:
@@ -424,7 +424,7 @@ int unc__vcangetfloat(Unc_Value *v) {
     }
 }
 
-int unc__vcvt2bool(Unc_View *w, Unc_Value *v) {
+int unc0_vcvt2bool(Unc_View *w, Unc_Value *v) {
     switch (VGETTYPE(v)) {
     case Unc_TNull:
         return 0;
@@ -447,14 +447,14 @@ int unc__vcvt2bool(Unc_View *w, Unc_Value *v) {
     {
         int e;
         Unc_Value vout;
-        e = unc__vovlunary(w, v, &vout, PASSSTRL(OPOVERLOAD(bool)));
+        e = unc0_vovlunary(w, v, &vout, PASSSTRL(OPOVERLOAD(bool)));
         if (e) {
             int r;
             if (UNCIL_IS_ERR(e)) return e;
             if (w->recurse >= w->recurselimit)
                 return UNCIL_ERR_TOODEEP;
             ++w->recurse;
-            r = unc__vcvt2bool(w, &vout);
+            r = unc0_vcvt2bool(w, &vout);
             --w->recurse;
             VDECREF(w, &vout);
             return r;
@@ -471,7 +471,7 @@ int unc__vcvt2bool(Unc_View *w, Unc_Value *v) {
     }
 }
 
-int unc__vgetint(Unc_View *w, Unc_Value *v, Unc_Int *out) {
+int unc0_vgetint(Unc_View *w, Unc_Value *v, Unc_Int *out) {
     switch (VGETTYPE(v)) {
     case Unc_TInt:
         *out = VGETINT(v);
@@ -497,7 +497,7 @@ int unc__vgetint(Unc_View *w, Unc_Value *v, Unc_Int *out) {
     }
 }
 
-int unc__vgetfloat(Unc_View *w, Unc_Value *v, Unc_Float *out) {
+int unc0_vgetfloat(Unc_View *w, Unc_Value *v, Unc_Float *out) {
     switch (VGETTYPE(v)) {
     case Unc_TInt:
         *out = (Unc_Float)VGETINT(v);

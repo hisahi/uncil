@@ -28,7 +28,7 @@ SOFTWARE.
 
 #include "uutf.h"
 
-Unc_Size unc__utf8enc(Unc_UChar u, Unc_Size n, byte *out) {
+Unc_Size unc0_utf8enc(Unc_UChar u, Unc_Size n, byte *out) {
     Unc_Size i = 0;
     if (u < 0x80UL) {
         if (i++ < n) *out++ = (byte)(u & 0x7F);
@@ -45,12 +45,12 @@ Unc_Size unc__utf8enc(Unc_UChar u, Unc_Size n, byte *out) {
         if (i++ < n) *out++ = (byte)(0x80 | ((u >>  6) & 0x3F));
         if (i++ < n) *out++ = (byte)(0x80 | ( u        & 0x3F));
     } else {
-        return unc__utf8enc(u, 0xFFFDUL, out);
+        return unc0_utf8enc(u, 0xFFFDUL, out);
     }
     return i;
 }
 
-Unc_UChar unc__utf8dec(Unc_Size n, const byte **in) {
+Unc_UChar unc0_utf8dec(Unc_Size n, const byte **in) {
     Unc_Size i = 0;
     const byte *p = *in;
     if (i < n) {
@@ -89,22 +89,22 @@ Unc_UChar unc__utf8dec(Unc_Size n, const byte **in) {
     return 0;
 }
 
-Unc_UChar unc__utf8decx(Unc_Size *n, const byte **in) {
+Unc_UChar unc0_utf8decx(Unc_Size *n, const byte **in) {
     const byte *ins = *in;
-    Unc_UChar u = unc__utf8dec(*n, in);
+    Unc_UChar u = unc0_utf8dec(*n, in);
     *n -= *in - ins;
     return u;
 }
 
-Unc_UChar unc__utf8decd(const byte *in) {
-    return unc__utf8dec(UNC_UTF8_MAX_SIZE, &in);
+Unc_UChar unc0_utf8decd(const byte *in) {
+    return unc0_utf8dec(UNC_UTF8_MAX_SIZE, &in);
 }
 
 #define UEAT() (in < e ? *in++ : -1)
 #define UEMIT(c) do { ++q; if (out) *out++ = c; } while (0)
 /* shorten overlong encodings and pad remaining spaces with 00, modify buffer.
    invalid bytes are ignored */
-Unc_Size unc__utf8patdown(Unc_Size n, byte *out, const byte *in) {
+Unc_Size unc0_utf8patdown(Unc_Size n, byte *out, const byte *in) {
     int c;
     Unc_Size q = 0;
     const byte *e = in + n;
@@ -139,9 +139,9 @@ Unc_Size unc__utf8patdown(Unc_Size n, byte *out, const byte *in) {
             }
             {
                 const byte *x = b;
-                u = unc__utf8dec(i, &x);
+                u = unc0_utf8dec(i, &x);
             }
-            j = (int)unc__utf8enc(u, sizeof(b), b);
+            j = (int)unc0_utf8enc(u, sizeof(b), b);
             for (i = 0; i < j; ++i)
                 UEMIT(b[i]);
         }
@@ -150,12 +150,12 @@ ufailed:;
     return q;
 }
 
-/* return length if unc__utf8patdown */
-Unc_Size unc__utf8patdownl(Unc_Size n, const byte *in) {
-    return unc__utf8patdown(n, NULL, in);
+/* return length if unc0_utf8patdown */
+Unc_Size unc0_utf8patdownl(Unc_Size n, const byte *in) {
+    return unc0_utf8patdown(n, NULL, in);
 }
 
-const byte *unc__utf8scanforw(const byte *s0, const byte *s1, Unc_Size count) {
+const byte *unc0_utf8scanforw(const byte *s0, const byte *s1, Unc_Size count) {
     for (;;) {
         if (s0 >= s1)
             return NULL;
@@ -174,7 +174,7 @@ const byte *unc__utf8scanforw(const byte *s0, const byte *s1, Unc_Size count) {
     }
 }
 
-const byte *unc__utf8scanbackw(const byte *s0, const byte *s1, Unc_Size count) {
+const byte *unc0_utf8scanbackw(const byte *s0, const byte *s1, Unc_Size count) {
     ++count;
     for (;;) {
         if (!count)
@@ -186,7 +186,7 @@ const byte *unc__utf8scanbackw(const byte *s0, const byte *s1, Unc_Size count) {
     }
 }
 
-const byte *unc__utf8nextchar(const byte *sb, Unc_Size *n) {
+const byte *unc0_utf8nextchar(const byte *sb, Unc_Size *n) {
     Unc_Size o, q = *n;
     if (!q)
         return NULL;
@@ -205,11 +205,11 @@ const byte *unc__utf8nextchar(const byte *sb, Unc_Size *n) {
     return sb + o;
 }
 
-const byte *unc__utf8lastchar(const byte *sb, Unc_Size n) {
-    return unc__utf8scanbackw(sb, sb + n, 0);
+const byte *unc0_utf8lastchar(const byte *sb, Unc_Size n) {
+    return unc0_utf8scanbackw(sb, sb + n, 0);
 }
 
-int unc__utf8validate(Unc_Size n, const char *s) {
+int unc0_utf8validate(Unc_Size n, const char *s) {
     int c, j;
     Unc_UChar u, m;
     while (n--) {
@@ -243,7 +243,7 @@ int unc__utf8validate(Unc_Size n, const char *s) {
     return 0;
 }
 
-int unc__cconv_utf8ts(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf8ts(Unc_CConv_In in, void *in_data,
                       Unc_CConv_Out out, void *out_data,
                       Unc_Size n) {
     Unc_Size b = 0;
@@ -280,10 +280,10 @@ int unc__cconv_utf8ts(Unc_CConv_In in, void *in_data,
     return 0;
 }
 
-const byte *unc__utf8shift(const byte *s, Unc_Size *n, Unc_Size i) {
+const byte *unc0_utf8shift(const byte *s, Unc_Size *n, Unc_Size i) {
     Unc_Size q = *n;
     while (i--) {
-        s = unc__utf8nextchar(s, &q);
+        s = unc0_utf8nextchar(s, &q);
         if (!s) {
             *n = 0;
             return NULL;
@@ -293,7 +293,7 @@ const byte *unc__utf8shift(const byte *s, Unc_Size *n, Unc_Size i) {
     return s;
 }
 
-const byte *unc__utf8shiftback(const byte *s, Unc_Size *n, Unc_Size i) {
+const byte *unc0_utf8shiftback(const byte *s, Unc_Size *n, Unc_Size i) {
     Unc_Size q = *n, r = 0;
     const byte *e = s + q;
     while (i--) {
@@ -308,7 +308,7 @@ const byte *unc__utf8shiftback(const byte *s, Unc_Size *n, Unc_Size i) {
     return e;
 }
 
-const byte *unc__utf8shiftaway(const byte *s, Unc_Size *n, Unc_Size i) {
+const byte *unc0_utf8shiftaway(const byte *s, Unc_Size *n, Unc_Size i) {
     Unc_Size q = *n;
     const byte *e = s + q;
     while (i--) {
@@ -324,13 +324,13 @@ const byte *unc__utf8shiftaway(const byte *s, Unc_Size *n, Unc_Size i) {
     return s;
 }
 
-Unc_Size unc__utf8reshift(const byte *s, Unc_Size z, Unc_Size n) {
-    const byte *sp = unc__utf8shift(s, &z, n);
+Unc_Size unc0_utf8reshift(const byte *s, Unc_Size z, Unc_Size n) {
+    const byte *sp = unc0_utf8shift(s, &z, n);
     if (!sp) return UNC_RESHIFTBAD;
     return sp - s;
 }
 
-Unc_Size unc__utf8unshift(const byte *s, Unc_Size n) {
+Unc_Size unc0_utf8unshift(const byte *s, Unc_Size n) {
     Unc_Size q = 0;
     while (n--)
         if ((*s++ & 0xC0) != 0x80)
@@ -338,7 +338,7 @@ Unc_Size unc__utf8unshift(const byte *s, Unc_Size n) {
     return q;
 }
 
-void unc__utf8rev(byte *b, const byte *s, Unc_Size n) {
+void unc0_utf8rev(byte *b, const byte *s, Unc_Size n) {
     byte c;
     Unc_Size i, z = n, k = 0;
     for (i = 0; i < n; ++i) {

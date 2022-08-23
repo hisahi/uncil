@@ -218,27 +218,27 @@ void qcodedump(const Unc_QInstr *d, Unc_Size n) {
 }
 
 void pdump_reg(const byte **d) {
-    printf("R%-5lu\t", (unsigned long)unc__clqdecz(UNCIL_REGW, d));
+    printf("R%-5lu\t", (unsigned long)unc0_clqdecz(UNCIL_REGW, d));
 }
 
 void pdump_us(const byte **d) {
-    printf("%-6lu\t", (unsigned long)unc__vlqdecz(d));
+    printf("%-6lu\t", (unsigned long)unc0_vlqdecz(d));
 }
 
 void pdump_lint(const byte **d) {
-    Unc_Int ui = unc__vlqdeci(d);
+    Unc_Int ui = unc0_vlqdeci(d);
     printf("I(%+6ld)\t", (long)ui);
 }
 
 void pdump_lflt(const byte **d) {
     Unc_Float uf;
-    unc__memcpy(&uf, *d, sizeof(Unc_Float));
+    unc0_memcpy(&uf, *d, sizeof(Unc_Float));
     *d += sizeof(Unc_Float);
     printf("F(%+6f)\t", (float)uf);
 }
 
 void pdump_loff(const char *s, const byte **d) {
-    Unc_Size z = unc__vlqdecz(d);
+    Unc_Size z = unc0_vlqdecz(d);
     printf(s, (unsigned long)z);
     putchar('\t');
 }
@@ -248,7 +248,7 @@ void pdump_lstr(const byte **d) {
 }
 
 void pdump_jmp(const byte **d) {
-    Unc_Size z = unc__clqdecz(jumpw, d);
+    Unc_Size z = unc0_clqdecz(jumpw, d);
     printf("$%06lx\t", (unsigned long)(z + (jbase - jbegin)));
     putchar('\t');
 }
@@ -826,15 +826,15 @@ int main(int argc, char* argv[]) {
     if (!f)
         return 1;
 
-    unc__initalloc(&alloc, NULL, NULL, NULL);
-    if ((e = unc__newcontext(&cxt, &alloc))) {
+    unc0_initalloc(&alloc, NULL, NULL, NULL);
+    if ((e = unc0_newcontext(&cxt, &alloc))) {
         puts("Alloc failure");
         return 1;
     }
-    unc__initprogram(&program);
+    unc0_initprogram(&program);
     puts("======= Lexer output");
-    if ((e = unc__lexcode(&cxt, &lexout, &fgetch, f))) {
-        unc__dropcontext(&cxt);
+    if ((e = unc0_lexcode(&cxt, &lexout, &fgetch, f))) {
+        unc0_dropcontext(&cxt);
         printf("Returned error code %04x from line %d\n",
                 e, (int)lexout.lineno);
         return 1;
@@ -855,8 +855,8 @@ int main(int argc, char* argv[]) {
     }
 
     puts("======= Parser Q-code output");
-    if ((e = unc__parsec1(&cxt, &qcode, &lexout))) {
-        unc__dropcontext(&cxt);
+    if ((e = unc0_parsec1(&cxt, &qcode, &lexout))) {
+        unc0_dropcontext(&cxt);
         printf("Returned error code %04x from line %d\n",
                 e, (int)qcode.lineno);
         return 1;
@@ -876,8 +876,8 @@ int main(int argc, char* argv[]) {
 
 #if !NOOPTIMIZE
     puts("======= Optimized Q-code output");
-    if ((e = unc__optqcode(&cxt, &qcode))) {
-        unc__dropcontext(&cxt);
+    if ((e = unc0_optqcode(&cxt, &qcode))) {
+        unc0_dropcontext(&cxt);
         printf("Returned error code %04x\n", e);
         return 1;
     }
@@ -896,8 +896,8 @@ int main(int argc, char* argv[]) {
 #endif
 
     puts("======= Compiled bytecode (P-code) output");
-    if ((e = unc__parsec2(&cxt, &program, &qcode))) {
-        unc__dropcontext(&cxt);
+    if ((e = unc0_parsec2(&cxt, &program, &qcode))) {
+        unc0_dropcontext(&cxt);
         printf("Returned error code %04x\n", e);
         return 1;
     }
@@ -913,7 +913,7 @@ int main(int argc, char* argv[]) {
         pcodedump(program.code, code_sz);
     }
 
-    unc__dropprogram(&program, &alloc);
-    unc__dropcontext(&cxt);
+    unc0_dropprogram(&program, &alloc);
+    unc0_dropcontext(&cxt);
     return 0;
 }

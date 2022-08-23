@@ -92,7 +92,7 @@ static int cvt2str_i(int (*out)(Unc_Size n, const byte *s, void *udata),
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc__xprintf(&printf_wrapper_f, &pf, "%"PRIUnc_Int"d", i);
+    unc0_xprintf(&printf_wrapper_f, &pf, "%"PRIUnc_Int"d", i);
     return pf.e;
 }
 
@@ -102,7 +102,7 @@ static int cvt2str_u(int (*out)(Unc_Size n, const byte *s, void *udata),
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc__xprintf(&printf_wrapper_f, &pf, "%zu", u);
+    unc0_xprintf(&printf_wrapper_f, &pf, "%zu", u);
     return pf.e;
 }
 
@@ -112,7 +112,7 @@ static int cvt2str_u2x(int (*out)(Unc_Size n, const byte *s, void *udata),
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc__xprintf(&printf_wrapper_f, &pf, "%02X", u);
+    unc0_xprintf(&printf_wrapper_f, &pf, "%02X", u);
     return pf.e;
 }
 
@@ -122,7 +122,7 @@ static int cvt2str_f(int (*out)(Unc_Size n, const byte *s, void *udata),
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc__xprintf(&printf_wrapper_f, &pf,
+    unc0_xprintf(&printf_wrapper_f, &pf,
                 "%."EVALSTRINGIFY(DBL_DIG) PRIUnc_Float"g", f);
     return pf.e;
 }
@@ -184,15 +184,15 @@ static int cvt2str_spq(
     return 0;
 }
 
-int unc__vcvt2strrq(Unc_View *w, Unc_String *s,
+int unc0_vcvt2strrq(Unc_View *w, Unc_String *s,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata) {
     Unc_Size n = s->size, q;
-    const byte *sb = n ? unc__getstringdata(s) : (const byte *)"", *p;
+    const byte *sb = n ? unc0_getstringdata(s) : (const byte *)"", *p;
     int c;
     MUST(out(PASSSTRL("\""), udata));
     do {
         c = *(p = sb);
-        sb = unc__utf8nextchar(sb, &n);
+        sb = unc0_utf8nextchar(sb, &n);
         if (!sb) break;
         q = sb - p;
         if (c < 32) {
@@ -237,20 +237,20 @@ int unc__vcvt2strrq(Unc_View *w, Unc_String *s,
     return 0;
 }
 
-int unc__vcvt2str(Unc_View *w, Unc_Value *in,
+int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata);
 
-int unc__vcvt2strq(Unc_View *w, Unc_Value *in,
+int unc0_vcvt2strq(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata)
 {
     if (VGETTYPE(in) == Unc_TObject || VGETTYPE(in) == Unc_TOpaque) {
         Unc_Value vout;
-        int e = unc__vovlunary(w, in, &vout,
+        int e = unc0_vovlunary(w, in, &vout,
                                 PASSSTRL(OPOVERLOAD(quote)));
         if (e) {
             if (UNCIL_IS_ERR(e)) return e;
             if (VGETTYPE(&vout) == Unc_TString) {
-                MUST(unc__vcvt2strrq(w,
+                MUST(unc0_vcvt2strrq(w,
                             LEFTOVER(Unc_String, VGETENT(&vout)),
                             out, udata));
                 VDECREF(w, &vout);
@@ -261,17 +261,17 @@ int unc__vcvt2strq(Unc_View *w, Unc_Value *in,
                 return UNCIL_ERR_TOODEEP;
             }
             ++w->recurse;
-            e = unc__vcvt2str(w, &vout, out, udata);
+            e = unc0_vcvt2str(w, &vout, out, udata);
             --w->recurse;
             VDECREF(w, &vout);
             return e;
         }
     }
-    return unc__vcvt2str(w, in, out, udata);
+    return unc0_vcvt2str(w, in, out, udata);
 }
 
 
-int unc__vcvt2strobj(Unc_View *w, Unc_Value *in,
+int unc0_vcvt2strobj(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata) {
     void *arr_[32];
     void **arr = arr_;
@@ -329,7 +329,7 @@ strobjcont:
             vx = current.a->data[bucket_i++];
             switch (VGETTYPE(&vx)) {
             case Unc_TString:
-                MUST(unc__vcvt2strrq(w, LEFTOVER(Unc_String, VGETENT(&vx)),
+                MUST(unc0_vcvt2strrq(w, LEFTOVER(Unc_String, VGETENT(&vx)),
                                     out, udata));
                 break;
             case Unc_TArray:
@@ -356,7 +356,7 @@ strobjcont:
                     Unc_Size z = arr_c + 32;
                     if (arr == arr_) {
                         np = TMALLOC(void *, alloc, 0, z);
-                        if (np) unc__memcpy(np, arr_, sizeof(void *) * arr_c);
+                        if (np) unc0_memcpy(np, arr_, sizeof(void *) * arr_c);
                     } else
                         np = TMREALLOC(void *, alloc, 0, arr, arr_c, z);
                     if (!np) {
@@ -380,10 +380,10 @@ strobjarrnosave:
                 break;
             case Unc_TObject:
             case Unc_TOpaque:
-                MUST(unc__vcvt2strq(w, &vx, out, udata));
+                MUST(unc0_vcvt2strq(w, &vx, out, udata));
                 break;
             default:
-                MUST(unc__vcvt2str(w, &vx, out, udata));
+                MUST(unc0_vcvt2str(w, &vx, out, udata));
             }
         }
         break;
@@ -402,7 +402,7 @@ strobjarrnosave:
             vx = dnext->key;
             switch (vx.type) {
             case Unc_TString:
-                MUST(unc__vcvt2strrq(w, LEFTOVER(Unc_String, VGETENT(&vx)),
+                MUST(unc0_vcvt2strrq(w, LEFTOVER(Unc_String, VGETENT(&vx)),
                                     out, udata));
                 break;
             case Unc_TArray:
@@ -410,17 +410,17 @@ strobjarrnosave:
                 NEVER();
             case Unc_TObject:
             case Unc_TOpaque:
-                MUST(unc__vcvt2strq(w, &vx, out, udata));
+                MUST(unc0_vcvt2strq(w, &vx, out, udata));
                 break;
             default:
-                MUST(unc__vcvt2str(w, &vx, out, udata));
+                MUST(unc0_vcvt2str(w, &vx, out, udata));
             }
             MUST(out(PASSSTRL(": "), udata));
             vx = dnext->val;
             dnext = dnext->next;
             switch (vx.type) {
             case Unc_TString:
-                MUST(unc__vcvt2strrq(w, LEFTOVER(Unc_String, VGETENT(&vx)),
+                MUST(unc0_vcvt2strrq(w, LEFTOVER(Unc_String, VGETENT(&vx)),
                                     out, udata));
                 break;
             case Unc_TTable:
@@ -447,7 +447,7 @@ strobjarrnosave:
                     Unc_Size z = arr_c + 32;
                     if (arr == arr_) {
                         np = TMALLOC(void *, alloc, 0, z);
-                        if (np) unc__memcpy(np, arr_, sizeof(void *) * arr_c);
+                        if (np) unc0_memcpy(np, arr_, sizeof(void *) * arr_c);
                     } else
                         np = TMREALLOC(void *, alloc, 0, arr, arr_c, z);
                     if (!np) {
@@ -472,10 +472,10 @@ strobjdictnosave:
                 break;
             case Unc_TObject:
             case Unc_TOpaque:
-                MUST(unc__vcvt2strq(w, &vx, out, udata));
+                MUST(unc0_vcvt2strq(w, &vx, out, udata));
                 break;
             default:
-                MUST(unc__vcvt2str(w, &vx, out, udata));
+                MUST(unc0_vcvt2str(w, &vx, out, udata));
             }
         }
         break;
@@ -514,7 +514,7 @@ strobjdictnosave:
     return 0;
 }
 
-int unc__vcvt2str(Unc_View *w, Unc_Value *in,
+int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata) {
     switch (VGETTYPE(in)) {
     case Unc_TNull:
@@ -531,11 +531,11 @@ int unc__vcvt2str(Unc_View *w, Unc_Value *in,
     case Unc_TString:
     {
         Unc_String *s = LEFTOVER(Unc_String, VGETENT(in));
-        return out(s->size, unc__getstringdata(s), udata);
+        return out(s->size, unc0_getstringdata(s), udata);
     }
     case Unc_TArray:
     case Unc_TTable:
-        return unc__vcvt2strobj(w, in, out, udata);
+        return unc0_vcvt2strobj(w, in, out, udata);
     case Unc_TBlob:
     {
         Unc_Size i;
@@ -563,7 +563,7 @@ int unc__vcvt2str(Unc_View *w, Unc_Value *in,
         Unc_Size nsn = 0;
         const byte *nsb = NULL;
         Unc_Value vout;
-        e = unc__vovlunary(w, in, &vout, PASSSTRL(OPOVERLOAD(string)));
+        e = unc0_vovlunary(w, in, &vout, PASSSTRL(OPOVERLOAD(string)));
         if (e) {
             if (UNCIL_IS_ERR(e)) return e;
             if (w->recurse >= w->recurselimit) {
@@ -571,18 +571,18 @@ int unc__vcvt2str(Unc_View *w, Unc_Value *in,
                 return UNCIL_ERR_TOODEEP;
             }
             ++w->recurse;
-            e = unc__vcvt2str(w, &vout, out, udata);
+            e = unc0_vcvt2str(w, &vout, out, udata);
             --w->recurse;
             VDECREF(w, &vout);
             return 0;
         }
         {
             Unc_Value *o;
-            unc__getprotomethod(w, in, PASSSTRL(OPOVERLOAD(name)), &o);
+            unc0_getprotomethod(w, in, PASSSTRL(OPOVERLOAD(name)), &o);
             if (o && o->type == Unc_TString) {
                 Unc_String *s = LEFTOVER(Unc_String, VGETENT(o));
                 nsn = s->size;
-                nsb = unc__getstringdata(s);
+                nsb = unc0_getstringdata(s);
             }
         }
         if (VGETTYPE(in) == Unc_TOpaque)
@@ -606,7 +606,7 @@ int unc__vcvt2str(Unc_View *w, Unc_Value *in,
         } else if (f->flags & UNC_FUNCTION_FLAG_NAMED) {
             Unc_Size sn;
             const byte *sb;
-            unc__loadstrpx(f->f.u.program->data + f->f.u.nameoff, &sn, &sb);
+            unc0_loadstrpx(f->f.u.program->data + f->f.u.nameoff, &sn, &sb);
             return cvt2str_spq(out, udata, PASSSTRL("function"), VGETENT(in),
                             sn, sb);
         } else {
@@ -634,73 +634,73 @@ struct savxprint_buf {
 
 static int savxprintf__wrapper(char outp, void *udata) {
     struct savxprint_buf *s = udata;
-    return unc__strput(&s->alloc, &s->s, &s->sn, &s->sc, 6, outp);
+    return unc0_strput(&s->alloc, &s->s, &s->sn, &s->sc, 6, outp);
 }
 
-int unc__savxprintf(Unc_Allocator *alloc, byte **s, const char *fmt,
+int unc0_savxprintf(Unc_Allocator *alloc, byte **s, const char *fmt,
                     va_list arg) {
     int e;
     struct savxprint_buf buf;
     buf.alloc = *alloc;
-    buf.s = unc__malloc(alloc, Unc_AllocString, buf.sc = 64);
+    buf.s = unc0_malloc(alloc, Unc_AllocString, buf.sc = 64);
     buf.sn = 0;
     if (!buf.s)
         return -1;
-    e = unc__vxprintf(&savxprintf__wrapper, &buf, fmt, arg);
+    e = unc0_vxprintf(&savxprintf__wrapper, &buf, fmt, arg);
     if (e < 0)
-        unc__mfree(alloc, buf.s, buf.sc);
+        unc0_mfree(alloc, buf.s, buf.sc);
     else
-        *s = unc__mrealloc(alloc, Unc_AllocString, buf.s, buf.sc, e);
+        *s = unc0_mrealloc(alloc, Unc_AllocString, buf.s, buf.sc, e);
     return e;
 }
 
-int unc__saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...) {
+int unc0_saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...) {
     int r;
     va_list va;
     va_start(va, fmt);
-    r = unc__savxprintf(alloc, s, fmt, va);
+    r = unc0_savxprintf(alloc, s, fmt, va);
     va_end(va);
     return r;
 }
 
-int unc__usvxprintf(struct Unc_View *w, Unc_Value *out,
+int unc0_usvxprintf(struct Unc_View *w, Unc_Value *out,
                     const char *fmt, va_list arg) {
     int e;
     struct savxprint_buf buf;
     buf.alloc = w->world->alloc;
-    buf.s = unc__malloc(&w->world->alloc, Unc_AllocString, buf.sc = 64);
+    buf.s = unc0_malloc(&w->world->alloc, Unc_AllocString, buf.sc = 64);
     buf.sn = 0;
     if (!buf.s)
         return -1;
-    e = unc__vxprintf(&savxprintf__wrapper, &buf, fmt, arg);
+    e = unc0_vxprintf(&savxprintf__wrapper, &buf, fmt, arg);
     if (e < 0) {
-        unc__mfree(&w->world->alloc, buf.s, buf.sc);
+        unc0_mfree(&w->world->alloc, buf.s, buf.sc);
         return UNCIL_ERR_MEM;
     }
-    buf.s = unc__mrealloc(&w->world->alloc, Unc_AllocString,
+    buf.s = unc0_mrealloc(&w->world->alloc, Unc_AllocString,
                           buf.s, buf.sc, buf.sn);
-    e = unc__vrefnew(w, out, Unc_TString);
+    e = unc0_vrefnew(w, out, Unc_TString);
     if (e) return e;
-    e = unc__initstringmove(&w->world->alloc,
+    e = unc0_initstringmove(&w->world->alloc,
                             LEFTOVER(Unc_String, VGETENT(out)),
                             buf.sn, buf.s);
     if (e) {
-        unc__unwake(VGETENT(out), w);
+        unc0_unwake(VGETENT(out), w);
         return e;
     }
     return 0;
 }
 
-int unc__usxprintf(struct Unc_View *w, Unc_Value *out, const char *fmt, ...) {
+int unc0_usxprintf(struct Unc_View *w, Unc_Value *out, const char *fmt, ...) {
     int r;
     va_list va;
     va_start(va, fmt);
-    r = unc__usvxprintf(w, out, fmt, va);
+    r = unc0_usvxprintf(w, out, fmt, va);
     va_end(va);
     return r;
 }
 
-int unc__std_makeerr(Unc_View *w, const char *mt, const char *prefix, int err) {
+int unc0_std_makeerr(Unc_View *w, const char *mt, const char *prefix, int err) {
     int e;
     Unc_Value msg = UNC_BLANK;
 #if __STDC_LIB_EXT1__
@@ -708,16 +708,16 @@ int unc__std_makeerr(Unc_View *w, const char *mt, const char *prefix, int err) {
         size_t s = strerrorlen_s(err);
         int preflen;
         if (s > INT_MAX) s = INT_MAX;
-        e = unc__usxprintf(w, &msg, "%s: %n%*c", prefix, &preflen, (int)s, ' ');
+        e = unc0_usxprintf(w, &msg, "%s: %n%*c", prefix, &preflen, (int)s, ' ');
         if (e) return UNCIL_ERR_MEM;
         strerror_s(
-            (const char *)unc__getstringdata(LEFTOVER(Unc_String,
+            (const char *)unc0_getstringdata(LEFTOVER(Unc_String,
                                              VGETENT(&msg))) + preflen, s, err);
     } else
 #endif
     {
         const char *c = err ? strerror(err) : "unknown error";
-        e = unc__usxprintf(w, &msg, "%s: %s", prefix, c);
+        e = unc0_usxprintf(w, &msg, "%s: %s", prefix, c);
         if (e) return UNCIL_ERR_MEM;
     }
     return e ? e : unc_throwext(w, mt, &msg);
@@ -735,14 +735,14 @@ int sxscanf__wrapper(void *data) {
     return *buf->s++;
 }
 
-int unc__sxscanf(Unc_Size sn, const byte *bn, const char *format, ...) {
+int unc0_sxscanf(Unc_Size sn, const byte *bn, const char *format, ...) {
     int r;
     struct sxscanf_buffer buf;
     va_list va;
     va_start(va, format);
     buf.n = sn;
     buf.s = bn;
-    r = unc__vxscanf(&sxscanf__wrapper, NULL, &buf, format, va);
+    r = unc0_vxscanf(&sxscanf__wrapper, NULL, &buf, format, va);
     va_end(va);
     return r;
 }

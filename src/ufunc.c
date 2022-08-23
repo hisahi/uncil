@@ -38,10 +38,10 @@ SOFTWARE.
 #include "uvlq.h"
 
 INLINE Unc_Size dec_ca(const byte *b) {
-    return unc__clqdeczd(UNC_BYTES_IN_FCODEADDR, b);
+    return unc0_clqdeczd(UNC_BYTES_IN_FCODEADDR, b);
 }
 
-int unc__initfuncu(Unc_View *w, Unc_Function *fn,
+int unc0_initfuncu(Unc_View *w, Unc_Function *fn,
                    Unc_Program *program, Unc_Size in_off,
                    int fromc) {
     /* see ucomp.c pushfunc for format */
@@ -56,15 +56,15 @@ int unc__initfuncu(Unc_View *w, Unc_Function *fn,
     fu.jumpw = *in++;
     if (!fromc && w->region.top > w->region.base)
         optok = 1, lr = *--w->region.top;
-    fn->flags = (int)unc__vlqdecz(&in) & ~UNC_FUNCTION_FLAG_CFUNC;
-    fu.program = unc__progincref(program);
-    fu.regc = unc__vlqdecz(&in);
-    fu.floc = unc__vlqdecz(&in);
-    exh = unc__vlqdecz(&in);
-    fn->rargc = unc__vlqdecz(&in);
-    oargc = unc__vlqdecz(&in);
+    fn->flags = (int)unc0_vlqdecz(&in) & ~UNC_FUNCTION_FLAG_CFUNC;
+    fu.program = unc0_progincref(program);
+    fu.regc = unc0_vlqdecz(&in);
+    fu.floc = unc0_vlqdecz(&in);
+    exh = unc0_vlqdecz(&in);
+    fn->rargc = unc0_vlqdecz(&in);
+    oargc = unc0_vlqdecz(&in);
     fn->argc = fn->rargc + oargc;
-    inh = unc__vlqdecz(&in);
+    inh = unc0_vlqdecz(&in);
     if (oargc) {
         Unc_Allocator *alloc = &w->world->alloc;
         if (!(fn->defaults = TMALLOC(Unc_Value, alloc, Unc_AllocFunc, oargc)))
@@ -81,12 +81,12 @@ int unc__initfuncu(Unc_View *w, Unc_Function *fn,
         if (!e) {
             /* create new bound values */
             for (i = 0; i < exh; ++i) {
-                Unc_Entity *x = unc__wake(w, Unc_TRef);
+                Unc_Entity *x = unc0_wake(w, Unc_TRef);
                 if (!x) {
                     e = UNCIL_ERR_MEM;
                     break;
                 }
-                e = unc__bind(x, w, NULL);
+                e = unc0_bind(x, w, NULL);
                 if (e) break;
                 fn->refs[i] = x;
                 UNCIL_INCREFE(w, x);
@@ -94,13 +94,13 @@ int unc__initfuncu(Unc_View *w, Unc_Function *fn,
 
             if (e) {
                 while (i--)
-                    unc__hibernate(fn->refs[i], w);
+                    unc0_hibernate(fn->refs[i], w);
             }
         }
 
         for (tmp = 0; tmp < inh; ++tmp) {
             /* copies of already existing bound values */
-            Unc_Size s = unc__vlqdecz(&in);
+            Unc_Size s = unc0_vlqdecz(&in);
             if (!e) {
                 fn->refs[exh + tmp] = w->bounds[s];
                 UNCIL_INCREFE(w, fn->refs[exh + tmp]);
@@ -114,8 +114,8 @@ int unc__initfuncu(Unc_View *w, Unc_Function *fn,
     } else
         fn->refs = NULL;
 
-    /* fu.lineno = unc__vlqdecz(&in); */
-    tmp = unc__vlqdecz(&in);
+    /* fu.lineno = unc0_vlqdecz(&in); */
+    tmp = unc0_vlqdecz(&in);
     if (fn->flags & UNC_FUNCTION_FLAG_NAMED)
         fu.nameoff = tmp;
 
@@ -133,7 +133,7 @@ int unc__initfuncu(Unc_View *w, Unc_Function *fn,
     return e;
 }
 
-int unc__initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
+int unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
             Unc_Size argcount, int flags, int cflags,
             Unc_Size optcount, Unc_Value *defaults,
             Unc_Size refcount, Unc_Value *initvalues,
@@ -145,11 +145,11 @@ int unc__initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
     fc.fc = fcp;
     if (fname) {
         fc.namelen = strlen(fname);
-        fc.name = unc__malloc(alloc, Unc_AllocExternal, fc.namelen);
+        fc.name = unc0_malloc(alloc, Unc_AllocExternal, fc.namelen);
         if (!fc.name)
             fc.namelen = 0;
         else
-            unc__memcpy(fc.name, fname, fc.namelen);
+            unc0_memcpy(fc.name, fname, fc.namelen);
     } else {
         fc.namelen = 0;
         fc.name = NULL;
@@ -176,12 +176,12 @@ int unc__initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
         if (!e) {
             /* create new bound values */
             for (i = 0; i < refcount; ++i) {
-                Unc_Entity *x = unc__wake(w, Unc_TRef);
+                Unc_Entity *x = unc0_wake(w, Unc_TRef);
                 if (!x) {
                     e = UNCIL_ERR_MEM;
                     break;
                 }
-                e = unc__bind(x, w, &initvalues[i]);
+                e = unc0_bind(x, w, &initvalues[i]);
                 if (e) break;
                 fn->refs[i] = x;
                 UNCIL_INCREFE(w, x);
@@ -189,7 +189,7 @@ int unc__initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
 
             if (e) {
                 while (i--)
-                    unc__hibernate(fn->refs[i], w);
+                    unc0_hibernate(fn->refs[i], w);
             }
         }
 
@@ -227,7 +227,7 @@ int unc__initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
     return e;
 }
 
-int unc__initbfunc(Unc_View *w, Unc_FunctionBound *bfn,
+int unc0_initbfunc(Unc_View *w, Unc_FunctionBound *bfn,
             Unc_Value *fn, Unc_Value *boundto) {
     switch (VGETTYPE(fn)) {
     case Unc_TFunction:
@@ -255,30 +255,30 @@ int unc__initbfunc(Unc_View *w, Unc_FunctionBound *bfn,
 
 /* function calling is in uvm.c */
 
-void unc__dropfunc(Unc_View *w, Unc_Function *fn) {
+void unc0_dropfunc(Unc_View *w, Unc_Function *fn) {
     Unc_Size i, o = fn->argc - fn->rargc;
     for (i = 0; i < fn->refc; ++i)
         UNCIL_DECREFE(w, fn->refs[i]);
     for (i = 0; i < o; ++i)
         VDECREF(w, &fn->defaults[i]);
-    unc__sunsetfunc(&w->world->alloc, fn);
+    unc0_sunsetfunc(&w->world->alloc, fn);
 }
 
-void unc__sunsetfunc(Unc_Allocator *alloc, Unc_Function *fn) {
+void unc0_sunsetfunc(Unc_Allocator *alloc, Unc_Function *fn) {
     if (fn->flags & UNC_FUNCTION_FLAG_CFUNC) {
         UNC_LOCKFINAF(fn->f.c.lock);
-        unc__mfree(alloc, fn->f.c.name, fn->f.c.namelen);
+        unc0_mfree(alloc, fn->f.c.name, fn->f.c.namelen);
     }
     else if (fn->f.u.program)
-        unc__progdecref(fn->f.u.program, alloc);
+        unc0_progdecref(fn->f.u.program, alloc);
     TMFREE(Unc_Value, alloc, fn->defaults, fn->argc - fn->rargc);
     TMFREE(Unc_Entity *, alloc, fn->refs, fn->refc);
 }
 
-void unc__dropbfunc(Unc_View *w, Unc_FunctionBound *fn) {
+void unc0_dropbfunc(Unc_View *w, Unc_FunctionBound *fn) {
     VDECREF(w, &fn->boundto);
     VDECREF(w, &fn->fn);
 }
 
-void unc__sunsetbfunc(Unc_Allocator *alloc, Unc_FunctionBound *fn) {
+void unc0_sunsetbfunc(Unc_Allocator *alloc, Unc_FunctionBound *fn) {
 }

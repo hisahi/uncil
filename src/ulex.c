@@ -47,7 +47,7 @@ INLINE int isodigit_(int c) {
 }
 
 INLINE int isxdigit_(int c) {
-    return unc__isdigit(c) || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f');
+    return unc0_isdigit(c) || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f');
 }
 
 INLINE int isdigitb_(int c, int b) {
@@ -59,7 +59,7 @@ INLINE int isdigitb_(int c, int b) {
     case 16:
         return isxdigit_(c);
     }
-    return unc__isdigit(c);
+    return unc0_isdigit(c);
 }
 
 INLINE int getdigitx_(int c) {
@@ -81,11 +81,11 @@ INLINE int getdigitb_(int c, int b) {
 }
 
 INLINE int isspace_(int c) {
-    return !c || unc__isspace(c);
+    return !c || unc0_isspace(c);
 }
 
 INLINE int isident_(int c) {
-    return unc__isdigit(c) || unc__isalnum(c) || c == '_';
+    return unc0_isdigit(c) || unc0_isalnum(c) || c == '_';
 }
 
 INLINE Unc_Float pow10_(long e) {
@@ -223,7 +223,7 @@ static int kwtrie(const byte *sb, Unc_LexToken *nx) {
     return 0;
 }
 
-int unc__lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
+int unc0_lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
                    int (*getch)(void *ud), void *ud) {
     int c, err = 0, sign = 0;
     Unc_LexToken nx = 0;
@@ -234,14 +234,14 @@ int unc__lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
     Unc_HSet hstr, hid;
     Unc_Size stcount = 0, idcount = 0;
 
-    unc__inithset(&hstr, alloc);
-    unc__inithset(&hid, alloc);
+    unc0_inithset(&hstr, alloc);
+    unc0_inithset(&hid, alloc);
     out->lineno = 1;
 
     c = getch(ud);
     for (;;) {
         if (c < 0) {
-            if ((err = unc__strput(alloc, &olc, &olc_n, &olc_c, 2, ULT_END)))
+            if ((err = unc0_strput(alloc, &olc, &olc_n, &olc_c, 2, ULT_END)))
                 goto lexreturn;
             break;
         } else if (c == '\n') {
@@ -252,7 +252,7 @@ int unc__lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
             /* ignore */
             c = getch(ud);
             continue;
-        } else if (unc__isdigit(c)) {
+        } else if (unc0_isdigit(c)) {
             sign = 0;
 readnum:
             /* read in number */
@@ -286,7 +286,7 @@ readnum:
                             c = getch(ud);
                             if (!isbdigit_(c))
                                 { err = UNCIL_ERR_SYNTAX; goto lexreturn; }
-                        } else if (!unc__isdigit(c)) {
+                        } else if (!unc0_isdigit(c)) {
                             goto waszero;
                         }
                     }
@@ -319,7 +319,7 @@ waszero:
                 }
 
                 if (dot) {
-                    while (unc__isdigit(c)) {
+                    while (unc0_isdigit(c)) {
                         u.f = u.f * 10 + c - '0';
                         c = getch(ud);
                         --off;
@@ -335,10 +335,10 @@ waszero:
                             c = getch(ud);
                         else if (c == '-')
                             eneg = 1, c = getch(ud);
-                        if (!unc__isdigit(c))
+                        if (!unc0_isdigit(c))
                             { err = UNCIL_ERR_SYNTAX; goto lexreturn; }
                         
-                        while (unc__isdigit(c)) {
+                        while (unc0_isdigit(c)) {
                             ni = exp * 10 + c - '0';
                             if (ni < exp) {
                                 exp = eneg ? LONG_MIN : LONG_MAX;
@@ -357,12 +357,12 @@ noexpneg:
                         u.f = u.f * pow10_(off);
                     
                     buf[0] = ULT_LFloat;
-                    unc__memcpy(buf + 1, &u.f, sizeof(Unc_Float));
+                    unc0_memcpy(buf + 1, &u.f, sizeof(Unc_Float));
                 } else {
                     buf[0] = ULT_LInt;
-                    unc__memcpy(buf + 1, &u.i, sizeof(Unc_Int));
+                    unc0_memcpy(buf + 1, &u.i, sizeof(Unc_Int));
                 }
-                if ((err = unc__strputn(alloc, &olc, &olc_n, &olc_c, 6,
+                if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
                                     sizeof(buf), buf)))
                     goto lexreturn;
             }
@@ -372,29 +372,29 @@ noexpneg:
             Unc_Size oid_n2 = oid_n, res;
 
             while (isident_(c)) {
-                if ((err = unc__strput(alloc, &oid, &oid_n2, &oid_c, 5, c)))
+                if ((err = unc0_strput(alloc, &oid, &oid_n2, &oid_c, 5, c)))
                     goto lexreturn;
                 c = getch(ud);
             }
-            if ((err = unc__strput(alloc, &oid, &oid_n2, &oid_c, 5, 0)))
+            if ((err = unc0_strput(alloc, &oid, &oid_n2, &oid_c, 5, 0)))
                 goto lexreturn;
             /* handle elseif as else + if as a special case */
             if (!strcmp((const char *)oid + oid_n, "elseif")) {
                 byte buf[] = { ULT_Kelse, ULT_Kif };
-                if ((err = unc__strputn(alloc, &olc, &olc_n, &olc_c, 6,
+                if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
                                     sizeof(buf), buf)))
                     goto lexreturn;
                 continue;
             } else if (!kwtrie(oid + oid_n, &nx)) {
                 byte buf[1 + sizeof(Unc_Size)];
-                if ((err = unc__puthset(&hid, oid_n2 - oid_n, oid + oid_n,
+                if ((err = unc0_puthset(&hid, oid_n2 - oid_n, oid + oid_n,
                                         &res, idcount)))
                     goto lexreturn;
                 buf[0] = ULT_I;
-                unc__memcpy(buf + 1, &res, sizeof(Unc_Size));
+                unc0_memcpy(buf + 1, &res, sizeof(Unc_Size));
                 if (res == idcount)
                     oid_n = oid_n2, ++idcount;
-                if ((err = unc__strputn(alloc, &olc, &olc_n, &olc_c, 6,
+                if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
                                     sizeof(buf), buf)))
                     goto lexreturn;
                 continue;
@@ -426,7 +426,7 @@ noexpneg:
                     case '"':
                         break;
                     case '0': /* convert to $c0 $80 temporarily */
-                        if ((err = unc__strput(alloc, &ost, &ost_n2, &ost_c,
+                        if ((err = unc0_strput(alloc, &ost, &ost_n2, &ost_c,
                                             inc, 0xc0)))
                             goto lexreturn;
                         c = 0x80;
@@ -472,8 +472,8 @@ noexpneg:
                         }
                         {
                             byte ubuf[UNC_UTF8_MAX_SIZE];
-                            Unc_Size n = unc__utf8enc(uc, sizeof(ubuf), ubuf);
-                            if ((err = unc__strputn(alloc, &ost, &ost_n2,
+                            Unc_Size n = unc0_utf8enc(uc, sizeof(ubuf), ubuf);
+                            if ((err = unc0_strputn(alloc, &ost, &ost_n2,
                                                 &ost_c, inc, n, ubuf)))
                                 goto lexreturn;
                         }
@@ -483,25 +483,25 @@ noexpneg:
                         goto lexreturn;
                     }
                 }
-                if ((err = unc__strput(alloc, &ost, &ost_n2, &ost_c, inc, c)))
+                if ((err = unc0_strput(alloc, &ost, &ost_n2, &ost_c, inc, c)))
                     goto lexreturn;
                 if (inc < 7)
                     ++inc;
                 c = getch(ud);
             }
-            if ((err = unc__strput(alloc, &ost, &ost_n2, &ost_c, inc, 0)))
+            if ((err = unc0_strput(alloc, &ost, &ost_n2, &ost_c, inc, 0)))
                 goto lexreturn;
             if (ost_n2 - ost_n < 256) {
                 /* check hash */
-                if ((err = unc__puthset(&hstr, ost_n2 - ost_n, ost + ost_n,
+                if ((err = unc0_puthset(&hstr, ost_n2 - ost_n, ost + ost_n,
                                         &res, stcount)))
                     goto lexreturn;
             } else {
                 res = stcount;
             }
             buf[0] = ULT_LStr;
-            unc__memcpy(buf + 1, &res, sizeof(Unc_Size));
-            if ((err = unc__strputn(alloc, &olc, &olc_n, &olc_c, 6,
+            unc0_memcpy(buf + 1, &res, sizeof(Unc_Size));
+            if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
                                 sizeof(buf), buf)))
                 goto lexreturn;
             if (res == stcount)
@@ -570,7 +570,7 @@ noexpneg:
                 break;
             case '.':
                 c = getch(ud);
-                if (unc__isdigit(c)) {
+                if (unc0_isdigit(c)) {
                     sign = 1;
                     goto readnum;
                 } else if (c == '?') {
@@ -669,27 +669,27 @@ noexpneg:
                 c = getch(ud);
 keep_buf:   ;
         }
-        if ((err = unc__strput(alloc, &olc, &olc_n, &olc_c, 6, nx)))
+        if ((err = unc0_strput(alloc, &olc, &olc_n, &olc_c, 6, nx)))
             goto lexreturn;
     }
     
 lexreturn:
     if (err) {
-        unc__mfree(alloc, olc, olc_c);
-        unc__mfree(alloc, ost, ost_c);
-        unc__mfree(alloc, oid, oid_c);
+        unc0_mfree(alloc, olc, olc_c);
+        unc0_mfree(alloc, ost, ost_c);
+        unc0_mfree(alloc, oid, oid_c);
     } else {
         Unc_Size s = olc_n;
         while (s < olc_c)
             olc[s++] = 0;
         out->lc_sz = olc_c, out->lc = olc;
-        out->st = unc__mrealloc(alloc, 0, ost, ost_c, ost_n);
-        out->id = unc__mrealloc(alloc, 0, oid, oid_c, oid_n);
+        out->st = unc0_mrealloc(alloc, 0, ost, ost_c, ost_n);
+        out->id = unc0_mrealloc(alloc, 0, oid, oid_c, oid_n);
         out->st_sz = ost_n, out->st_n = stcount;
         out->id_sz = oid_n, out->id_n = idcount;
     }
-    unc__drophset(&hstr);
-    unc__drophset(&hid);
+    unc0_drophset(&hstr);
+    unc0_drophset(&hid);
     return err;
 }
 
@@ -746,7 +746,7 @@ static int utf8_checker_getch_(void *ud) {
     return c;
 }
 
-int unc__lexcode(Unc_Context *cxt, Unc_LexOut *out,
+int unc0_lexcode(Unc_Context *cxt, Unc_LexOut *out,
                  int (*getch)(void *ud), void *ud) {
     int e;
     struct utf8_checker buf;
@@ -756,7 +756,7 @@ int unc__lexcode(Unc_Context *cxt, Unc_LexOut *out,
     buf.u = 0U;
     buf.invalid = 0;
     buf.eof = 0;
-    e = unc__lexcode_i(cxt, out, &utf8_checker_getch_, &buf);
+    e = unc0_lexcode_i(cxt, out, &utf8_checker_getch_, &buf);
     if (buf.invalid)
         return UNCIL_ERR_IO_INVALIDENCODING;
     return e;

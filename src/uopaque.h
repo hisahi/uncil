@@ -47,20 +47,20 @@ typedef struct Unc_Opaque {
     UNC_LOCKLIGHT(lock)
 } Unc_Opaque;
 
-int unc__initopaque(struct Unc_View *w, Unc_Opaque *o, size_t n, void **data,
+int unc0_initopaque(struct Unc_View *w, Unc_Opaque *o, size_t n, void **data,
                         Unc_Value *prototype, Unc_OpaqueDestructor destructor,
                         Unc_Size refcount, Unc_Value *initvalues,
                         Unc_Size refcopycount, Unc_Size *refcopies);
 
-int unc__oqgetattrv(struct Unc_View *w, Unc_Opaque *o,
+int unc0_oqgetattrv(struct Unc_View *w, Unc_Opaque *o,
                    Unc_Value *attr, Unc_Value **out);
-int unc__oqgetattrs(struct Unc_View *w, Unc_Opaque *o,
+int unc0_oqgetattrs(struct Unc_View *w, Unc_Opaque *o,
                    Unc_Size n, const byte *b, Unc_Value **out);
-int unc__oqgetattrc(struct Unc_View *w, Unc_Opaque *o,
+int unc0_oqgetattrc(struct Unc_View *w, Unc_Opaque *o,
                    const byte *s, Unc_Value **out);
 
-void unc__graceopaque(struct Unc_View *w, Unc_Opaque *o);
-void unc__dropopaque(struct Unc_View *w, Unc_Opaque *o);
-void unc__sunsetopaque(Unc_Allocator *alloc, Unc_Opaque *o);
+void unc0_graceopaque(struct Unc_View *w, Unc_Opaque *o);
+void unc0_dropopaque(struct Unc_View *w, Unc_Opaque *o);
+void unc0_sunsetopaque(Unc_Allocator *alloc, Unc_Opaque *o);
 
 #endif /* UNCIL_UOPAQUE_H */

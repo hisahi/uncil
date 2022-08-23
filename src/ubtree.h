@@ -50,14 +50,14 @@ typedef struct Unc_BTree {
     Unc_Allocator *alloc;
 } Unc_BTree;
 
-void unc__initbtree(Unc_BTree *tree, Unc_Allocator *alloc);
-Unc_BTreeRecord *unc__getbtree(Unc_BTree *tree, Unc_Size key);
-int unc__putbtree(Unc_BTree *tree, Unc_Size key, int *created,
+void unc0_initbtree(Unc_BTree *tree, Unc_Allocator *alloc);
+Unc_BTreeRecord *unc0_getbtree(Unc_BTree *tree, Unc_Size key);
+int unc0_putbtree(Unc_BTree *tree, Unc_Size key, int *created,
                   Unc_BTreeRecord **record);
 /* you may not put values into a tree you are iterating over! */
-int unc__iterbtreerecords(Unc_BTree *tree, 
+int unc0_iterbtreerecords(Unc_BTree *tree, 
                 int (*iter)(Unc_Size key, Unc_BTreeRecord *value, void *udata),
                 void *udata);
-void unc__dropbtree(Unc_BTree *tree);
+void unc0_dropbtree(Unc_BTree *tree);
 
 #endif /* UNCIL_UBTREE_H */

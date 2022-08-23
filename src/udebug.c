@@ -32,7 +32,7 @@ SOFTWARE.
 #include "uparse.h"
 #include "uvlq.h"
 
-void unc__dbghexdump(const byte *data, size_t n) {
+void unc0_dbghexdump(const byte *data, size_t n) {
     size_t i = 0;
     if (n) {
         int j;
@@ -56,27 +56,27 @@ void unc__dbghexdump(const byte *data, size_t n) {
 }
 
 static void pdump_reg(Unc_View *w, const byte **d) {
-    printf("R%-5lu\t", (unsigned long)unc__clqdecz(UNCIL_REGW, d));
+    printf("R%-5lu\t", (unsigned long)unc0_clqdecz(UNCIL_REGW, d));
 }
 
 static void pdump_us(Unc_View *w, const byte **d) {
-    printf("%-6lu\t", (unsigned long)unc__vlqdecz(d));
+    printf("%-6lu\t", (unsigned long)unc0_vlqdecz(d));
 }
 
 static void pdump_lint(Unc_View *w, const byte **d) {
-    Unc_Int ui = unc__vlqdeci(d);
+    Unc_Int ui = unc0_vlqdeci(d);
     printf("I(%+6ld)\t", (long)ui);
 }
 
 static void pdump_lflt(Unc_View *w, const byte **d) {
     Unc_Float uf;
-    unc__memcpy(&uf, *d, sizeof(Unc_Float));
+    unc0_memcpy(&uf, *d, sizeof(Unc_Float));
     *d += sizeof(Unc_Float);
     printf("F(%+6f)\t", (float)uf);
 }
 
 static void pdump_loff(Unc_View *w, const char *s, const byte **d) {
-    Unc_Size z = unc__vlqdecz(d);
+    Unc_Size z = unc0_vlqdecz(d);
     printf(s, (unsigned long)z);
     putchar('\t');
 }
@@ -86,7 +86,7 @@ static void pdump_lstr(Unc_View *w, const byte **d) {
 }
 
 static void pdump_jmp(Unc_View *w, const byte **d) {
-    Unc_Size z = unc__clqdecz(w->jumpw, d);
+    Unc_Size z = unc0_clqdecz(w->jumpw, d);
     printf("$%06lx\t", (unsigned long)(z + (w->jbase - w->bcode)));
     putchar('\t');
 }

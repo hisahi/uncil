@@ -41,7 +41,7 @@ typedef struct Unc_Context {
     char extend;
 } Unc_Context;
 
-int unc__newcontext(Unc_Context *cxt, Unc_Allocator *alloc);
-void unc__dropcontext(Unc_Context *cxt);
+int unc0_newcontext(Unc_Context *cxt, Unc_Allocator *alloc);
+void unc0_dropcontext(Unc_Context *cxt);
 
 #endif /* UNCIL_UCXT_H */

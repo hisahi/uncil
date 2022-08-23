@@ -31,13 +31,13 @@ SOFTWARE.
 #include "uutf.h"
 #include "uvali.h"
 
-void unc__initenctable(Unc_Allocator *alloc, Unc_EncodingTable *table) {
+void unc0_initenctable(Unc_Allocator *alloc, Unc_EncodingTable *table) {
     table->entries = 0;
     table->data = NULL;
-    unc__inithtbls(alloc, &table->names);
+    unc0_inithtbls(alloc, &table->names);
 }
 
-int unc__cconv_passthru(Unc_CConv_In in, void *in_data,
+int unc0_cconv_passthru(Unc_CConv_In in, void *in_data,
                         Unc_CConv_Out out, void *out_data) {
     byte buf[16];
     int e, c;
@@ -53,30 +53,30 @@ int unc__cconv_passthru(Unc_CConv_In in, void *in_data,
     return n ? (*out)(out_data, n, buf) : 0;
 }
 
-INLINE int unc__addencoding(Unc_View *w, Unc_EncodingTable *table, size_t ctr,
+INLINE int unc0_addencoding(Unc_View *w, Unc_EncodingTable *table, size_t ctr,
                             Unc_Size enc_n, const byte *enc) {
     Unc_Value *out;
-    int e = unc__puthtbls(w, &table->names, enc_n, enc, &out);
+    int e = unc0_puthtbls(w, &table->names, enc_n, enc, &out);
     if (!e) VINITINT(out, ctr);
     return 0;
 }
 
-void unc__dropenctable(Unc_View *w, Unc_EncodingTable *table) {
-    unc__drophtbls(w, &table->names);
+void unc0_dropenctable(Unc_View *w, Unc_EncodingTable *table) {
+    unc0_drophtbls(w, &table->names);
     TMFREE(Unc_EncodingEntry, &w->world->alloc, table->data, table->entries);
 }
 
-int unc__resolveencindex(Unc_View *w, Unc_Size name_n, const byte *name) {
-    Unc_Value *v = unc__gethtbls(w, &w->world->encs.names, name_n, name);
+int unc0_resolveencindex(Unc_View *w, Unc_Size name_n, const byte *name) {
+    Unc_Value *v = unc0_gethtbls(w, &w->world->encs.names, name_n, name);
     if (!v) return -1;
     return (int)v->v.i;
 }
 
-Unc_EncodingEntry *unc__getbyencindex(struct Unc_View *w, int index) {
+Unc_EncodingEntry *unc0_getbyencindex(struct Unc_View *w, int index) {
     return &w->world->encs.data[index];
 }
 
-int unc__cconv_utf16le_dec(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf16le_dec(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data,
                            Unc_Size n) {
     Unc_UChar u = 0;
@@ -105,7 +105,7 @@ int unc__cconv_utf16le_dec(Unc_CConv_In in, void *in_data,
         }
         {
             byte buf[UNC_UTF8_MAX_SIZE];
-            Unc_Size n = unc__utf8enc(u, sizeof(buf), buf);
+            Unc_Size n = unc0_utf8enc(u, sizeof(buf), buf);
             if ((c = (*out)(out_data, n, buf)))
                 return c < 0 ? c : 0;
             u = 0;
@@ -114,7 +114,7 @@ int unc__cconv_utf16le_dec(Unc_CConv_In in, void *in_data,
     return 0;
 }
 
-int unc__cconv_utf16be_dec(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf16be_dec(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data,
                            Unc_Size n) {
     Unc_UChar u = 0;
@@ -144,7 +144,7 @@ int unc__cconv_utf16be_dec(Unc_CConv_In in, void *in_data,
         }
         {
             byte buf[UNC_UTF8_MAX_SIZE];
-            Unc_Size n = unc__utf8enc(u, sizeof(buf), buf);
+            Unc_Size n = unc0_utf8enc(u, sizeof(buf), buf);
             if ((c = (*out)(out_data, n, buf)))
                 return c < 0 ? c : 0;
             u = 0;
@@ -153,7 +153,7 @@ int unc__cconv_utf16be_dec(Unc_CConv_In in, void *in_data,
     return 0;
 }
 
-int unc__cconv_utf32le_dec(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf32le_dec(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data,
                            Unc_Size n) {
     while (n--) {
@@ -171,14 +171,14 @@ int unc__cconv_utf32le_dec(Unc_CConv_In in, void *in_data,
         }
         if (u >= UNC_UTF8_MAX_CHAR)
             return -1;
-        n = unc__utf8enc(u, sizeof(buf), buf);
+        n = unc0_utf8enc(u, sizeof(buf), buf);
         if ((c = (*out)(out_data, n, buf)))
             return c < 0 ? c : 0;
     }
     return 0;
 }
 
-int unc__cconv_utf32be_dec(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf32be_dec(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data,
                            Unc_Size n) {
     while (n--) {
@@ -196,7 +196,7 @@ int unc__cconv_utf32be_dec(Unc_CConv_In in, void *in_data,
         }
         if (u >= UNC_UTF8_MAX_CHAR)
             return -1;
-        n = unc__utf8enc(u, sizeof(buf), buf);
+        n = unc0_utf8enc(u, sizeof(buf), buf);
         if ((c = (*out)(out_data, n, buf)))
             return c < 0 ? c : 0;
     }
@@ -204,7 +204,7 @@ int unc__cconv_utf32be_dec(Unc_CConv_In in, void *in_data,
 }
 
 /* -1 = error, 0 = OK, 1 = EOF */
-static int unc__cconv_utf8read(Unc_CConv_In in, void *in_data,
+static int unc0_cconv_utf8read(Unc_CConv_In in, void *in_data,
                                Unc_UChar *u) {
     byte buf[UNC_UTF8_MAX_SIZE];
     int i, j, c;
@@ -228,7 +228,7 @@ static int unc__cconv_utf8read(Unc_CConv_In in, void *in_data,
         if ((c & 0xC0) != 0x80) return -1;
         buf[i] = c;
     }
-    *u = unc__utf8decd(buf);
+    *u = unc0_utf8decd(buf);
     return 0;
 }
 
@@ -256,13 +256,13 @@ INLINE void enc_u32be(byte *buf, Unc_UChar u) {
     buf[3] = u & 0xFF;
 }
 
-int unc__cconv_utf16le_enc(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf16le_enc(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data) {
     int e;
     Unc_UChar u;
     byte buf[4];
     for (;;) {
-        e = unc__cconv_utf8read(in, in_data, &u);
+        e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (0xD800UL <= u && u <= 0xDFFFUL) return -1;
         if (u >= 0x10000UL) {
@@ -279,13 +279,13 @@ int unc__cconv_utf16le_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc__cconv_utf16be_enc(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf16be_enc(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data) {
     int e;
     Unc_UChar u;
     byte buf[4];
     for (;;) {
-        e = unc__cconv_utf8read(in, in_data, &u);
+        e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (0xD800UL <= u && u <= 0xDFFFUL) return -1;
         if (u >= 0x10000UL) {
@@ -302,13 +302,13 @@ int unc__cconv_utf16be_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc__cconv_utf32le_enc(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf32le_enc(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data) {
     int e;
     Unc_UChar u;
     byte buf[4];
     for (;;) {
-        e = unc__cconv_utf8read(in, in_data, &u);
+        e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (0xD800UL <= u && u <= 0xDFFFUL) return -1;
         enc_u32le(buf, u);
@@ -317,13 +317,13 @@ int unc__cconv_utf32le_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc__cconv_utf32be_enc(Unc_CConv_In in, void *in_data,
+int unc0_cconv_utf32be_enc(Unc_CConv_In in, void *in_data,
                            Unc_CConv_Out out, void *out_data) {
     int e;
     Unc_UChar u;
     byte buf[4];
     for (;;) {
-        e = unc__cconv_utf8read(in, in_data, &u);
+        e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (0xD800UL <= u && u <= 0xDFFFUL) return -1;
         enc_u32be(buf, u);
@@ -332,7 +332,7 @@ int unc__cconv_utf32be_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc__cconv_ascii_dec(Unc_CConv_In in, void *in_data,
+int unc0_cconv_ascii_dec(Unc_CConv_In in, void *in_data,
                          Unc_CConv_Out out, void *out_data,
                          Unc_Size n) {
     byte buf;
@@ -347,7 +347,7 @@ int unc__cconv_ascii_dec(Unc_CConv_In in, void *in_data,
     return 0;
 }
 
-int unc__cconv_latin1_dec(Unc_CConv_In in, void *in_data,
+int unc0_cconv_latin1_dec(Unc_CConv_In in, void *in_data,
                           Unc_CConv_Out out, void *out_data,
                           Unc_Size n) {
     byte buf;
@@ -361,13 +361,13 @@ int unc__cconv_latin1_dec(Unc_CConv_In in, void *in_data,
     return 0;
 }
 
-int unc__cconv_ascii_enc(Unc_CConv_In in, void *in_data,
+int unc0_cconv_ascii_enc(Unc_CConv_In in, void *in_data,
                          Unc_CConv_Out out, void *out_data) {
     int e;
     Unc_UChar u;
     byte buf;
     for (;;) {
-        e = unc__cconv_utf8read(in, in_data, &u);
+        e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (u >= 0x80UL) return -1;
         buf = u;
@@ -376,13 +376,13 @@ int unc__cconv_ascii_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc__cconv_latin1_enc(Unc_CConv_In in, void *in_data,
+int unc0_cconv_latin1_enc(Unc_CConv_In in, void *in_data,
                          Unc_CConv_Out out, void *out_data) {
     int e;
     Unc_UChar u;
     byte buf;
     for (;;) {
-        e = unc__cconv_utf8read(in, in_data, &u);
+        e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (u >= 0x100UL) return -1;
         buf = u;
@@ -391,7 +391,7 @@ int unc__cconv_latin1_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc__adddefaultencs(Unc_View *w, Unc_EncodingTable *t) {
+int unc0_adddefaultencs(Unc_View *w, Unc_EncodingTable *t) {
     int e = 0;
     size_t ctr = 0;
     if (t->entries < 16) {
@@ -402,33 +402,33 @@ int unc__adddefaultencs(Unc_View *w, Unc_EncodingTable *t) {
         t->entries = 16;
     }
 
-    t->data[ctr].enc = &unc__cconv_passthru;
-    t->data[ctr].dec = &unc__cconv_utf8ts;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("utf8")))) return e;
+    t->data[ctr].enc = &unc0_cconv_passthru;
+    t->data[ctr].dec = &unc0_cconv_utf8ts;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf8")))) return e;
 
-    t->data[ctr].enc = &unc__cconv_utf16le_enc;
-    t->data[ctr].dec = &unc__cconv_utf16le_dec;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("utf16le")))) return e;
+    t->data[ctr].enc = &unc0_cconv_utf16le_enc;
+    t->data[ctr].dec = &unc0_cconv_utf16le_dec;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf16le")))) return e;
 
-    t->data[ctr].enc = &unc__cconv_utf16be_enc;
-    t->data[ctr].dec = &unc__cconv_utf16be_dec;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("utf16be")))) return e;
+    t->data[ctr].enc = &unc0_cconv_utf16be_enc;
+    t->data[ctr].dec = &unc0_cconv_utf16be_dec;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf16be")))) return e;
 
-    t->data[ctr].enc = &unc__cconv_utf32le_enc;
-    t->data[ctr].dec = &unc__cconv_utf32le_dec;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("utf32le")))) return e;
+    t->data[ctr].enc = &unc0_cconv_utf32le_enc;
+    t->data[ctr].dec = &unc0_cconv_utf32le_dec;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf32le")))) return e;
 
-    t->data[ctr].enc = &unc__cconv_utf32be_enc;
-    t->data[ctr].dec = &unc__cconv_utf32be_dec;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("utf32be")))) return e;
+    t->data[ctr].enc = &unc0_cconv_utf32be_enc;
+    t->data[ctr].dec = &unc0_cconv_utf32be_dec;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf32be")))) return e;
 
-    t->data[ctr].enc = &unc__cconv_ascii_enc;
-    t->data[ctr].dec = &unc__cconv_ascii_dec;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("ascii")))) return e;
+    t->data[ctr].enc = &unc0_cconv_ascii_enc;
+    t->data[ctr].dec = &unc0_cconv_ascii_dec;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("ascii")))) return e;
 
-    t->data[ctr].enc = &unc__cconv_latin1_enc;
-    t->data[ctr].dec = &unc__cconv_latin1_dec;
-    if ((e = unc__addencoding(w, t, ctr++, PASSSTRL("latin1")))) return e;
+    t->data[ctr].enc = &unc0_cconv_latin1_enc;
+    t->data[ctr].dec = &unc0_cconv_latin1_dec;
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("latin1")))) return e;
 
     return e;
 }

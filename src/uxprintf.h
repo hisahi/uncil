@@ -29,12 +29,12 @@ SOFTWARE.
 
 #include <stdarg.h>
 
-int unc__vxprintf(int (*out)(char outp, void *udata),
+int unc0_vxprintf(int (*out)(char outp, void *udata),
                  void *udata, const char *format, va_list arg);
-int unc__xprintf(int (*out)(char outp, void *udata),
+int unc0_xprintf(int (*out)(char outp, void *udata),
                  void *udata, const char *format, ...);
 
-int unc__vxsnprintf(char *out, size_t n, const char *format, va_list arg);
-int unc__xsnprintf(char *out, size_t n, const char *format, ...);
+int unc0_vxsnprintf(char *out, size_t n, const char *format, va_list arg);
+int unc0_xsnprintf(char *out, size_t n, const char *format, ...);
 
 #endif /* UNCIL_UXPRINTF_H */

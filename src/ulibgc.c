@@ -30,26 +30,26 @@ SOFTWARE.
 #include "ugc.h"
 #include "uncil.h"
 
-Unc_RetVal unc__lib_gc_collect(Unc_View *w, Unc_Tuple args, void *udata) {
-    unc__gccollect(w->world, w);
+Unc_RetVal unc0_lib_gc_collect(Unc_View *w, Unc_Tuple args, void *udata) {
+    unc0_gccollect(w->world, w);
     return 0;
 }
 
-Unc_RetVal unc__lib_gc_enable(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_gc_enable(Unc_View *w, Unc_Tuple args, void *udata) {
     (void)UNC_LOCKFP(w, w->world->entity_lock);
     w->world->gc.enabled = 1;
     UNC_UNLOCKF(w->world->entity_lock);
     return 0;
 }
 
-Unc_RetVal unc__lib_gc_disable(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_gc_disable(Unc_View *w, Unc_Tuple args, void *udata) {
     (void)UNC_LOCKFP(w, w->world->entity_lock);
     w->world->gc.enabled = 0;
     UNC_UNLOCKF(w->world->entity_lock);
     return 0;
 }
 
-Unc_RetVal unc__lib_gc_enabled(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_gc_enabled(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     (void)UNC_LOCKFP(w, w->world->entity_lock);
     unc_setbool(w, &v, w->world->gc.enabled);
@@ -57,7 +57,7 @@ Unc_RetVal unc__lib_gc_enabled(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_gc_getthreshold(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_gc_getthreshold(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     (void)UNC_LOCKFP(w, w->world->entity_lock);
     unc_setint(w, &v, w->world->gc.entitylimit);
@@ -65,7 +65,7 @@ Unc_RetVal unc__lib_gc_getthreshold(Unc_View *w, Unc_Tuple args, void *udata) {
     return unc_pushmove(w, &v, NULL);
 }
 
-Unc_RetVal unc__lib_gc_setthreshold(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_gc_setthreshold(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Int i;
     int e;
     e = unc_getint(w, &args.values[0], &i);
@@ -78,7 +78,7 @@ Unc_RetVal unc__lib_gc_setthreshold(Unc_View *w, Unc_Tuple args, void *udata) {
     return 0;
 }
 
-Unc_RetVal unc__lib_gc_getusage(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_gc_getusage(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     (void)UNC_LOCKFP(w, w->world->entity_lock);
     unc_setint(w, &v, w->world->alloc.total);
@@ -88,31 +88,31 @@ Unc_RetVal unc__lib_gc_getusage(Unc_View *w, Unc_Tuple args, void *udata) {
 
 Unc_RetVal uncilmain_gc(struct Unc_View *w) {
     Unc_RetVal e;
-    e = unc_exportcfunction(w, "collect", &unc__lib_gc_collect,
+    e = unc_exportcfunction(w, "collect", &unc0_lib_gc_collect,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "enable", &unc__lib_gc_enable,
+    e = unc_exportcfunction(w, "enable", &unc0_lib_gc_enable,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "disable", &unc__lib_gc_disable,
+    e = unc_exportcfunction(w, "disable", &unc0_lib_gc_disable,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "enabled", &unc__lib_gc_enabled,
+    e = unc_exportcfunction(w, "enabled", &unc0_lib_gc_enabled,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "getthreshold", &unc__lib_gc_getthreshold,
+    e = unc_exportcfunction(w, "getthreshold", &unc0_lib_gc_getthreshold,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "setthreshold", &unc__lib_gc_setthreshold,
+    e = unc_exportcfunction(w, "setthreshold", &unc0_lib_gc_setthreshold,
                             UNC_CFUNC_DEFAULT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "getusage", &unc__lib_gc_getusage,
+    e = unc_exportcfunction(w, "getusage", &unc0_lib_gc_getusage,
                             UNC_CFUNC_DEFAULT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

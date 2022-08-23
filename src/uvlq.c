@@ -30,15 +30,15 @@ SOFTWARE.
 #include "umem.h"
 #include "uvlq.h"
 
-int unc__getendianness(void) {
+int unc0_getendianness(void) {
     int i;
     byte b[sizeof(unsigned long)];
     unsigned long u = ULONG_MAX;
-    unc__memcpy(&b, &u, sizeof(unsigned long));
+    unc0_memcpy(&b, &u, sizeof(unsigned long));
     for (i = 0; i < sizeof(unsigned long); ++i)
         if (b[i] != UCHAR_MAX) return UNC_ENDIAN_OTHER;
     u = 0x00010203UL;
-    unc__memcpy(&b, &u, sizeof(unsigned long));
+    unc0_memcpy(&b, &u, sizeof(unsigned long));
     for (i = 0; i < 4; ++i)
         if (b[i] != (i ^ 3)) break;
     if (i == 4)
@@ -50,7 +50,7 @@ int unc__getendianness(void) {
     return UNC_ENDIAN_OTHER;
 }
 
-Unc_Size unc__vlqencz(Unc_Size v, Unc_Size n, byte *out) {
+Unc_Size unc0_vlqencz(Unc_Size v, Unc_Size n, byte *out) {
     ASSERT(n);
     if (v < 0x80) {
         *out = v;
@@ -68,7 +68,7 @@ Unc_Size unc__vlqencz(Unc_Size v, Unc_Size n, byte *out) {
     }
 }
 
-Unc_Size unc__vlqdecz(const byte **in) {
+Unc_Size unc0_vlqdecz(const byte **in) {
     if (!(**in & 0x80))
         return *(*in)++;
     else {
@@ -80,24 +80,24 @@ Unc_Size unc__vlqdecz(const byte **in) {
     }
 }
 
-Unc_Size unc__vlqdeczd(const byte *in) {
-    return unc__vlqdecz(&in);
+Unc_Size unc0_vlqdeczd(const byte *in) {
+    return unc0_vlqdecz(&in);
 }
 
-Unc_Size unc__vlqenczl(Unc_Size v) {
+Unc_Size unc0_vlqenczl(Unc_Size v) {
     byte b[UNC_VLQ_SIZE_MAXLEN];
-    return unc__vlqencz(v, sizeof(b), b);
+    return unc0_vlqencz(v, sizeof(b), b);
 }
 
-Unc_Size unc__vlqdeczl(const byte *in) {
+Unc_Size unc0_vlqdeczl(const byte *in) {
     const byte *pin = in;
-    (void)unc__vlqdecz(&in);
+    (void)unc0_vlqdecz(&in);
     return in - pin;
 }
 
 #define NSMASK ((Unc_Int)(((Unc_UInt)-1 & ~(((Unc_UInt)-1) >> 7))))
 
-INLINE Unc_Size unc__vlqencip(Unc_Int v, Unc_Size n, byte *out) {
+INLINE Unc_Size unc0_vlqencip(Unc_Int v, Unc_Size n, byte *out) {
     Unc_Size i = 0;
     byte b;
     ASSERT(v >= 0);
@@ -112,7 +112,7 @@ INLINE Unc_Size unc__vlqencip(Unc_Int v, Unc_Size n, byte *out) {
     return i;
 }
 
-INLINE Unc_Size unc__vlqencin(Unc_Int v, Unc_Size n, byte *out) {
+INLINE Unc_Size unc0_vlqencin(Unc_Int v, Unc_Size n, byte *out) {
     Unc_Size i = 0;
     byte b;
     ASSERT(v < 0);
@@ -128,11 +128,11 @@ INLINE Unc_Size unc__vlqencin(Unc_Int v, Unc_Size n, byte *out) {
     return i;
 }
 
-Unc_Size unc__vlqenci(Unc_Int v, Unc_Size n, byte *out) {
-    return v < 0 ? unc__vlqencin(v, n, out) : unc__vlqencip(v, n, out);
+Unc_Size unc0_vlqenci(Unc_Int v, Unc_Size n, byte *out) {
+    return v < 0 ? unc0_vlqencin(v, n, out) : unc0_vlqencip(v, n, out);
 }
 
-Unc_Int unc__vlqdeci(const byte **in) {
+Unc_Int unc0_vlqdeci(const byte **in) {
     Unc_Int s = 0, m = -1;
     int j = 0, n = 0;
     byte b;
@@ -149,22 +149,22 @@ Unc_Int unc__vlqdeci(const byte **in) {
     return s;
 }
 
-Unc_Int unc__vlqdecid(const byte *in) {
-    return unc__vlqdeci(&in);
+Unc_Int unc0_vlqdecid(const byte *in) {
+    return unc0_vlqdeci(&in);
 }
 
-Unc_Size unc__vlqencil(Unc_Int v) {
+Unc_Size unc0_vlqencil(Unc_Int v) {
     byte b[UNC_VLQ_UINT_MAXLEN];
-    return unc__vlqencz(v, sizeof(b), b);
+    return unc0_vlqencz(v, sizeof(b), b);
 }
 
-Unc_Size unc__vlqdecil(const byte *in) {
+Unc_Size unc0_vlqdecil(const byte *in) {
     const byte *pin = in;
-    (void)unc__vlqdeci(&in);
+    (void)unc0_vlqdeci(&in);
     return in - pin;
 }
 
-Unc_Size unc__clqencz(Unc_Size v, Unc_Size width, byte *out) {
+Unc_Size unc0_clqencz(Unc_Size v, Unc_Size width, byte *out) {
     if (!width) return 0;
     while (width--) {
         *out++ = (byte)v;
@@ -174,7 +174,7 @@ Unc_Size unc__clqencz(Unc_Size v, Unc_Size width, byte *out) {
     return width;
 }
 
-Unc_Size unc__clqdecz(Unc_Size width, const byte **in) {
+Unc_Size unc0_clqdecz(Unc_Size width, const byte **in) {
     Unc_Size v = 0;
     const byte *p = *in;
     int sh = 0;
@@ -186,6 +186,6 @@ Unc_Size unc__clqdecz(Unc_Size width, const byte **in) {
     return v;
 }
 
-Unc_Size unc__clqdeczd(Unc_Size width, const byte *in) {
-    return unc__clqdecz(width, &in);
+Unc_Size unc0_clqdeczd(Unc_Size width, const byte *in) {
+    return unc0_clqdecz(width, &in);
 }

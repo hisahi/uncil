@@ -162,15 +162,15 @@ union Unc_QInstr_Data {
     Unc_Float uf;
 };
 
-int unc__qcode_isread0op(byte op);
-int unc__qcode_ismov(byte op);
-int unc__qcode_iswrite0op(byte op);
-int unc__qcode_isjump(byte op);
-int unc__qcode_isexit(byte op);
-int unc__qcode_operandcount(byte op);
-int unc__qcode_isopreg(int t);
-int unc__qcode_isoplit(int t);
-int unc__qcode_getjumpd(byte op);
+int unc0_qcode_isread0op(byte op);
+int unc0_qcode_ismov(byte op);
+int unc0_qcode_iswrite0op(byte op);
+int unc0_qcode_isjump(byte op);
+int unc0_qcode_isexit(byte op);
+int unc0_qcode_operandcount(byte op);
+int unc0_qcode_isopreg(int t);
+int unc0_qcode_isoplit(int t);
+int unc0_qcode_getjumpd(byte op);
 
 typedef struct Unc_QOperand {
     union Unc_QInstr_Data data;
@@ -210,6 +210,6 @@ typedef struct Unc_QCode {
     byte *st;               /* string table */
 } Unc_QCode;
 
-int unc__parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex);
+int unc0_parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex);
 
 #endif /* UNCIL_UPARSE_H */

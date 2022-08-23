@@ -43,7 +43,7 @@ typedef int32_t icu_u8index_t;
 #define ICU_U8INDEX_MAX INT32_MAX
 #endif
 
-Unc_RetVal unc__lib_unic_lookup(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_lookup(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
@@ -60,7 +60,7 @@ Unc_RetVal unc__lib_unic_lookup(Unc_View *w, Unc_Tuple args, void *udata) {
     if (U_FAILURE(ue))
         uc = u_charFromName(U_EXTENDED_CHAR_NAME, sp, &ue);
     if (U_SUCCESS(ue)) {
-        Unc_Size n = unc__utf8enc(uc, sizeof(buf), (byte *)buf);
+        Unc_Size n = unc0_utf8enc(uc, sizeof(buf), (byte *)buf);
         e = unc_newstring(w, &v, n, buf);
     }
     if (!e) e = unc_pushmove(w, &v, NULL);
@@ -71,7 +71,7 @@ Unc_RetVal unc__lib_unic_lookup(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 #if UNCIL_LIB_ICU
-Unc_RetVal unc__lib_unic1char(Unc_View *w, Unc_Tuple args,
+Unc_RetVal unc0_lib_unic1char(Unc_View *w, Unc_Tuple args,
                               UChar32 *puc) {
     int e;
     Unc_Size sn;
@@ -81,12 +81,12 @@ Unc_RetVal unc__lib_unic1char(Unc_View *w, Unc_Tuple args,
     if (e) return e;
 
     if (!sn) return unc_throwexc(w, "value", "no character given");
-    *puc = unc__utf8decd((const byte *)sp);
+    *puc = unc0_utf8decd((const byte *)sp);
     return 0;
 }
 #endif
 
-Unc_RetVal unc__lib_unic_name(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_name(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
@@ -95,7 +95,7 @@ Unc_RetVal unc__lib_unic_name(Unc_View *w, Unc_Tuple args, void *udata) {
     char buf[256];
     int32_t sl;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     
     sl = u_charName(uc, U_UNICODE_CHAR_NAME, buf, sizeof(buf), &ue);
@@ -117,13 +117,13 @@ Unc_RetVal unc__lib_unic_name(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_assigned(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_assigned(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     
     unc_setbool(w, &v, u_charType(uc) != U_UNASSIGNED);
@@ -133,14 +133,14 @@ Unc_RetVal unc__lib_unic_assigned(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_bidi(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_bidi(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     const char *pname;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     pname = u_getPropertyValueName(UCHAR_BIDI_CLASS,
@@ -153,14 +153,14 @@ Unc_RetVal unc__lib_unic_bidi(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_block(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_block(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     const char *pname;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     pname = u_getPropertyValueName(UCHAR_BLOCK,
@@ -173,14 +173,14 @@ Unc_RetVal unc__lib_unic_block(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_category(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_category(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     const char *pname;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     pname = u_getPropertyValueName(UCHAR_GENERAL_CATEGORY,
@@ -193,13 +193,13 @@ Unc_RetVal unc__lib_unic_category(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_combining(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_combining(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     unc_setint(w, &v, u_getCombiningClass(uc));
     return unc_pushmove(w, &v, NULL);
@@ -208,14 +208,14 @@ Unc_RetVal unc__lib_unic_combining(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_decimal(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_decimal(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     int d;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     d = u_charDigitValue(uc);
     if (d != -1) unc_setint(w, &v, d);
@@ -252,7 +252,7 @@ INLINE int u32charnext(const UChar **buf, Unc_Size *n, UChar32 *out) {
 }
 #endif
 
-Unc_RetVal unc__lib_unic_decompose(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_decompose(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK, *p;
     int e;
@@ -264,7 +264,7 @@ Unc_RetVal unc__lib_unic_decompose(Unc_View *w, Unc_Tuple args, void *udata) {
     UErrorCode ue = U_ZERO_ERROR;
     const UNormalizer2 *np;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     np = unorm2_getNFKDInstance(&ue);
     if (!np) return unc_pushmove(w, &v, NULL);
@@ -287,14 +287,14 @@ Unc_RetVal unc__lib_unic_decompose(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_digit(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_digit(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     int d;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     d = u_digit(uc, 10);
     if (d != -1) unc_setint(w, &v, d);
@@ -304,14 +304,14 @@ Unc_RetVal unc__lib_unic_digit(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_eawidth(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_eawidth(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     const char *pname;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     pname = u_getPropertyValueName(UCHAR_EAST_ASIAN_WIDTH,
@@ -325,13 +325,13 @@ Unc_RetVal unc__lib_unic_eawidth(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_mirrored(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_mirrored(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     unc_setbool(w, &v, u_isMirrored(uc));
@@ -341,14 +341,14 @@ Unc_RetVal unc__lib_unic_mirrored(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_noncharacter(Unc_View *w,
+Unc_RetVal unc0_lib_unic_noncharacter(Unc_View *w,
                                       Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     unc_setbool(w, &v, (UBool)u_getIntPropertyValue(uc,
@@ -359,14 +359,14 @@ Unc_RetVal unc__lib_unic_noncharacter(Unc_View *w,
 #endif
 }
 
-Unc_RetVal unc__lib_unic_numeric(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_numeric(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     double d;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
     d = u_getNumericValue(uc);
     if (d != U_NO_NUMERIC_VALUE) unc_setfloat(w, &v, d);
@@ -376,13 +376,13 @@ Unc_RetVal unc__lib_unic_numeric(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_private(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_private(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     unc_setbool(w, &v, u_charType(uc) == U_PRIVATE_USE_CHAR);
@@ -392,13 +392,13 @@ Unc_RetVal unc__lib_unic_private(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_surrogate(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_surrogate(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
     UChar32 uc;
     
-    e = unc__lib_unic1char(w, args, &uc);
+    e = unc0_lib_unic1char(w, args, &uc);
     if (e) return e;
 
     unc_setbool(w, &v, u_charType(uc) == U_SURROGATE);
@@ -408,7 +408,7 @@ Unc_RetVal unc__lib_unic_surrogate(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_glength(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_glength(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK;
     int e;
@@ -455,7 +455,7 @@ Unc_RetVal unc__lib_unic_glength(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_graphemes(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_graphemes(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     Unc_Value v = UNC_BLANK, tmp = UNC_BLANK;
     int e;
@@ -528,7 +528,7 @@ Unc_RetVal unc__lib_unic_graphemes(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_lower(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_lower(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     int e;
     Unc_Value v = UNC_BLANK;
@@ -587,7 +587,7 @@ Unc_RetVal unc__lib_unic_lower(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_upper(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_upper(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     int e;
     Unc_Value v = UNC_BLANK;
@@ -646,7 +646,7 @@ Unc_RetVal unc__lib_unic_upper(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_title(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_title(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     int e;
     Unc_Value v = UNC_BLANK;
@@ -705,7 +705,7 @@ Unc_RetVal unc__lib_unic_title(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_icmp(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_icmp(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     int e, cmp = 0;
     Unc_Value v = UNC_BLANK;
@@ -777,8 +777,8 @@ Unc_RetVal unc__lib_unic_icmp(Unc_View *w, Unc_Tuple args, void *udata) {
     zi = zl ? zl : zb, zq1 = zq;
 
     while (sq1 && zq1) {
-        Unc_UChar us = unc__utf8decx(&sq1, (const byte **)&si);
-        Unc_UChar uz = unc__utf8decx(&zq1, (const byte **)&zi);
+        Unc_UChar us = unc0_utf8decx(&sq1, (const byte **)&si);
+        Unc_UChar uz = unc0_utf8decx(&zq1, (const byte **)&zi);
         if (us != uz) {
             if (us < uz) {
                 cmp = -1;
@@ -806,7 +806,7 @@ Unc_RetVal unc__lib_unic_icmp(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 }
 
-Unc_RetVal unc__lib_unic_trim(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_trim(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
     int e;
     Unc_Value v = UNC_BLANK;
@@ -817,16 +817,16 @@ Unc_RetVal unc__lib_unic_trim(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
 
     while (sn) {
-        Unc_UChar u = unc__utf8decd((const byte *)sp);
+        Unc_UChar u = unc0_utf8decd((const byte *)sp);
         if (!u_isspace(u)) break;
-        sp = (const char *)unc__utf8nextchar((const byte *)sp, &sn);
+        sp = (const char *)unc0_utf8nextchar((const byte *)sp, &sn);
     }
 
     while (sn) {
         Unc_UChar u;
-        const char *su = (const char *)unc__utf8lastchar((const byte *)sp, sn);
+        const char *su = (const char *)unc0_utf8lastchar((const byte *)sp, sn);
         if (!su) break;
-        u = unc__utf8decd((const byte *)su);
+        u = unc0_utf8decd((const byte *)su);
         if (!u_isspace(u)) break;
         sn = su - sp;
     }
@@ -840,7 +840,7 @@ Unc_RetVal unc__lib_unic_trim(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 #if UNCIL_LIB_ICU
-int unc__u8tou16(Unc_View *w, Unc_Size sn, const char *sp,
+int unc0_u8tou16(Unc_View *w, Unc_Size sn, const char *sp,
                               Unc_Size *qn, UChar **qp) {
     Unc_Size i, z = 0;
     Unc_UChar u;
@@ -854,7 +854,7 @@ int unc__u8tou16(Unc_View *w, Unc_Size sn, const char *sp,
     *qn = z;
     *qp = q;
     while (sn) {
-        u = unc__utf8decx(&sn, (const byte **)&sp);
+        u = unc0_utf8decx(&sn, (const byte **)&sp);
         if (u >= 0x10000) {
             u -= 0x10000;
             *q++ = (UChar)(0xD800 | ((u >> 10) & 0x3FF));
@@ -866,7 +866,7 @@ int unc__u8tou16(Unc_View *w, Unc_Size sn, const char *sp,
     return 0;
 }
 
-int unc__u16tou8(Unc_View *w, Unc_Size qn, const UChar *qp,
+int unc0_u16tou8(Unc_View *w, Unc_Size qn, const UChar *qp,
                               Unc_Size *sn, char **sp) {
     Unc_Size i, z = 0;
     Unc_UChar u;
@@ -891,13 +891,13 @@ int unc__u16tou8(Unc_View *w, Unc_Size qn, const UChar *qp,
             u |= (qp[++i] & 0x3FF);
             u += 0x10000;
         }
-        s += unc__utf8enc(u, se - s, (byte *)s);
+        s += unc0_utf8enc(u, se - s, (byte *)s);
     }
     return 0;
 }
 #endif
 
-Unc_RetVal unc__lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_LIB_ICU
 #define NORMC 0
 #define NORMD 1
@@ -924,19 +924,19 @@ Unc_RetVal unc__lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
         if (e) return e;
     }
 
-    if (unc__tolower(*mode) == 'n') {
+    if (unc0_tolower(*mode) == 'n') {
         ++mode;
-        if (unc__tolower(*mode) == 'f') {
+        if (unc0_tolower(*mode) == 'f') {
             ++mode;
         }
     }
 
-    if (unc__tolower(*mode) == 'k') {
+    if (unc0_tolower(*mode) == 'k') {
         ++mode;
         nm |= NORMK;
     }
 
-    switch (unc__tolower(*mode)) {
+    switch (unc0_tolower(*mode)) {
     case 'c':
         nm |= NORMC;
         break;
@@ -947,7 +947,7 @@ Unc_RetVal unc__lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
         return unc_throwexc(w, "value", "invalid normalization mode");
     }
 
-    e = unc__u8tou16(w, sn, sp, &bn, &bp);
+    e = unc0_u8tou16(w, sn, sp, &bn, &bp);
     if (e) return e;
 
     if (nm & NORMK)
@@ -973,7 +973,7 @@ Unc_RetVal unc__lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
         return unc_throwexc(w, "internal", "unorm2_normalize failed");
     }
     
-    e = unc__u16tou8(w, cn, cp, &tn, &tp);
+    e = unc0_u16tou8(w, cn, cp, &tn, &tp);
     unc_mfree(w, cp);
     if (e) {
         return e;
@@ -989,7 +989,7 @@ Unc_RetVal unc__lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 #define ONECHARFUNC(x)                                                         \
-    e = unc_exportcfunction(w, #x, &unc__lib_unic_##x,                         \
+    e = unc_exportcfunction(w, #x, &unc0_lib_unic_##x,                         \
                             UNC_CFUNC_CONCURRENT,                              \
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);            \
     if (e) return e;                                                           \
@@ -997,7 +997,7 @@ Unc_RetVal unc__lib_unic_normalize(Unc_View *w, Unc_Tuple args, void *udata) {
 Unc_RetVal uncilmain_unicode(Unc_View *w) {
     Unc_RetVal e;
 
-    e = unc_exportcfunction(w, "lookup", &unc__lib_unic_lookup,
+    e = unc_exportcfunction(w, "lookup", &unc0_lib_unic_lookup,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
@@ -1018,42 +1018,42 @@ Unc_RetVal uncilmain_unicode(Unc_View *w) {
     ONECHARFUNC(private)
     ONECHARFUNC(surrogate)
 
-    e = unc_exportcfunction(w, "glength", &unc__lib_unic_glength,
+    e = unc_exportcfunction(w, "glength", &unc0_lib_unic_glength,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "graphemes", &unc__lib_unic_graphemes,
+    e = unc_exportcfunction(w, "graphemes", &unc0_lib_unic_graphemes,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "lower", &unc__lib_unic_lower,
+    e = unc_exportcfunction(w, "lower", &unc0_lib_unic_lower,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "upper", &unc__lib_unic_upper,
+    e = unc_exportcfunction(w, "upper", &unc0_lib_unic_upper,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "title", &unc__lib_unic_title,
+    e = unc_exportcfunction(w, "title", &unc0_lib_unic_title,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "icmp", &unc__lib_unic_icmp,
+    e = unc_exportcfunction(w, "icmp", &unc0_lib_unic_icmp,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "trim", &unc__lib_unic_trim,
+    e = unc_exportcfunction(w, "trim", &unc0_lib_unic_trim,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "normalize", &unc__lib_unic_normalize,
+    e = unc_exportcfunction(w, "normalize", &unc0_lib_unic_normalize,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;

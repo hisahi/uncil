@@ -52,38 +52,38 @@ typedef struct Unc_String {
     int flags;
 } Unc_String;
 
-int unc__initstringempty(Unc_Allocator *alloc, Unc_String *s);
-int unc__initstring(Unc_Allocator *alloc, Unc_String *s,
+int unc0_initstringempty(Unc_Allocator *alloc, Unc_String *s);
+int unc0_initstring(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size n, const byte *b);
-int unc__initstringc(Unc_Allocator *alloc, Unc_String *s, const char *b);
-int unc__initstringcl(Unc_Allocator *alloc, Unc_String *s, const char *b);
-int unc__initstringmove(Unc_Allocator *alloc, Unc_String *s,
+int unc0_initstringc(Unc_Allocator *alloc, Unc_String *s, const char *b);
+int unc0_initstringcl(Unc_Allocator *alloc, Unc_String *s, const char *b);
+int unc0_initstringmove(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size n, byte *b);
-int unc__initstringfromcat(Unc_Allocator *alloc, Unc_String *s,
+int unc0_initstringfromcat(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size an, const byte *a, Unc_Size bn, const byte *b);
-int unc__initstringfromcatl(Unc_Allocator *alloc, Unc_String *s,
+int unc0_initstringfromcatl(Unc_Allocator *alloc, Unc_String *s,
                         const Unc_String *a, Unc_Size n, const byte *b);
-int unc__initstringfromcatr(Unc_Allocator *alloc, Unc_String *s,
+int unc0_initstringfromcatr(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size n, const byte *a, const Unc_String *b);
-int unc__initstringfromcatlr(Unc_Allocator *alloc, Unc_String *s,
+int unc0_initstringfromcatlr(Unc_Allocator *alloc, Unc_String *s,
                         const Unc_String *a, const Unc_String *b);
-const byte *unc__getstringdata(const Unc_String *s);
-void unc__dropstring(Unc_Allocator *alloc, Unc_String *s);
+const byte *unc0_getstringdata(const Unc_String *s);
+void unc0_dropstring(Unc_Allocator *alloc, Unc_String *s);
 
-int unc__streq(Unc_String *a, Unc_String *b);
-int unc__streqr(Unc_String *a, Unc_Size n, const byte *b);
-int unc__cmpstr(Unc_String *a, Unc_String *b);
-int unc__strreqr(Unc_Size an, const byte *a, Unc_Size bn, const byte *b);
+int unc0_streq(Unc_String *a, Unc_String *b);
+int unc0_streqr(Unc_String *a, Unc_Size n, const byte *b);
+int unc0_cmpstr(Unc_String *a, Unc_String *b);
+int unc0_strreqr(Unc_Size an, const byte *a, Unc_Size bn, const byte *b);
 
-int unc__strmcat(Unc_Allocator *alloc, Unc_String *s,
+int unc0_strmcat(Unc_Allocator *alloc, Unc_String *s,
                  Unc_Size bn, const byte *b);
 
 struct Unc_View;
-int unc__sgetcodepat(struct Unc_View *w, Unc_String *s, Unc_Value *i,
+int unc0_sgetcodepat(struct Unc_View *w, Unc_String *s, Unc_Value *i,
                      int permissive, Unc_Value *v);
-const byte *unc__strsearch(const byte *haystack, Unc_Size haystack_n,
+const byte *unc0_strsearch(const byte *haystack, Unc_Size haystack_n,
                            const byte *needle, Unc_Size needle_n);
-const byte *unc__strsearchr(const byte *haystack, Unc_Size haystack_n,
+const byte *unc0_strsearchr(const byte *haystack, Unc_Size haystack_n,
                             const byte *needle, Unc_Size needle_n);
 
 #endif /* UNCIL_USTR_H */

@@ -29,10 +29,10 @@ SOFTWARE.
 
 #include <stdarg.h>
 
-int unc__vxscanf(int (*getch)(void *data),
+int unc0_vxscanf(int (*getch)(void *data),
                               void (*ungetch)(int c, void *data),
                               void *data, const char *format, va_list arg);
-int unc__xscanf(int (*getch)(void *data),
+int unc0_xscanf(int (*getch)(void *data),
                          void (*ungetch)(int c, void *data),
                          void *data, const char *format, ...);
 

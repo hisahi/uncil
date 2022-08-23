@@ -53,11 +53,11 @@ struct unc_regex_pattern {
 };
 
 #if UNCIL_LIB_PCRE2
-void *unc__pcre2_alloc(PCRE2_SIZE z, void *w) {
+void *unc0_pcre2_alloc(PCRE2_SIZE z, void *w) {
     return unc_malloc((Unc_View *)w, z);
 }
 
-void unc__pcre2_free(void *p, void *w) {
+void unc0_pcre2_free(void *p, void *w) {
     unc_mfree((Unc_View *)w, p);
 }
 #endif
@@ -72,13 +72,13 @@ Unc_RetVal unc_regex_pattern_destr(Unc_View *w, size_t n, void *data) {
     return 0;
 }
 
-static int unc__regex_makeerr(Unc_View *w, const char *prefix, int errcode) {
+static int unc0_regex_makeerr(Unc_View *w, const char *prefix, int errcode) {
 #if UNCIL_LIB_PCRE2
     int e;
     Unc_Value msg = UNC_BLANK;
     PCRE2_UCHAR buffer[PCRE2_ERROR_MAXLENGTH];
     pcre2_get_error_message(errcode, buffer, sizeof(buffer));
-    e = unc__usxprintf(w, &msg, "%s: %s",
+    e = unc0_usxprintf(w, &msg, "%s: %s",
         prefix, (const char *)buffer);
     if (e) return UNCIL_ERR_MEM;
     return e ? e : unc_throwext(w, "value", &msg);
@@ -87,14 +87,14 @@ static int unc__regex_makeerr(Unc_View *w, const char *prefix, int errcode) {
 #endif
 }
 
-static int unc__regex_comp_makeerr(Unc_View *w, const char *prefix,
+static int unc0_regex_comp_makeerr(Unc_View *w, const char *prefix,
                               int errcode, Unc_Size erroffset) {
 #if UNCIL_LIB_PCRE2
     int e;
     Unc_Value msg = UNC_BLANK;
     PCRE2_UCHAR buffer[PCRE2_ERROR_MAXLENGTH];
     pcre2_get_error_message(errcode, buffer, sizeof(buffer));
-    e = unc__usxprintf(w, &msg, "%s at offset %"PRIUnc_Size"u: %s",
+    e = unc0_usxprintf(w, &msg, "%s at offset %"PRIUnc_Size"u: %s",
         prefix, erroffset, (const char *)buffer);
     if (e) return UNCIL_ERR_MEM;
     return e ? e : unc_throwext(w, "value", &msg);
@@ -103,7 +103,7 @@ static int unc__regex_comp_makeerr(Unc_View *w, const char *prefix,
 #endif
 }
 
-Unc_RetVal unc__lib_regex_engine(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_engine(Unc_View *w, Unc_Tuple args, void *udata) {
     int e = 0;
     Unc_Value v = UNC_BLANK;
 #if UNCIL_LIB_PCRE2
@@ -140,7 +140,7 @@ INLINE int shouldescape(int c) {
     }
 }
 
-Unc_RetVal unc__lib_regex_escape(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_escape(Unc_View *w, Unc_Tuple args, void *udata) {
     int e = 0;
     Unc_Value v = UNC_BLANK;
     Unc_Size sn;
@@ -154,19 +154,19 @@ Unc_RetVal unc__lib_regex_escape(Unc_View *w, Unc_Tuple args, void *udata) {
     se = s + sn;
 
     while (s != se) {
-        sx = (const char *)unc__utf8nextchar((const byte *)s, &sn);
+        sx = (const char *)unc0_utf8nextchar((const byte *)s, &sn);
         if (!sx) sx = se;
         if (!(*s & 0x80) && shouldescape(*s)) {
-            e = unc__strpush1(alloc, &out, &out_n, &out_c, 6, '\\');
+            e = unc0_strpush1(alloc, &out, &out_n, &out_c, 6, '\\');
             if (e) {
-                unc__mmfree(alloc, out);
+                unc0_mmfree(alloc, out);
                 return e;
             }
         }
-        e = unc__strpush(alloc, &out, &out_n, &out_c, 6,
+        e = unc0_strpush(alloc, &out, &out_n, &out_c, 6,
                 sx - s, (const byte *)s);
         if (e) {
-            unc__mmfree(alloc, out);
+            unc0_mmfree(alloc, out);
             return e;
         }
         s = sx;
@@ -177,7 +177,7 @@ Unc_RetVal unc__lib_regex_escape(Unc_View *w, Unc_Tuple args, void *udata) {
     return e;
 }
 
-Unc_RetVal unc__lib_regex_escaperepl(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_escaperepl(Unc_View *w, Unc_Tuple args, void *udata) {
     int e = 0;
     Unc_Value v = UNC_BLANK;
     Unc_Size sn;
@@ -191,19 +191,19 @@ Unc_RetVal unc__lib_regex_escaperepl(Unc_View *w, Unc_Tuple args, void *udata) {
     se = s + sn;
 
     while (s != se) {
-        sx = (const char *)unc__utf8nextchar((const byte *)s, &sn);
+        sx = (const char *)unc0_utf8nextchar((const byte *)s, &sn);
         if (!sx) sx = se;
         if (*s == '$') {
-            e = unc__strpush1(alloc, &out, &out_n, &out_c, 6, '$');
+            e = unc0_strpush1(alloc, &out, &out_n, &out_c, 6, '$');
             if (e) {
-                unc__mmfree(alloc, out);
+                unc0_mmfree(alloc, out);
                 return e;
             }
         }
-        e = unc__strpush(alloc, &out, &out_n, &out_c, 6,
+        e = unc0_strpush(alloc, &out, &out_n, &out_c, 6,
                 sx - s, (const byte *)s);
         if (e) {
-            unc__mmfree(alloc, out);
+            unc0_mmfree(alloc, out);
             return e;
         }
         s = sx;
@@ -218,7 +218,7 @@ Unc_RetVal unc__lib_regex_escaperepl(Unc_View *w, Unc_Tuple args, void *udata) {
                             | PCRE2_NEVER_BACKSLASH_C)
 #define UNC_PCRE2_MATCH_OPTIONS (PCRE2_NO_UTF_CHECK)
 
-Unc_RetVal unc__lib_regex_compile(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_compile(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size rgx_n, rfl_n = 0;
     const char *rgx, *rfl = NULL;
@@ -264,7 +264,7 @@ Unc_RetVal unc__lib_regex_compile(Unc_View *w, Unc_Tuple args, void *udata) {
                              &errcode, &erroffset, ccxt);
         pcre2_compile_context_free(ccxt);
         if (!code)
-            return unc__regex_comp_makeerr(w, "regex.compile()",
+            return unc0_regex_comp_makeerr(w, "regex.compile()",
                     errcode, erroffset);
 
         e = unc_newopaque(w, &v, unc_boundvalue(w, 0),
@@ -283,7 +283,7 @@ Unc_RetVal unc__lib_regex_compile(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 }
 
-static Unc_RetVal unc__lib_regex_getpat(Unc_View *w,
+static Unc_RetVal unc0_lib_regex_getpat(Unc_View *w,
                             Unc_Value *tpat, Unc_Value *flags,
                             Unc_Value *prototype,
                             const char *prefix,
@@ -346,7 +346,7 @@ static Unc_RetVal unc__lib_regex_getpat(Unc_View *w,
                             &errcode, &erroffset, ccxt);
     pcre2_compile_context_free(ccxt);
     if (!code)
-        return unc__regex_comp_makeerr(w, prefix, errcode, erroffset);
+        return unc0_regex_comp_makeerr(w, prefix, errcode, erroffset);
 
     *temporary = 1;
     pat->code = code;
@@ -356,7 +356,7 @@ static Unc_RetVal unc__lib_regex_getpat(Unc_View *w,
 #endif
 }
 
-static void unc__lib_regex_unlock(Unc_View *w,
+static void unc0_lib_regex_unlock(Unc_View *w,
                             Unc_Value *tpat,
                             struct unc_regex_pattern *pat, int temporary) {
     if (temporary)
@@ -366,7 +366,7 @@ static void unc__lib_regex_unlock(Unc_View *w,
 }
 
 #if UNCIL_LIB_PCRE2
-int unc__lib_regex_findnext(Unc_Size sn,
+int unc0_lib_regex_findnext(Unc_Size sn,
                             pcre2_code *code,
                             const char *ss,
                             Unc_Size *startat,
@@ -390,7 +390,7 @@ int unc__lib_regex_findnext(Unc_Size sn,
     return rc;
 }
 
-int unc__lib_regex_findprev(Unc_Size *psn,
+int unc0_lib_regex_findprev(Unc_Size *psn,
                             pcre2_code *code,
                             const char *ss,
                             Unc_Size *startat,
@@ -401,7 +401,7 @@ int unc__lib_regex_findprev(Unc_Size *psn,
     Unc_Size sindx = *startat;
     if (!sn) return 0;
     if (sn == sindx)
-        sindx = (const char *)unc__utf8scanbackw(
+        sindx = (const char *)unc0_utf8scanbackw(
                     (const byte *)ss, (const byte *)ss + sindx, 0) - ss;
     for (;;) {
         int rc = pcre2_match(code, (PCRE2_SPTR)ss, sn,
@@ -412,7 +412,7 @@ int unc__lib_regex_findprev(Unc_Size *psn,
                 if (!sindx)
                     rc = 0;
                 else {
-                    sindx = (const char *)unc__utf8scanbackw(
+                    sindx = (const char *)unc0_utf8scanbackw(
                                 (const byte *)ss,
                                 (const byte *)ss + sindx, 0) - ss;
                     continue;
@@ -431,7 +431,7 @@ int unc__lib_regex_findprev(Unc_Size *psn,
     }
 }
 
-int unc__lib_regex_findbidi(int direction,
+int unc0_lib_regex_findbidi(int direction,
                             Unc_Size *psn,
                             pcre2_code *code,
                             const char *ss,
@@ -440,12 +440,12 @@ int unc__lib_regex_findbidi(int direction,
                             pcre2_match_data *mdata,
                             PCRE2_SIZE **povec) {
     return direction
-        ? unc__lib_regex_findprev(psn, code, ss, startat, mcxt, mdata, povec)
-        : unc__lib_regex_findnext(*psn, code, ss, startat, mcxt, mdata, povec);
+        ? unc0_lib_regex_findprev(psn, code, ss, startat, mcxt, mdata, povec)
+        : unc0_lib_regex_findnext(*psn, code, ss, startat, mcxt, mdata, povec);
 }
 #endif
 
-Unc_RetVal unc__lib_regex_match(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_match(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size sn;
     const char *ss;
@@ -456,7 +456,7 @@ Unc_RetVal unc__lib_regex_match(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, &args.values[0], &sn, &ss);
     if (e) return e;
 
-    e = unc__lib_regex_getpat(w, &args.values[1], &args.values[2],
+    e = unc0_lib_regex_getpat(w, &args.values[1], &args.values[2],
         unc_boundvalue(w, 0), "regex.match()", udata, &pat, &temporary);
     if (e) return e;
     
@@ -476,7 +476,7 @@ Unc_RetVal unc__lib_regex_match(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (rc == PCRE2_ERROR_NOMATCH)
                     unc_setbool(w, &v[0], 0);
                 else
-                    e = unc__regex_makeerr(w, "regex.match()", rc);
+                    e = unc0_regex_makeerr(w, "regex.match()", rc);
             } else {
                 PCRE2_SIZE *ovec = pcre2_get_ovector_pointer(mdata);
                 if (!ovec)
@@ -500,13 +500,13 @@ Unc_RetVal unc__lib_regex_match(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 #endif
 
-    unc__lib_regex_unlock(w, &args.values[1], &pat, temporary);
+    unc0_lib_regex_unlock(w, &args.values[1], &pat, temporary);
     if (!e) unc_push(w, 2, v, NULL);
     unc_clearmany(w, 2, v);
     return e;
 }
 
-Unc_RetVal unc__lib_regex_find(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_find(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size sn;
     const char *ss;
@@ -536,14 +536,14 @@ Unc_RetVal unc__lib_regex_find(Unc_View *w, Unc_Tuple args, void *udata) {
             }
             startat = ui;
         }
-        startat = unc__utf8reshift((const byte *)ss, sn, startat);
+        startat = unc0_utf8reshift((const byte *)ss, sn, startat);
         if (startat == UNC_RESHIFTBAD) {
             unc_setint(w, &v[0], -1);
             return unc_push(w, 2, v, NULL);
         }
     }
 
-    e = unc__lib_regex_getpat(w, &args.values[1], &args.values[2],
+    e = unc0_lib_regex_getpat(w, &args.values[1], &args.values[2],
         unc_boundvalue(w, 0), "regex.find()", udata, &pat, &temporary);
     if (e) return e;
     
@@ -555,17 +555,17 @@ Unc_RetVal unc__lib_regex_find(Unc_View *w, Unc_Tuple args, void *udata) {
         pcre2_match_context *mcxt = pcre2_match_context_create(gcxt);
         if (mdata && mcxt) {
             PCRE2_SIZE *ovec;
-            int rc = unc__lib_regex_findnext(sn, pat.code, ss, &startat,
+            int rc = unc0_lib_regex_findnext(sn, pat.code, ss, &startat,
                                              mcxt, mdata, &ovec);
             if (!rc)
                 unc_setint(w, &v[0], -1);
             else if (rc < 0)
-                e = unc__regex_makeerr(w, "regex.find()", rc);
+                e = unc0_regex_makeerr(w, "regex.find()", rc);
             else {
                 Unc_Size i;
                 Unc_Value *av;
                 unc_setint(w, &v[0],
-                        unc__utf8unshift((const byte *)ss, ovec[0]));
+                        unc0_utf8unshift((const byte *)ss, ovec[0]));
                 e = unc_newarray(w, &v[1], rc, &av);
                 for (i = 0; !e && i < rc; ++i) {
                     Unc_Size z0 = ovec[i * 2];
@@ -580,13 +580,13 @@ Unc_RetVal unc__lib_regex_find(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 #endif
 
-    unc__lib_regex_unlock(w, &args.values[1], &pat, temporary);
+    unc0_lib_regex_unlock(w, &args.values[1], &pat, temporary);
     if (!e) unc_push(w, 2, v, NULL);
     unc_clearmany(w, 2, v);
     return e;
 }
 
-Unc_RetVal unc__lib_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size sn;
     const char *ss;
@@ -616,7 +616,7 @@ Unc_RetVal unc__lib_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
             }
             startat = ui;
         }
-        startat = unc__utf8reshift((const byte *)ss, sn, startat);
+        startat = unc0_utf8reshift((const byte *)ss, sn, startat);
         if (startat == UNC_RESHIFTBAD) {
             unc_setint(w, &v[0], -1);
             return unc_push(w, 2, v, NULL);
@@ -624,7 +624,7 @@ Unc_RetVal unc__lib_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         startat = sn;
 
-    e = unc__lib_regex_getpat(w, &args.values[1], &args.values[2],
+    e = unc0_lib_regex_getpat(w, &args.values[1], &args.values[2],
         unc_boundvalue(w, 0), "regex.findlast()", udata, &pat, &temporary);
     if (e) return e;
 
@@ -636,17 +636,17 @@ Unc_RetVal unc__lib_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
         pcre2_match_context *mcxt = pcre2_match_context_create(gcxt);
         if (mdata && mcxt) {
             PCRE2_SIZE *ovec;
-            int rc = unc__lib_regex_findprev(&sn, pat.code, ss, &startat,
+            int rc = unc0_lib_regex_findprev(&sn, pat.code, ss, &startat,
                                              mcxt, mdata, &ovec);
             if (!rc)
                 unc_setint(w, &v[0], -1);
             else if (rc < 0)
-                e = unc__regex_makeerr(w, "regex.findlast()", rc);
+                e = unc0_regex_makeerr(w, "regex.findlast()", rc);
             else {
                 Unc_Size i;
                 Unc_Value *av;
                 unc_setint(w, &v[0],
-                        unc__utf8unshift((const byte *)ss, ovec[0]));
+                        unc0_utf8unshift((const byte *)ss, ovec[0]));
                 e = unc_newarray(w, &v[1], rc, &av);
                 for (i = 0; !e && i < rc; ++i) {
                     Unc_Size z0 = ovec[i * 2];
@@ -661,13 +661,13 @@ Unc_RetVal unc__lib_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 #endif
 
-    unc__lib_regex_unlock(w, &args.values[1], &pat, temporary);
+    unc0_lib_regex_unlock(w, &args.values[1], &pat, temporary);
     if (!e) unc_push(w, 2, v, NULL);
     unc_clearmany(w, 2, v);
     return e;
 }
 
-Unc_RetVal unc__lib_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
     int e;
     Unc_Size sn;
     const char *ss;
@@ -698,7 +698,7 @@ Unc_RetVal unc__lib_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
             }
             startat = ui;
         }
-        startat = unc__utf8reshift((const byte *)ss, sn, startat);
+        startat = unc0_utf8reshift((const byte *)ss, sn, startat);
         if (startat == UNC_RESHIFTBAD) {
             unc_setint(w, &v[0], -1);
             return unc_push(w, 2, v, NULL);
@@ -708,7 +708,7 @@ Unc_RetVal unc__lib_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_newarray(w, &out, outn, &outv);
     if (e) return e;
     
-    e = unc__lib_regex_getpat(w, &args.values[1], &args.values[2],
+    e = unc0_lib_regex_getpat(w, &args.values[1], &args.values[2],
         unc_boundvalue(w, 0), "regex.findall()", udata, &pat, &temporary);
     if (e) {
         unc_unlock(w, &out);
@@ -725,17 +725,17 @@ Unc_RetVal unc__lib_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
         if (mdata && mcxt) {
             while (!e) {
                 PCRE2_SIZE *ovec;
-                int rc = unc__lib_regex_findnext(sn, pat.code, ss, &startat,
+                int rc = unc0_lib_regex_findnext(sn, pat.code, ss, &startat,
                                                 mcxt, mdata, &ovec);
                 if (!rc)
                     break;
                 else if (rc < 0)
-                    e = unc__regex_makeerr(w, "regex.findall()", rc);
+                    e = unc0_regex_makeerr(w, "regex.findall()", rc);
                 else {
                     Unc_Size i;
                     Unc_Value *av;
                     unc_setint(w, &v[0],
-                            unc__utf8unshift((const byte *)ss, ovec[0]));
+                            unc0_utf8unshift((const byte *)ss, ovec[0]));
                     e = unc_newarray(w, &v[1], rc, &av);
                     for (i = 0; !e && i < rc; ++i) {
                         Unc_Size z0 = ovec[i * 2];
@@ -759,14 +759,14 @@ Unc_RetVal unc__lib_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
 #endif
 
     unc_clearmany(w, 2, v);
-    unc__lib_regex_unlock(w, &args.values[1], &pat, temporary);
+    unc0_lib_regex_unlock(w, &args.values[1], &pat, temporary);
     if (!e) e = unc_resizearray(w, &out, outi, &outv);
     unc_unlock(w, &out);
     if (!e) e = unc_pushmove(w, &out, NULL);
     return e;
 }
 
-Unc_RetVal unc__lib_regex_split(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_split(Unc_View *w, Unc_Tuple args, void *udata) {
 #if NOREGEXSUPPORT
     return UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #else
@@ -797,7 +797,7 @@ Unc_RetVal unc__lib_regex_split(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_newarray(w, &out, outn, &outv);
     if (e) return e;
     
-    e = unc__lib_regex_getpat(w, &args.values[1], &args.values[2],
+    e = unc0_lib_regex_getpat(w, &args.values[1], &args.values[2],
         unc_boundvalue(w, 0), "regex.split()", udata, &pat, &temporary);
     if (e) {
         unc_unlock(w, &out);
@@ -816,12 +816,12 @@ Unc_RetVal unc__lib_regex_split(Unc_View *w, Unc_Tuple args, void *udata) {
             while (splits--) {
                 Unc_Size started = startat;
                 PCRE2_SIZE *ovec;
-                int rc = unc__lib_regex_findbidi(direction, &sn, pat.code,
+                int rc = unc0_lib_regex_findbidi(direction, &sn, pat.code,
                                     ss, &startat, mcxt, mdata, &ovec);
                 if (!rc)
                     break;
                 else if (rc < 0)
-                    e = unc__regex_makeerr(w, "regex.split()", rc);
+                    e = unc0_regex_makeerr(w, "regex.split()", rc);
                 else {
                     if (outi == outn) {
                         Unc_Size outz = outn + 4;
@@ -853,7 +853,7 @@ Unc_RetVal unc__lib_regex_split(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 #endif
 
-    unc__lib_regex_unlock(w, &args.values[1], &pat, temporary);
+    unc0_lib_regex_unlock(w, &args.values[1], &pat, temporary);
     if (!e) e = unc_resizearray(w, &out, outi, &outv);
     if (!e && direction) {
         Unc_Size ia = 0, ib = outi - 1;
@@ -874,7 +874,7 @@ typedef int *Unc_CaptureVector;
 #endif
 
 #if !NOREGEXSUPPORT
-Unc_RetVal unc__lib_regex__getrepls(Unc_View *w, const char *ss,
+Unc_RetVal unc0_lib_regex__getrepls(Unc_View *w, const char *ss,
                                    byte **q, Unc_Size *qn, Unc_Size *qc,
                                    Unc_Size rn, const char *rp,
                                    Unc_Size gn,
@@ -883,16 +883,16 @@ Unc_RetVal unc__lib_regex__getrepls(Unc_View *w, const char *ss,
     Unc_Allocator *alloc = &w->world->alloc;
     const char *rpp = rp, *rpe = rp + rn;
     for (;;) {
-        const char *rpn = unc__memchr(rpp, '$', rpe - rpp);
+        const char *rpn = unc0_memchr(rpp, '$', rpe - rpp);
         int end = !rpn;
         int g_ok = 0;
         Unc_Size g;
         if (end) rpn = rpe;
-        e = unc__strpush(alloc, q, qn, qc, 6, rpn - rpp, (const byte *)rpp);
+        e = unc0_strpush(alloc, q, qn, qc, 6, rpn - rpp, (const byte *)rpp);
         if (e) return e;
         if (!end) {
             rpp = rpn + 1;
-            if (unc__isdigit(*rpp)) {
+            if (unc0_isdigit(*rpp)) {
                 /* capture group one digit */
                 g_ok = 1;
                 g = *rpp++ - '0';
@@ -900,20 +900,20 @@ Unc_RetVal unc__lib_regex__getrepls(Unc_View *w, const char *ss,
                 switch (*rpp) {
                 case '$':
                     ++rpp;
-                    e = unc__strpush1(alloc, q, qn, qc, 6, '$');
+                    e = unc0_strpush1(alloc, q, qn, qc, 6, '$');
                     break;
                 case '<':
-                    if (!unc__isdigit(*++rpp))
+                    if (!unc0_isdigit(*++rpp))
                         return unc_throwexc(w, "value",
                             "invalid dollar syntax in replacement string");
                     g = 0;
                     {
                         Unc_Size pg = g;
-                        while (unc__isdigit(*rpp)) {
+                        while (unc0_isdigit(*rpp)) {
                             g = g * 10 + (*rpp - '0');
                             if (g < pg) {
                                 g = gn;
-                                while (unc__isdigit(*rpp))
+                                while (unc0_isdigit(*rpp))
                                     ++rpp;
                                 break;
                             }
@@ -936,7 +936,7 @@ Unc_RetVal unc__lib_regex__getrepls(Unc_View *w, const char *ss,
                     return unc_throwexc(w, "value",
                         "capture group reference out of bounds in "
                         "replacement string");
-                e = unc__strpush(alloc, q, qn, qc, 6,
+                e = unc0_strpush(alloc, q, qn, qc, 6,
                         ovec[g * 2 + 1] - ovec[g * 2],
                         (const byte *)ss + ovec[g * 2]);
             }
@@ -946,7 +946,7 @@ Unc_RetVal unc__lib_regex__getrepls(Unc_View *w, const char *ss,
     }
 }
 
-Unc_RetVal unc__lib_regex__getreplf(Unc_View *w, const char *ss,
+Unc_RetVal unc0_lib_regex__getreplf(Unc_View *w, const char *ss,
                                    byte **q, Unc_Size *qn, Unc_Size *qc,
                                    Unc_Value *repl,
                                    Unc_Size gn,
@@ -989,13 +989,13 @@ Unc_RetVal unc__lib_regex__getreplf(Unc_View *w, const char *ss,
         return unc_throwexc(w, "value", "replacement function did not "
                                         "return a string");
     }
-    e = unc__strpush(alloc, q, qn, qc, 6, an, (const byte *)ab);
+    e = unc0_strpush(alloc, q, qn, qc, 6, an, (const byte *)ab);
     unc_discard(w, &pile);
     return e;
 }
 #endif
 
-Unc_RetVal unc__lib_regex_replace(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal unc0_lib_regex_replace(Unc_View *w, Unc_Tuple args, void *udata) {
 #if NOREGEXSUPPORT
     return UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #else
@@ -1041,7 +1041,7 @@ Unc_RetVal unc__lib_regex_replace(Unc_View *w, Unc_Tuple args, void *udata) {
             "replacement must be a string or function");
     }
 
-    e = unc__lib_regex_getpat(w, &args.values[1], &args.values[3],
+    e = unc0_lib_regex_getpat(w, &args.values[1], &args.values[3],
         unc_boundvalue(w, 0), "regex.replace()", udata, &pat, &temporary);
     if (e) {
         unc_unlock(w, &out);
@@ -1060,35 +1060,35 @@ Unc_RetVal unc__lib_regex_replace(Unc_View *w, Unc_Tuple args, void *udata) {
             while (replaces--) {
                 Unc_Size started = startat;
                 PCRE2_SIZE *ovec;
-                int rc = unc__lib_regex_findbidi(direction, &sn, pat.code,
+                int rc = unc0_lib_regex_findbidi(direction, &sn, pat.code,
                                     ss, &startat, mcxt, mdata, &ovec);
                 if (!rc)
                     break;
                 else if (rc < 0)
-                    e = unc__regex_makeerr(w, "regex.replace()", rc);
+                    e = unc0_regex_makeerr(w, "regex.replace()", rc);
                 else {
                     e = !direction
-                        ? unc__strpush(alloc, &q, &qn, &qc, 6,
+                        ? unc0_strpush(alloc, &q, &qn, &qc, 6,
                             ovec[0] - started, (const byte *)ss + started)
-                        : unc__strpushrv(alloc, &q, &qn, &qc, 6,
+                        : unc0_strpushrv(alloc, &q, &qn, &qc, 6,
                             started - ovec[1], (const byte *)ss + ovec[1]);
                     if (direction) ended = ovec[0];
                     if (!e) {
                         Unc_Size qx = qn;
                         e = replfunc
-                            ? unc__lib_regex__getreplf(w, ss, &q, &qn, &qc,
+                            ? unc0_lib_regex__getreplf(w, ss, &q, &qn, &qc,
                                              &args.values[2], rc, ovec)
-                            : unc__lib_regex__getrepls(w, ss, &q, &qn, &qc,
+                            : unc0_lib_regex__getrepls(w, ss, &q, &qn, &qc,
                                              rpn, rps, rc, ovec);
                         if (!e && qn > qx && direction)
-                            unc__memrev(q + qx, qn - qx);
+                            unc0_memrev(q + qx, qn - qx);
                     }
                 }
             }
             if (!e) e = !direction
-                ? unc__strpush(alloc, &q, &qn, &qc, 6,
+                ? unc0_strpush(alloc, &q, &qn, &qc, 6,
                                 sn - startat, (const byte *)ss + startat)
-                : unc__strpushrv(alloc, &q, &qn, &qc, 6,
+                : unc0_strpushrv(alloc, &q, &qn, &qc, 6,
                                 ended, (const byte *)ss);
         } else
             e = UNCIL_ERR_MEM;
@@ -1097,9 +1097,9 @@ Unc_RetVal unc__lib_regex_replace(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 #endif
 
-    unc__lib_regex_unlock(w, &args.values[1], &pat, temporary);
+    unc0_lib_regex_unlock(w, &args.values[1], &pat, temporary);
     if (!e) {
-        if (direction) unc__memrev(q, qn);
+        if (direction) unc0_memrev(q, qn);
         e = unc_newstringmove(w, &out, qn, (char *)q);
     }
     unc_unlock(w, &out);
@@ -1115,59 +1115,59 @@ Unc_RetVal uncilmain_regex(struct Unc_View *w) {
     void *gcxt = NULL;
 
 #if UNCIL_LIB_PCRE2
-    gcxt = pcre2_general_context_create(&unc__pcre2_alloc, &unc__pcre2_free, w);
+    gcxt = pcre2_general_context_create(&unc0_pcre2_alloc, &unc0_pcre2_free, w);
     if (!gcxt) return UNCIL_ERR_MEM;
 #endif
 
     e = unc_newobject(w, &regex_pattern, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "compile", &unc__lib_regex_compile,
+    e = unc_exportcfunction(w, "compile", &unc0_lib_regex_compile,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 1, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "engine", &unc__lib_regex_engine,
+    e = unc_exportcfunction(w, "engine", &unc0_lib_regex_engine,
                             UNC_CFUNC_CONCURRENT,
                             0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "escape", &unc__lib_regex_escape,
+    e = unc_exportcfunction(w, "escape", &unc0_lib_regex_escape,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "escaperepl", &unc__lib_regex_escaperepl,
+    e = unc_exportcfunction(w, "escaperepl", &unc0_lib_regex_escaperepl,
                             UNC_CFUNC_CONCURRENT,
                             1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "find", &unc__lib_regex_find,
+    e = unc_exportcfunction(w, "find", &unc0_lib_regex_find,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "findall", &unc__lib_regex_findall,
+    e = unc_exportcfunction(w, "findall", &unc0_lib_regex_findall,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "findlast", &unc__lib_regex_findlast,
+    e = unc_exportcfunction(w, "findlast", &unc0_lib_regex_findlast,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "match", &unc__lib_regex_match,
+    e = unc_exportcfunction(w, "match", &unc0_lib_regex_match,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 1, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "replace", &unc__lib_regex_replace,
+    e = unc_exportcfunction(w, "replace", &unc0_lib_regex_replace,
                             UNC_CFUNC_CONCURRENT,
                             3, 0, 2, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "split", &unc__lib_regex_split,
+    e = unc_exportcfunction(w, "split", &unc0_lib_regex_split,
                             UNC_CFUNC_CONCURRENT,
                             2, 0, 2, NULL, 1, &regex_pattern, 0, NULL, gcxt);
     if (e) return e;

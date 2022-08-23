@@ -140,7 +140,7 @@ INLINE int toibase(int c, int b, int u) {
     }
 }
 
-static int unc__vxprintf_i(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_i(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, intmax_t x) {
     int outp = 0;
     char bufa[(sizeof(intmax_t) * CHAR_BIT * 5 + 15) / 16 + 1], *buf = bufa;
@@ -188,7 +188,7 @@ static int unc__vxprintf_i(int (*out)(char outp, void *udata),
     return outp;
 }
 
-static int unc__vxprintf_u(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_u(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, uintmax_t u) {
     int outp = 0;
     char bufa[(sizeof(uintmax_t) * CHAR_BIT * 6 + 15) / 16 + 1], *buf = bufa;
@@ -240,7 +240,7 @@ static int unc__vxprintf_u(int (*out)(char outp, void *udata),
     return outp;
 }
 
-static int unc__vxprintf_xf(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, long double x) {
     /* int outp = 0; no support yet TODO */
     NEVER_();
@@ -248,7 +248,7 @@ static int unc__vxprintf_xf(int (*out)(char outp, void *udata),
     /* return outp; */
 }
 
-static int unc__vxprintf_sf(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_sf(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p,
                  size_t sn, const char *s, int negative) {
     int outp = 0;
@@ -470,7 +470,7 @@ static int cvtb_f2i(char **pbuf, long double p) {
     do {
         /* divide num by div */
         i = hi;
-        unc__memset(quo, 0, hi * sizeof(NUMTYPE));
+        unc0_memset(quo, 0, hi * sizeof(NUMTYPE));
         while (i--) {
             widediv(div, num[i], num[i + 1], &rem, &tmph, &tmpl);
             wideadd(&quo[i], tmpl);
@@ -481,7 +481,7 @@ static int cvtb_f2i(char **pbuf, long double p) {
             if ((num[i] -= tmpl) > tmp) --num[i + 1];
         }
         rem = num[0];
-        unc__memcpy(num, quo, hi * sizeof(NUMTYPE));
+        unc0_memcpy(num, quo, hi * sizeof(NUMTYPE));
         while (hi && !num[hi - 1]) --hi;
         for (i = 0; i < dig && (rem || hi); ++i) {
             *--buf = todecimal(rem % 10);
@@ -497,19 +497,19 @@ static int cvtb_f2i(char **pbuf, long double p) {
     return iw;
 }
 
-static int unc__vxprintf_f(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t prec, long double x) {
     int outp = 0;
     char sign = 0;
     if (x != x)
-        return unc__vxprintf_sf(out, udata, f, w, prec,
+        return unc0_vxprintf_sf(out, udata, f, w, prec,
             3, (f & PR_FLAG_UPPER) ? "NAN" : "nan", x < 0);
 #if UNCIL_C99
     if (x > LDBL_MAX || x < -LDBL_MAX)
 #else
     if (x > DBL_MAX || x < -DBL_MAX)
 #endif
-        return unc__vxprintf_sf(out, udata, f, w, prec,
+        return unc0_vxprintf_sf(out, udata, f, w, prec,
             3, (f & PR_FLAG_UPPER) ? "INF" : "inf", x < 0);
     
     if (x < 0)
@@ -714,7 +714,7 @@ static int unc__vxprintf_f(int (*out)(char outp, void *udata),
     return outp;
 }
 
-static int unc__vxprintf_s(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_s(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, const char *s) {
     int outp = 0;
     size_t l = 0, i;
@@ -735,7 +735,7 @@ static int unc__vxprintf_s(int (*out)(char outp, void *udata),
     return outp;
 }
 
-static int unc__vxprintf_ss(int (*out)(char outp, void *udata),
+static int unc0_vxprintf_ss(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, const char *s) {
     int outp = 0;
     size_t i;
@@ -754,7 +754,7 @@ static int unc__vxprintf_ss(int (*out)(char outp, void *udata),
     return outp;
 }
 
-int unc__vxprintf(int (*out)(char outp, void *udata),
+int unc0_vxprintf(int (*out)(char outp, void *udata),
                  void *udata, const char *format, va_list arg) {
     int outp = 0, c;
     while ((c = *format++)) {
@@ -797,14 +797,14 @@ nextflag:
                 goto nextflag;
             }
 
-            if (unc__isdigit(*format)) {
+            if (unc0_isdigit(*format)) {
                 size_t nw;
-                while (unc__isdigit((c = *format))) {
+                while (unc0_isdigit((c = *format))) {
                     nw = width;
                     width = width * 10 + fromdecimal(c);
                     if (width < nw) {
                         width = SIZE_MAX;
-                        while (unc__isdigit(*++format))
+                        while (unc0_isdigit(*++format))
                             ;
                         break;
                     }
@@ -818,14 +818,14 @@ nextflag:
             if (*format == '.') {
                 flags |= PR_FLAG_PREC;
                 ++format;
-                if (unc__isdigit(*format)) {
+                if (unc0_isdigit(*format)) {
                     size_t nw;
-                    while (unc__isdigit((c = *format))) {
+                    while (unc0_isdigit((c = *format))) {
                         nw = precision;
                         precision = precision * 10 + fromdecimal(c);
                         if (precision < nw) {
                             precision = SIZE_MAX;
-                            while (unc__isdigit(*++format))
+                            while (unc0_isdigit(*++format))
                                 ;
                             break;
                         }
@@ -903,7 +903,7 @@ nextflag:
                 }
                 if (!(flags & PR_FLAG_PREC)) precision = 1;
                 else flags &= ~PR_FLAG_ZERO;
-                e = unc__vxprintf_i(out, udata, flags, width, precision, num);
+                e = unc0_vxprintf_i(out, udata, flags, width, precision, num);
                 break;
             }
             case 'o':
@@ -949,7 +949,7 @@ nextflag:
                 }
                 if (!(flags & PR_FLAG_PREC)) precision = 1;
                 else flags &= ~PR_FLAG_ZERO;
-                e = unc__vxprintf_u(out, udata, flags, width, precision, num);
+                e = unc0_vxprintf_u(out, udata, flags, width, precision, num);
                 break;
             }
             case 'F':
@@ -957,7 +957,7 @@ nextflag:
             case 'G':
             case 'A':
                 flags |= PR_FLAG_UPPER;
-                c = unc__tolower(c);
+                c = unc0_tolower(c);
             case 'f':
             case 'e':
             case 'g':
@@ -997,11 +997,11 @@ nextflag:
                 else if (c == 'e')
                     flags |= PR_FLAG_SCIENTIFIC;
                 else if (c == 'a') {
-                    e = unc__vxprintf_xf(out, udata, flags,
+                    e = unc0_vxprintf_xf(out, udata, flags,
                                          width, precision, num);
                     break;
                 }
-                e = unc__vxprintf_f(out, udata, flags, width, precision, num);
+                e = unc0_vxprintf_f(out, udata, flags, width, precision, num);
                 break;
             }
             case 'c':
@@ -1009,18 +1009,18 @@ nextflag:
                 break;
             case 's':
                 if (!(flags & PR_FLAG_PREC)) precision = SIZE_MAX;
-                e = unc__vxprintf_s(out, udata, flags, width, precision,
+                e = unc0_vxprintf_s(out, udata, flags, width, precision,
                                     va_arg(arg, const char *));
                 break;
             case 'S':
                 if (!(flags & PR_FLAG_PREC)) precision = 1;
-                e = unc__vxprintf_ss(out, udata, flags, width, precision,
+                e = unc0_vxprintf_ss(out, udata, flags, width, precision,
                                      va_arg(arg, const char *));
                 break;
             case 'p':
                 PUTC('0');
                 PUTC('x');
-                e = unc__vxprintf_u(out, udata, (flags | PR_FLAG_HEX)
+                e = unc0_vxprintf_u(out, udata, (flags | PR_FLAG_HEX)
                                 & ~(PR_FLAG_OCT | PR_FLAG_ZERO), 0,
                                 (sizeof(uintptr_t) * CHAR_BIT + 3) / 4,
                                 (uintptr_t)va_arg(arg, void *));
@@ -1038,12 +1038,12 @@ nextflag:
     return outp;
 }
 
-int unc__xprintf(int (*out)(char outp, void *udata),
+int unc0_xprintf(int (*out)(char outp, void *udata),
                  void *udata, const char *format, ...) {
     int r;
     va_list va;
     va_start(va, format);
-    r = unc__vxprintf(out, udata, format, va);
+    r = unc0_vxprintf(out, udata, format, va);
     va_end(va);
     return r;
 }
@@ -1060,21 +1060,21 @@ static int xsnprintf_wrapper(char c, void *udata) {
     return 0;
 }
 
-int unc__vxsnprintf(char *out, size_t n, const char *format, va_list arg) {
+int unc0_vxsnprintf(char *out, size_t n, const char *format, va_list arg) {
     int r;
     struct xsnprintf_buffer buf;
     buf.c = out;
     buf.n = n - 1;
-    r = unc__vxprintf(&xsnprintf_wrapper, &buf, format, arg);
+    r = unc0_vxprintf(&xsnprintf_wrapper, &buf, format, arg);
     *buf.c++ = 0;
     return r;
 }
 
-int unc__xsnprintf(char *out, size_t n, const char *format, ...) {
+int unc0_xsnprintf(char *out, size_t n, const char *format, ...) {
     int r;
     va_list va;
     va_start(va, format);
-    r = unc__vxsnprintf(out, n, format, va);
+    r = unc0_vxsnprintf(out, n, format, va);
     va_end(va);
     return r;
 }
