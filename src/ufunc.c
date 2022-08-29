@@ -145,7 +145,7 @@ int unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
     fc.fc = fcp;
     if (fname) {
         fc.namelen = strlen(fname);
-        fc.name = unc0_malloc(alloc, Unc_AllocExternal, fc.namelen);
+        fc.name = unc0_malloc(alloc, Unc_AllocInternal, fc.namelen);
         if (!fc.name)
             fc.namelen = 0;
         else

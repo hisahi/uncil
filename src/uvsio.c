@@ -124,6 +124,7 @@ static int cvt2str_f(int (*out)(Unc_Size n, const byte *s, void *udata),
     pf.e = 0;
     unc0_xprintf(&printf_wrapper_f, &pf,
                 "%."EVALSTRINGIFY(DBL_DIG) PRIUnc_Float"g", f);
+    /*unc0_xprintf(&printf_wrapper_f, &pf, "%"PRIUnc_Float"a", f);*/
     return pf.e;
 }
 
@@ -356,7 +357,7 @@ strobjcont:
                     Unc_Size z = arr_c + 32;
                     if (arr == arr_) {
                         np = TMALLOC(void *, alloc, 0, z);
-                        if (np) unc0_memcpy(np, arr_, sizeof(void *) * arr_c);
+                        if (np) TMEMCPY(void *, np, arr_, arr_c);
                     } else
                         np = TMREALLOC(void *, alloc, 0, arr, arr_c, z);
                     if (!np) {
@@ -447,7 +448,7 @@ strobjarrnosave:
                     Unc_Size z = arr_c + 32;
                     if (arr == arr_) {
                         np = TMALLOC(void *, alloc, 0, z);
-                        if (np) unc0_memcpy(np, arr_, sizeof(void *) * arr_c);
+                        if (np) TMEMCPY(void *, np, arr_, arr_c);
                     } else
                         np = TMREALLOC(void *, alloc, 0, arr, arr_c, z);
                     if (!np) {

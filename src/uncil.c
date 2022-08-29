@@ -216,8 +216,8 @@ static int uncilprocessline(const char *line, const char **outp) {
                     while (fdepths_z < fdepth)
                         fdepths_z *= 2;
                     p = fdepths == fdepths_static
-                            ? TMALLOC(long, alloc, Unc_AllocOther, fdepths_z)
-                            : TMREALLOC(long, alloc, Unc_AllocOther,
+                            ? TMALLOC(long, alloc, Unc_AllocExternal, fdepths_z)
+                            : TMREALLOC(long, alloc, Unc_AllocExternal,
                                     fdepths, fdepths_n, fdepths_z);
                     if (!p && fdepths != fdepths_static)
                         TMFREE(long, alloc, fdepths, fdepths_n);
@@ -538,7 +538,7 @@ static int uncilrepl(void) {
     return uncildorepl(unc, unc_print);
 }
 
-static int uncilfilei(char* argv[], int fileat) {
+static int uncilfilei(char *argv[], int fileat) {
     int e;
     FILE *f;
     int close;
@@ -675,7 +675,7 @@ static int uncilfilei(char* argv[], int fileat) {
     return uncildorepl(unc, unc_print);
 }
 
-static int uncilfile(char* argv[], int fileat) {
+static int uncilfile(char *argv[], int fileat) {
     int e;
     FILE *f;
     int close;
@@ -803,7 +803,7 @@ int print_help(int err) {
     return err;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     int i;
     int argindex = 1, fileindex = 0;
     int flagok = 1;

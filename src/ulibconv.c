@@ -1548,7 +1548,7 @@ unc0_lib_convert_decode_fail:
     return e;
 }
 
-static int encodeb64digit(int b, const char* extra) {
+static int encodeb64digit(int b, const char *extra) {
     if (b < 26)
         return 'A' + b;
     else if (b < 52)
@@ -1559,7 +1559,7 @@ static int encodeb64digit(int b, const char* extra) {
         return extra[b - 62];
 }
 
-static int decodeb64digit(int b, const char* extra) {
+static int decodeb64digit(int b, const char *extra) {
     if ('0' <= b && b <= '9')
         return 52 + (b - '0');
     else if ('A' <= b && b <= 'Z')

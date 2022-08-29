@@ -1,6 +1,6 @@
 /*******************************************************************************
  
-Uncil -- arithmetic helper
+Uncil -- arithmetic utilities
 
 Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
@@ -163,6 +163,14 @@ Unc_Float unc0_fmod(Unc_Float a, Unc_Float b) {
 /* get fractional portion */
 Unc_Float unc0_ffrac(Unc_Float x) {
     return x - floor(x);
+}
+
+Unc_Float unc0_adjexp10(Unc_Float x, long p) {
+#if UNCIL_C99
+    return x * powl(10.L, p);
+#else
+    return x * pow(10., p);
+#endif
 }
 
 int unc0_fisfinite(Unc_Float x) {

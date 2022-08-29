@@ -92,7 +92,7 @@ int unc0_initarrayraw(Unc_View *w, Unc_Array *a, Unc_Size n, Unc_Value *v) {
     } else {
         a->data = TMALLOC(Unc_Value, &w->world->alloc, Unc_AllocArray, n);
         if (!a->data) return UNCIL_ERR_MEM;
-        unc0_memcpy(a->data, v, n * sizeof(Unc_Value));
+        TMEMCPY(Unc_Value, a->data, v, n);
     }
     return UNC_LOCKINITL(a->lock);
 }

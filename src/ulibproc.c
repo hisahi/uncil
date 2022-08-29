@@ -134,7 +134,7 @@ static int unc0_proc_popen(Unc_View *w, const char *cmd,
     Unc_Allocator *alloc = &w->world->alloc;
     Unc_Size env_n = 0, env_c = 0;
 
-    arg = TMALLOCZ(const char *, alloc, Unc_AllocExternal, argc + 2);
+    arg = TMALLOCZ(const char *, alloc, Unc_AllocLibrary, argc + 2);
     if (!arg) return UNCIL_ERR_MEM;
 
     {
@@ -205,7 +205,7 @@ static int unc0_proc_popen(Unc_View *w, const char *cmd,
             }
             if (env_n == env_c) {
                 Unc_Size env_z = env_c + 8;
-                char **env_n = TMREALLOC(char *, alloc, Unc_AllocExternal,
+                char **env_n = TMREALLOC(char *, alloc, Unc_AllocLibrary,
                                          env, env_c, env_z);
                 if (!env_n) {
                     if (keyval) unc_mfree(w, keyval);
@@ -481,8 +481,8 @@ static int unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
         }
         unc0_proc_pcheck(job);
     }
-    sout = unc0_mmrealloc(alloc, Unc_AllocExternal, sout, sout_n);
-    serr = unc0_mmrealloc(alloc, Unc_AllocExternal, serr, serr_n);
+    sout = unc0_mmrealloc(alloc, Unc_AllocLibrary, sout, sout_n);
+    serr = unc0_mmrealloc(alloc, Unc_AllocLibrary, serr, serr_n);
     e = unc_newblobmove(w, &out3[1], sout);
     if (e) {
         unc0_mmfree(alloc, sout);

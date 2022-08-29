@@ -240,14 +240,6 @@ static int unc0_vxprintf_u(int (*out)(char outp, void *udata),
     return outp;
 }
 
-static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
-                 void *udata, int f, size_t w, size_t p, long double x) {
-    /* int outp = 0; no support yet TODO */
-    NEVER_();
-    return -1;
-    /* return outp; */
-}
-
 static int unc0_vxprintf_sf(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p,
                  size_t sn, const char *s, int negative) {
@@ -414,19 +406,22 @@ INLINE void wideadd(NUMTYPE *p, NUMTYPE d) {
     } while (v < t);
 }
 
+/* converts the integer part of p (>= 0) to a decimal string under pbuf */
+/* *pbuf points to the END of a buffer that is at least LDBL_MAX_10_EXP + 3
+   chars long */
 static int cvtb_f2i(char **pbuf, long double p) {
-    /* pretty inefficient */
+    /* TODO pretty inefficient, we need to deal with overflows */
     int iw = 0, exp, iexp, hi, lo, i = 0;
     char *buf = *pbuf;
 #if UNCIL_C99 && UNCIL_64BIT
     NUMTYPE div = UINT64_C(1000000000000000000);
-    int dig = 18;
+    const int dig = 18;
 #elif UNCIL_C99
     NUMTYPE div = UINT32_C(1000000000);
-    int dig = 9;
+    const int dig = 9;
 #else
     NUMTYPE div = 1000000000UL;
-    int dig = 9;
+    const int dig = 9;
 #endif
     NUMTYPE num[LDBL_MAX_EXP / NUMWIDTH + 1] = { 0 };
     NUMTYPE quo[LDBL_MAX_EXP / NUMWIDTH + 1] = { 0 };
@@ -481,7 +476,7 @@ static int cvtb_f2i(char **pbuf, long double p) {
             if ((num[i] -= tmpl) > tmp) --num[i + 1];
         }
         rem = num[0];
-        unc0_memcpy(num, quo, hi * sizeof(NUMTYPE));
+        TMEMCPY(NUMTYPE, num, quo, hi);
         while (hi && !num[hi - 1]) --hi;
         for (i = 0; i < dig && (rem || hi); ++i) {
             *--buf = todecimal(rem % 10);
@@ -507,7 +502,7 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
 #if UNCIL_C99
     if (x > LDBL_MAX || x < -LDBL_MAX)
 #else
-    if (x > DBL_MAX || x < -DBL_MAX)
+    if ((double)x > DBL_MAX || (double)x < -DBL_MAX)
 #endif
         return unc0_vxprintf_sf(out, udata, f, w, prec,
             3, (f & PR_FLAG_UPPER) ? "INF" : "inf", x < 0);
@@ -694,7 +689,7 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
             for (i = 0; i < prec; ++i) {
 #if UNCIL_C99
                 x = modfl(x * 10, &p);
-#else
+#else   
                 x = modf(x * 10, &p);
 #endif
                 PUTC(todecimal((int)p));
@@ -711,6 +706,121 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
                 PUTC(' ');
     }
 
+    return outp;
+}
+
+static size_t unc0_vxprintf_xf_prec(long double x) {
+#if FLT_RADIX != 2
+#error "unc0_vxprintf_xf_prec not implemented for FLT_RADIX != 2"
+#endif
+    int exp;
+    size_t p = 0;
+    if (!x) return 0;
+#if UNCIL_C99
+    x = frexpl(x, &exp);
+#else
+    x = frexp(x, &exp);
+#endif
+    x = ldexp(x, 1) - 1;
+    while (x) {
+        ++p;
+        x = ldexp(x, 4);
+        x -= (unsigned)x;
+    }
+    return p;
+}
+
+static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
+                 void *udata, int f, size_t w, size_t p, long double x) {
+    int outp = 0, dot;
+    char sign = 0, esign = 0;
+    size_t expw = 0, sz, i;
+    char expbuf[(sizeof(unsigned) * CHAR_BIT * 6 + 15) / 16 + 1], *exps;
+
+    if (x != x)
+        return unc0_vxprintf_sf(out, udata, f, w, p,
+            3, (f & PR_FLAG_UPPER) ? "NAN" : "nan", x < 0);
+#if UNCIL_C99
+    if (x > LDBL_MAX || x < -LDBL_MAX)
+#else
+    if ((double)x > DBL_MAX || (double)x < -DBL_MAX)
+#endif
+        return unc0_vxprintf_sf(out, udata, f, w, p,
+            3, (f & PR_FLAG_UPPER) ? "INF" : "inf", x < 0);
+    
+    if (x < 0)
+        sign = '-', x = -x;
+    else if (f & PR_FLAG_SIGN)
+        sign = '+';
+    else if (f & PR_FLAG_SPACE)
+        sign = ' ';
+    
+    if (!(f & PR_FLAG_PREC))
+        p = unc0_vxprintf_xf_prec(x);
+    
+    {
+        int iexp;
+        unsigned exp;
+        exps = expbuf + sizeof(expbuf);
+#if UNCIL_C99
+        x = frexpl(x, &iexp);
+#else
+        x = frexp(x, &iexp);
+#endif
+        if (x) --iexp;
+        x = ldexp(x, 1);
+        exp = (unsigned)(iexp < 0 ? -iexp : iexp);
+        esign = iexp < 0 ? '-' : '+';
+        if (!exp) {
+            *--exps = '0';
+            ++expw;
+        } else {
+            while (exp) {
+                *--exps = todecimal(exp % 10);
+                exp /= 10;
+                ++expw;
+            }
+        }
+    }
+
+    dot = p || (f & PR_FLAG_POUND);
+    sz = 5 + !!sign + expw + p + (dot ? 1 : 0);
+    if (f & PR_FLAG_LEFT)
+        for (i = sz; i < w; ++i)
+            PUTC(' ');
+    if (sign) PUTC(sign);
+    PUTC('0');
+    PUTC((f & PR_FLAG_UPPER) ? 'X' : 'x');
+    if (!(f & PR_FLAG_LEFT) && (f & PR_FLAG_ZERO))
+        for (i = sz; i < w; ++i)
+            PUTC('0');
+    
+    if (x) {
+        x -= 1;
+        PUTC('1');
+    } else {
+        PUTC('0');   
+    }
+    
+    if (dot)
+        PUTC('.');
+    for (i = 0; i < p; ++i) {
+        unsigned d;
+        x = ldexp(x, 4);
+        d = (unsigned)x;
+        x -= d;
+        PUTC(tohex(d, f & PR_FLAG_UPPER));
+    }
+    
+    PUTC((f & PR_FLAG_UPPER) ? 'P' : 'p');
+    PUTC(esign);
+    while (expw--)
+        PUTC(*exps++);
+
+    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+        for (i = sz; i < w; ++i)
+            PUTC(' ');
+    
     return outp;
 }
 

@@ -248,14 +248,14 @@ static int getch_file_(void *p) {
     return getc((FILE *)p);
 }
 
-Unc_RetVal unc_compilestringc(Unc_View *w, const char* text) {
+Unc_RetVal unc_compilestringc(Unc_View *w, const char *text) {
     struct Unc_StrReadTemp str;
     str.start = (const byte *)text;
     str.end = NULL;
     return unc_compilestream(w, &getch_strc_, &str);
 }
 
-Unc_RetVal unc_compilestring(Unc_View *w, Unc_Size n, const char* text) {
+Unc_RetVal unc_compilestring(Unc_View *w, Unc_Size n, const char *text) {
     struct Unc_StrReadTemp str;
     str.start = (const byte *)text;
     str.end = (const byte *)text + n;

@@ -116,7 +116,11 @@ typedef size_t Unc_Size;
 #else
 #define PRIUnc_Size "l"
 #endif
+#if !defined(SIZE_MAX) && defined(UNCIL_NODEFINE_SIZE_MAX)
+#define UNC_SIZE_MAX ((Unc_Size)(-1))
+#else
 #define UNC_SIZE_MAX SIZE_MAX
+#endif
 #else
 typedef unsigned long Unc_Size;
 #define PRIUnc_Size "l"
@@ -143,7 +147,7 @@ typedef double Unc_Float;
 
 /* used for aligning the ends of structs */
 typedef union Unc_MaxAlign {
-    void* _p;
+    void *_p;
     Unc_Int _i;
     Unc_Size _s;
     Unc_Float _f;
@@ -198,7 +202,7 @@ typedef Unc_Byte byte;
 #define RESTRICT
 #endif
 
-#ifndef SIZE_MAX
+#if !defined(SIZE_MAX) && !defined(UNCIL_NODEFINE_SIZE_MAX)
 #define SIZE_MAX ((Unc_Size)(-1))
 #endif
 

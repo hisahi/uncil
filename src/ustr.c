@@ -1,6 +1,6 @@
 /*******************************************************************************
  
-Uncil -- string header
+Uncil -- string impl
 
 Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 

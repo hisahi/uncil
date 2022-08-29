@@ -74,7 +74,7 @@ static int unc0_ansiexists(const char *fn) {
         return 0;
 }
 
-static int unc0_ansifcopy(FILE *f1, FILE *f0) {
+INLINE int unc0_ansifcopy(FILE *f1, FILE *f0) {
     char buf[BUFSIZ];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), f0)))
@@ -96,7 +96,8 @@ static int unc0_ansicopy(const char *f0, const char *f1, int overwrite) {
         fclose(a);
         return -1;
     } else {
-        if (unc0_ansifcopy(b, a) || ferror(a) || ferror(b)) goto unc0_ansicopy_fail;
+        if (unc0_ansifcopy(b, a) || ferror(a) || ferror(b))
+            goto unc0_ansicopy_fail;
     }
     fclose(b);
     fclose(a);
@@ -121,7 +122,7 @@ int unc0_getcwd(Unc_Allocator *alloc, char **c) {
     Unc_Size pathSize = PATH_MAX;
     char *buf = NULL, *obuf = NULL, *ptr = NULL;
     do {
-        buf = unc0_mmrealloc(alloc, Unc_AllocExternal, buf, pathSize);
+        buf = unc0_mmrealloc(alloc, Unc_AllocLibrary, buf, pathSize);
         if (!buf) {
             unc0_mmfree(alloc, obuf);
             return UNCIL_ERR_MEM;
@@ -159,10 +160,10 @@ static char *unc0_getext_posix(Unc_Allocator *alloc,
     ext = strrchr(ext, '.');
     if (!ext) {
         *len = 0;
-        return unc0_mmalloc(alloc, Unc_AllocExternal, 0);
+        return unc0_mmalloc(alloc, Unc_AllocLibrary, 0);
     } else {
         size_t l = strlen(ext);
-        char *p = unc0_mmalloc(alloc, Unc_AllocExternal, l);
+        char *p = unc0_mmalloc(alloc, Unc_AllocLibrary, l);
         if (!p) return NULL;
         *len = l;
         unc0_memcpy(p, ext, l);
@@ -254,7 +255,7 @@ int unc0_abspath_posix(Unc_Allocator *alloc, const char *path,
     l = unc0_mmgetsize(alloc, cwd);
     lp = strlen(cwd) + strlen(path) + 2;
     if (l < lp) {
-        char *pcwd = unc0_mmrealloc(alloc, Unc_AllocExternal, cwd, lp);
+        char *pcwd = unc0_mmrealloc(alloc, Unc_AllocLibrary, cwd, lp);
         if (!pcwd) {
             unc0_mmfree(alloc, cwd);
             return UNCIL_ERR_MEM;
@@ -271,26 +272,21 @@ int unc0_abspath_posix(Unc_Allocator *alloc, const char *path,
     return p ? 0 : UNCIL_ERR_MEM;
 }
 
-char *unc0_realpath_posix_path(Unc_Allocator *alloc, const char *path) {
-    errno = ENOSYS;
-    return NULL;
-}
-
 int unc0_realpath_posix(Unc_Allocator *alloc, const char *path,
-                       size_t *len, char **str) {
+                        size_t *len, char **str, int strict) {
     int e;
     size_t sl;
     char *s, *p;
     e = unc0_abspath_posix(alloc, path, &sl, &s);
     if (e) return e;
-#if _POSIX_C_SOURCE >= 200809L
     p = realpath(s, NULL);
-#else
-    p = unc0_realpath_posix_path(alloc, s);
-#endif
+    e = errno;
+    unc0_mmfree(alloc, s);
     if (!p) {
-        switch (errno) {
+        switch (e) {
         case ENOENT:
+            if (strict)
+                return UNCIL_ERR_IO_UNDERLYING;
             *len = sl;
             *str = s;
             return 0;
@@ -303,17 +299,16 @@ int unc0_realpath_posix(Unc_Allocator *alloc, const char *path,
             return UNCIL_ERR_IO_UNDERLYING;
         }
     }
-    unc0_mmfree(alloc, s);
     sl = strlen(p);
-    s = unc0_mmalloc(alloc, Unc_AllocExternal, sl + 1);
+    s = unc0_mmalloc(alloc, Unc_AllocLibrary, sl + 1);
     if (!s) {
         free(p);
         return UNCIL_ERR_MEM;
     }
     strcpy(s, p);
     free(p);
-    *len = sl + 1;
     *str = s;
+    *len = sl + 1;
     return 0;
 }
 
@@ -529,7 +524,7 @@ static Unc_RetVal unc0_scan_posix_init(Unc_Allocator *alloc,
     size_t namelen = strlen(fn);
     int addslash = namelen && fn[namelen - 1] != '/';
     buf->baselen = namelen + addslash;
-    buf->base = unc0_mmalloc(alloc, Unc_AllocExternal, buf->baselen);
+    buf->base = unc0_mmalloc(alloc, Unc_AllocLibrary, buf->baselen);
     if (!buf->base) return UNCIL_ERR_MEM;
     strcpy(buf->base, fn);
     if (addslash) buf->base[namelen] = '/';
@@ -560,7 +555,7 @@ static Unc_RetVal unc0_scan_posix_next(Unc_Allocator *alloc,
     }
     namelen = strlen(dir->d_name);
     n = buf->baselen + namelen;
-    ptr = unc0_mmalloc(alloc, Unc_AllocExternal, n);
+    ptr = unc0_mmalloc(alloc, Unc_AllocLibrary, n);
     if (!ptr) return UNCIL_ERR_MEM;
     unc0_memcpy(ptr, buf->base, buf->baselen);
     unc0_memcpy(ptr + buf->baselen, dir->d_name, namelen);
@@ -916,7 +911,7 @@ static Unc_RetVal unc0_rcopy_posix_do(struct unc0_rcopy_posix_buf *buf,
             }
             while (S_ISLNK(pst->st_mode)) {
                 size_t in = 64;
-                char *ip = unc0_malloc(buf->alloc, Unc_AllocExternal, in), *ip2;
+                char *ip = unc0_malloc(buf->alloc, Unc_AllocLibrary, in), *ip2;
                 ssize_t ir;
                 if (!ip)
                     e = UNCIL_ERR_MEM;
@@ -927,7 +922,7 @@ static Unc_RetVal unc0_rcopy_posix_do(struct unc0_rcopy_posix_buf *buf,
                             ip[ir] = 0;
                             break;
                         }
-                        ip2 = unc0_mrealloc(buf->alloc, Unc_AllocExternal, ip,
+                        ip2 = unc0_mrealloc(buf->alloc, Unc_AllocLibrary, ip,
                                             in, in << 1);
                         in <<= 1;
                         if (!ip2) {
@@ -1369,7 +1364,7 @@ Unc_RetVal unc0_lib_fs_realpath(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
         size_t l;
         char *p;
-        e = unc0_realpath_posix(&w->world->alloc, fn, &l, &p);
+        e = unc0_realpath_posix(&w->world->alloc, fn, &l, &p, 0);
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
             e = unc0_fs_makeerr(w, "fs.realpath()", errno);
         else if (e == UNCIL_ERR_LOGIC_NOTSUPPORTED)
@@ -1798,7 +1793,7 @@ Unc_RetVal unc0_lib_fs_copy(Unc_View *w, Unc_Tuple args, void *udata) {
 #if UNCIL_IS_POSIX
         size_t fn1l;
         char *fn1;
-        e = unc0_realpath_posix(&w->world->alloc, fn, &fn1l, &fn1);
+        e = unc0_realpath_posix(&w->world->alloc, fn, &fn1l, &fn1, 1);
         if (UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
             return unc0_fs_makeerr(w, "fs.copy()", errno);
         e = unc0_copy_posix(&w->world->alloc, fn1, fn2, metadata, overwrite);

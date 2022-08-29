@@ -32,6 +32,7 @@ SOFTWARE.
 int unc0_vveq(Unc_View *w, Unc_Value *a, Unc_Value *b);
 int unc0_vvclt(Unc_View *w, Unc_Value *a, Unc_Value *b);
 int unc0_vvcmp(Unc_View *w, Unc_Value *a, Unc_Value *b);
+int unc0_vvcmpe(Unc_View *w, Unc_Value *a, Unc_Value *b, int e);
 
 int unc0_vcvt2int(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
 int unc0_vcvt2flt(struct Unc_View *w, Unc_Value *out, Unc_Value *in);

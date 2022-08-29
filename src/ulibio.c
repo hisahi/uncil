@@ -142,7 +142,7 @@ static int unc0_io_tmpfile(Unc_Allocator *alloc,
         char tmp[] = MKSTEMP_FN;
         int fd = mkstemp(tmp);
         if (fd == -1) return TMPFILE_FAIL;
-        file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, sizeof(tmp));
+        file->tfn = unc0_mmalloc(alloc, Unc_AllocLibrary, sizeof(tmp));
         if (!file->tfn) {
             close(fd);
             return TMPFILE_MEM;
@@ -161,7 +161,7 @@ static int unc0_io_tmpfile(Unc_Allocator *alloc,
         char *buf = tmpnam(NULL);
         FILE *f;
         if (!buf) return TMPFILE_FAIL;
-        file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, strlen(buf + 1));
+        file->tfn = unc0_mmalloc(alloc, Unc_AllocLibrary, strlen(buf + 1));
         if (!file->tfn) return TMPFILE_MEM;
         f = fopen(buf, mode);
         if (!f) {
@@ -189,7 +189,7 @@ static int unc0_io_tmpfilenamed(Unc_Allocator *alloc,
     strcpy(out, MKSTEMP_FN);
     fd = mkstemp(out);
     if (fd == -1) return TMPFILE_FAIL;
-    file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, sizeof(MKSTEMP_FN));
+    file->tfn = unc0_mmalloc(alloc, Unc_AllocLibrary, sizeof(MKSTEMP_FN));
     if (!file->tfn) {
         close(fd);
         return TMPFILE_MEM;
@@ -207,7 +207,7 @@ static int unc0_io_tmpfilenamed(Unc_Allocator *alloc,
 #define TMPFILENAME_MAX L_tmpnam
     FILE *f;
     if (!tmpnam(out)) return TMPFILE_FAIL;
-    file->tfn = unc0_mmalloc(alloc, Unc_AllocExternal, strlen(out + 1));
+    file->tfn = unc0_mmalloc(alloc, Unc_AllocLibrary, strlen(out + 1));
     if (!file->tfn) return TMPFILE_MEM;
     f = fopen(out, mode);
     if (!f) {

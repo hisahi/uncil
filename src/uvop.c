@@ -48,7 +48,7 @@ int unc0_vvclt(Unc_View *w, Unc_Value *a, Unc_Value *b) {
     return unc0_vvclt_j(w, a, b);
 }
 
-int unc0_vvcmp(Unc_View *w, Unc_Value *a, Unc_Value *b) {
+INLINE int unc0_vvcmpe_(Unc_View *w, Unc_Value *a, Unc_Value *b, int e) {
     if (VGETTYPE(b) == Unc_TObject || VGETTYPE(b) == Unc_TOpaque)
         goto unc0_vvcmp_o;
     switch (VGETTYPE(a)) {
@@ -59,6 +59,7 @@ int unc0_vvcmp(Unc_View *w, Unc_Value *a, Unc_Value *b) {
         case Unc_TFloat:
             return unc0_cmpflt(VGETINT(a), VGETFLT(b));
         default:
+            if (e) return e;
             return unc0_err_unsup2(w, VGETTYPE(a), VGETTYPE(b));
         }
     case Unc_TFloat:
@@ -68,21 +69,27 @@ int unc0_vvcmp(Unc_View *w, Unc_Value *a, Unc_Value *b) {
         case Unc_TFloat:
             return unc0_cmpflt(VGETFLT(a), VGETFLT(b));
         default:
+            if (e) return e;
             return unc0_err_unsup2(w, VGETTYPE(a), VGETTYPE(b));
         }
     case Unc_TString:
-        if (VGETTYPE(a) != VGETTYPE(b))
+        if (VGETTYPE(a) != VGETTYPE(b)) {
+            if (e) return e;
             return unc0_err_unsup2(w, VGETTYPE(a), VGETTYPE(b));
+        }
         return unc0_cmpstr(LEFTOVER(Unc_String, VGETENT(a)),
                            LEFTOVER(Unc_String, VGETENT(b)));
     case Unc_TBlob:
-        if (VGETTYPE(a) != VGETTYPE(b))
+        if (VGETTYPE(a) != VGETTYPE(b)) {
+            if (e) return e;
             return unc0_err_unsup2(w, VGETTYPE(a), VGETTYPE(b));
+        }
         return unc0_cmpblob(LEFTOVER(Unc_Blob, VGETENT(a)),
                             LEFTOVER(Unc_Blob, VGETENT(b)));
     case Unc_TObject:
     case Unc_TOpaque:
 unc0_vvcmp_o:
+        if (e) return e;
     {
         int e;
         Unc_Value vout;
@@ -114,6 +121,14 @@ unc0_vvcmp_o:
     default:
         return unc0_err_unsup2(w, VGETTYPE(a), VGETTYPE(b));
     }
+}
+
+int unc0_vvcmp(Unc_View *w, Unc_Value *a, Unc_Value *b) {
+    return unc0_vvcmpe_(w, a, b, 0);
+}
+
+int unc0_vvcmpe(Unc_View *w, Unc_Value *a, Unc_Value *b, int e) {
+    return unc0_vvcmpe_(w, a, b, e);
 }
 
 int unc0_vgetattrf(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,

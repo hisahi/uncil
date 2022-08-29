@@ -1482,13 +1482,13 @@ Unc_RetVal unc0_gb_fill(Unc_View *w, Unc_Tuple args, void *udata) {
         }
         if (ui2 >= 0) {
             if (ui2 > ui1)
-                unc0_memset(sp, f, ui2 - ui1);
+                unc0_memsetv(sp, f, ui2 - ui1);
         } else {
             if (sn > -ui2)
-                unc0_memset(sp, f, sn + ui2);
+                unc0_memsetv(sp, f, sn + ui2);
         }
     } else
-        unc0_memset(sp, f, sn);
+        unc0_memsetv(sp, f, sn);
     unc_unlock(w, &args.values[0]);
     return 0;
 }

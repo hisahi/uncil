@@ -1,6 +1,6 @@
 /*******************************************************************************
  
-Uncil -- types
+Uncil -- types and other common definitions
 
 Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 

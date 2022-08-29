@@ -29,6 +29,7 @@ SOFTWARE.
 
 #define UNCIL_DEFINES
 
+#include "uarithm.h"
 #include "uctype.h"
 #include "udebug.h"
 #include "udef.h"
@@ -86,19 +87,6 @@ INLINE int isspace_(int c) {
 
 INLINE int isident_(int c) {
     return unc0_isdigit(c) || unc0_isalnum(c) || c == '_';
-}
-
-INLINE Unc_Float pow10_(long e) {
-    Unc_Float f = 1, m = 10;
-    if (e < 0)
-        return 1 / pow10_(-e);
-    else if (!e)
-        return 1;
-    for (; e > 0; e >>= 1) {
-        if (e & 1) f *= m;
-        m *= m;
-    }
-    return f;
 }
 
 #define KWFOUND(target, kw) return (target = kw, 1)
@@ -221,6 +209,12 @@ static int kwtrie(const byte *sb, Unc_LexToken *nx) {
         break;
     }
     return 0;
+}
+
+static long add_exp(long a, long b) {
+    if (b > 0 && a + b < a) return LONG_MAX;
+    if (b < 0 && a + b > a) return LONG_MIN;
+    return a + b;
 }
 
 int unc0_lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
@@ -349,13 +343,9 @@ waszero:
                         }
                         if (eneg) exp = -exp;
 noexpneg:
-                        if (exp + off <= exp)
-                            off += exp;
+                        off = add_exp(off, exp);
                     }
-
-                    if (off)
-                        u.f = u.f * pow10_(off);
-                    
+                    u.f = unc0_adjexp10(u.f, off);
                     buf[0] = ULT_LFloat;
                     unc0_memcpy(buf + 1, &u.f, sizeof(Unc_Float));
                 } else {

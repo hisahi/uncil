@@ -51,7 +51,7 @@ Function pointer types:
 `typedef void *(*Unc_Alloc)(void *udata, Unc_Alloc_Purpose purpose, size_t oldsize, size_t newsize, void *ptr);`
 * `udata` is the same pointer as given to `unc_create`.
 * `purpose` is an enum that represents the purpose the memory is allocated for:
-  * `Unc_AllocOther`: miscellaneous, internal use or freeing
+  * `Unc_AllocOther`: miscellaneous or freeing
   * `Unc_AllocEntity`: for entities (objects)
   * `Unc_AllocString`: for strings
   * `Unc_AllocArray`: for arrays
@@ -60,21 +60,31 @@ Function pointer types:
   * `Unc_AllocOpaque`: for opaque objects
   * `Unc_AllocBlob`: for blobs
   * `Unc_AllocFunc`: for functions
+  * `Unc_AllocInternal`: for some internal purposes
+  * `Unc_AllocLibrary`: for use by builtin libraries
   * `Unc_AllocExternal`: for `unc_malloc`, `unc_mrealloc`
   Note that the value of `purpose` is only advisory.
 * `oldsize` is the size of the current allocation or 0 for a new memory block.
 * `newsize` is the requested new size (0 means a memory block is being freed)
 * `ptr` is the old pointer, or `NULL` for new allocations.
+
 The allocator should return a new pointer that contains a memory block with
-at least as many `char`s as described by `newsize`, or free the memory block
-in `ptr` if `newsize` is 0. If an existing pointer is given, the memory block
-should be resized such that the first `min(oldsize, newsize)` characters (bytes)
-are preserved. If allocation fails, `NULL` should be returned. Allocation may
-not fail if oldsize > newsize.
+at least as many `char`s as described by `newsize`. If an existing pointer
+is given, the memory block should be resized such that the first
+`min(oldsize, newsize)` characters (bytes) are preserved.
+If allocation fails, `NULL` should be returned. Allocation may not fail
+if `oldsize` > `newsize`. If `newsize` is 0, the memory block pointed to
+by `ptr` should be freed and the allocator should return `NULL`.
 
 The pointers returned by an allocator must be aligned according to the system
 requirements. Uncil assumes the pointer has correct alignment to access any
 fundamental C type.
+
+The following assumptions can be made:
+* only one of `oldsize` or `newsize` will be 0 at a time.
+* `ptr` is either `NULL` or a valid pointer returned earlier
+  by the allocator.
+* `ptr` is not `NULL` if `newsize` is 0.
 
 The allocator is assumed to be thread-safe. If it is not, it should implement
 its own locking system.

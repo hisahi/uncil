@@ -1,6 +1,6 @@
 /*******************************************************************************
  
-Uncil -- VM header
+Uncil -- VM impl
 
 Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
@@ -32,6 +32,7 @@ SOFTWARE.
 #include "uarithm.h"
 #include "uarr.h"
 #include "ublob.h"
+#include "ucompdef.h"
 #include "udebug.h"
 #include "ufunc.h"
 #include "umem.h"
@@ -46,27 +47,10 @@ SOFTWARE.
 #include "uvm.h"
 #include "uvop.h"
 
-#if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ > 4 \
-                    || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)))
-#define DEADCODE() ASSERT(0); __builtin_unreachable()
-#elif defined(_MSC_VER)
-#define DEADCODE() ASSERT(0); __assume(0)
-#else
-#define DEADCODE()
-#endif
-
 #if UNCIL_C99 && !NOINLINE && UINT_MAX > 65535U
 #define MAYBEINLINE FORCEINLINE
 #else
 #define MAYBEINLINE INLINE
-#endif
-
-#if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ > 3))
-#define LIKELY(x) (__builtin_expect((x), 1))
-#define UNLIKELY(x) (__builtin_expect((x), 0))
-#else
-#define LIKELY(x) (x)
-#define UNLIKELY(x) (x)
 #endif
 
 #define MUST(x) if (UNLIKELY(e = (x))) goto vmerror;
@@ -549,12 +533,11 @@ FORCEINLINE void unc0_vmfcall(Unc_View *w, jmp_buf *env, Unc_Function *fn,
         w->debugbase = w->bdata + fn->f.u.dbugoff;
         if (fn->argc) {
             w->sval.top -= argc;
-            unc0_memcpy(regs + fn->f.u.floc, w->sval.top,
-                        argc * sizeof(Unc_Value));
+            TMEMCPY(Unc_Value, regs + fn->f.u.floc, w->sval.top, argc);
             if (argc < fn->argc) {
                 Unc_Size i, nc = fn->argc - argc, nf = argc - fn->rargc;
-                unc0_memcpy(regs + fn->f.u.floc + argc,
-                            fn->defaults + nf, nc * sizeof(Unc_Value));
+                TMEMCPY(Unc_Value, regs + fn->f.u.floc + argc,
+                            fn->defaults + nf, nc);
                 for (i = 0; i < nc; ++i)
                     VINCREF(w, &fn->defaults[nf + i]);
             }

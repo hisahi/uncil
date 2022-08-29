@@ -1,6 +1,6 @@
 /*******************************************************************************
  
-Uncil -- arithmetic helper
+Uncil -- arithmetic utilities header
 
 Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
 
@@ -49,6 +49,7 @@ Unc_Int unc0_imod(Unc_Int a, Unc_Int b);
 Unc_Float unc0_fidiv(Unc_Float a, Unc_Float b);
 Unc_Float unc0_fmod(Unc_Float a, Unc_Float b);
 Unc_Float unc0_ffrac(Unc_Float x);
+Unc_Float unc0_adjexp10(Unc_Float x, long p);
 
 Unc_Float unc0_fnan(void);
 Unc_Float unc0_finfty(void);

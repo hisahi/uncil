@@ -33,7 +33,9 @@ SOFTWARE.
 #endif
 
 #define UNCIL_DEFINES
+#define UNCIL_NODEFINE_SIZE_MAX 1
 
+#include "uarithm.h"
 #include "uctype.h"
 #include "uxscanf.h"
 
@@ -44,8 +46,9 @@ SOFTWARE.
 #if __STDC_VERSION__ >= 199901L
 #ifndef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS 1
-#endif
 #include <stdint.h>
+#endif
+
 #if defined(UINTMAX_MAX) && defined(ULLONG_MAX) && UINTMAX_MAX == ULLONG_MAX
 /* replace (u)intmax_t with (unsigned) long if long long is disabled */
 #undef intmax_t
@@ -118,6 +121,7 @@ SOFTWARE.
 #define SIZE_MAX (size_t)(-1)
 #endif
 
+#undef UNCIL_NODEFINE_SIZE_MAX
 #include "udef.h"
 
 #include "uarithm.h"
@@ -278,10 +282,6 @@ INLINE intmax_t clamps_(intmax_t m0, intmax_t v, intmax_t m1) {
 
 INLINE uintmax_t clampu_(uintmax_t m0, uintmax_t v, uintmax_t m1) {
     return v < m0 ? m0 : v > m1 ? m1 : v;
-}
-
-INLINE floatmax_t powi_(floatmax_t x, intmax_t y) {
-    return pow(x, y);
 }
 
         /* still characters to read? (not EOF and width not exceeded) */
@@ -461,6 +461,10 @@ INLINE BOOL iatof_(int (*getch)(void *p), void *p, int *nextc,
             if (exp > oexp) exp = INTMAX_MIN; /* underflow protection */
         }
 
+#if LDBL_MAX_EXP >= LONG_MAX || LDBL_MAX_10_EXP >= LONG_MAX \
+ || LDBL_MIN_EXP <= LONG_MIN || LDBL_MIN_10_EXP <= LONG_MIN
+#error "code assumes LDBL exp fits in long"
+#endif
         if (r != 0) {
             if (exp > 0) {
                 if (exp > (hex ? LDBL_MAX_EXP : LDBL_MAX_10_EXP))
@@ -469,13 +473,25 @@ INLINE BOOL iatof_(int (*getch)(void *p), void *p, int *nextc,
 #else
                     r = HUGE_VAL;
 #endif
+                else if (hex)
+#if UNCIL_C99
+                    r = ldexpl(r, exp);
+#else
+                    r = ldexp(r, exp);
+#endif
                 else
-                    r *= powi_(hex ? 2 : 10, exp);
+                    r = unc0_adjexp10(r, (long)exp);
             } else if (exp < 0) {
                 if (exp < (hex ? LDBL_MIN_EXP : LDBL_MIN_10_EXP))
                     r = 0;
+                else if (hex)
+#if UNCIL_C99
+                    r = ldexpl(r, exp);
+#else
+                    r = ldexp(r, exp);
+#endif
                 else
-                    r /= powi_(hex ? 2 : 10, -exp);
+                    r = unc0_adjexp10(r, (long)exp);
             }
         }
 

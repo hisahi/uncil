@@ -670,7 +670,7 @@ void pcodedump(const byte *d, Unc_Size n) {
     }
 }
 
-static int uncilcfile(char* argv[], int fileat, int ofileat) {
+static int uncilcfile(char *argv[], int fileat, int ofileat) {
     int e;
     FILE *f;
     Unc_View *unc;
@@ -718,20 +718,12 @@ static int uncilcfile(char* argv[], int fileat, int ofileat) {
         return 0;
     }
     
-    if (!ofileat) {
-        close = 1;
-        f = fopen("uncilc.out", "wb");
-        if (!f) {
-            printf("%s: cannot open file '%s': %s\n",
-                myname, argv[fileat], strerror(errno));
-            return UNCIL_EXIT_FAIL;
-        }
-    } else if (!strcmp(argv[ofileat], "-")) {
+    if (ofileat && !strcmp(argv[ofileat], "-")) {
         close = 0;
         f = stdout;
     } else {
         close = 1;
-        f = fopen(argv[ofileat], "wb");
+        f = fopen(ofileat ? argv[ofileat] : "uncilc.out", "wb");
         if (!f) {
             printf("%s: cannot open file '%s': %s\n",
                 myname, argv[fileat], strerror(errno));
@@ -772,7 +764,7 @@ int print_help(int err) {
     return err;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     int i;
     int argindex = 1, fileindex = 0, ofileindex = 0;
     int flagok = 1;
@@ -780,7 +772,7 @@ int main(int argc, char* argv[]) {
 
     for (i = 1; i < argc; ++i) {
         char *arg = argv[i];
-        if (flagok && arg[0] == '-') {
+        if (flagok && arg[0] == '-' && argv[i][1]) {
             if (!strcmp(arg, "--")) {
                 flagok = 0;
             } else if (!strcmp(arg, "-o")) {
@@ -807,7 +799,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!argindex)
+    if (!fileindex)
         return print_help(UNCIL_EXIT_OK);
     return uncilcfile(argv, fileindex, ofileindex);
 }

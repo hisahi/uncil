@@ -77,17 +77,50 @@ void *unc0_mmreallocz(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
                                                         void *ptr, size_t sz);
 void unc0_mmfree(Unc_Allocator *alloc, void *ptr);
 
+UNCIL_NOIGNORE_RET
+void *unc0_tmalloc(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                                        size_t sz, size_t n);
+UNCIL_NOIGNORE_RET
+void *unc0_tmrealloc(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose, void *ptr,
+                                        size_t sz, size_t n0, size_t n1);
+void unc0_tmfree(Unc_Allocator *alloc, void *ptr, size_t sz, size_t n);
+
+UNCIL_NOIGNORE_RET
+void *unc0_tmmalloc(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                                        size_t sz, size_t n);
+UNCIL_NOIGNORE_RET
+void *unc0_tmmrealloc(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                             void *ptr, size_t sz, size_t n1);
+
+UNCIL_NOIGNORE_RET
+void *unc0_tmallocz(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                                        size_t sz, size_t n);
+UNCIL_NOIGNORE_RET
+void *unc0_tmreallocz(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                             void *ptr, size_t sz, size_t n0, size_t n1);
+UNCIL_NOIGNORE_RET
+void *unc0_tmmallocz(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                                        size_t sz, size_t n);
+UNCIL_NOIGNORE_RET
+void *unc0_tmmreallocz(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
+                             void *ptr, size_t sz, size_t n);
+
 size_t unc0_mmgetsize(Unc_Allocator *alloc, void *ptr);
 void *unc0_mmunwind(Unc_Allocator *alloc, void *ptr, size_t *out);
 void *unc0_mmunwinds(Unc_Allocator *alloc, void *ptr, size_t *out);
 
 void *unc0_memchr(const void *m, int c, size_t sz);
 size_t unc0_memset(void *dst, int c, size_t sz);
+size_t unc0_memsetv(void *dst, int c, size_t sz);
 size_t unc0_memcpy(void *dst, const void *src, size_t sz);
 size_t unc0_memmove(void *dst, const void *src, size_t sz);
 int unc0_memcmp(const void *dst, const void *src, size_t sz);
 void unc0_memrev(void *dst, size_t sz);
 void *unc0_memrchr(const void *p, int c, size_t n);
+
+size_t unc0_tmemcpy(void *dst, const void *src, size_t sz, size_t n);
+size_t unc0_tmemmove(void *dst, const void *src, size_t sz, size_t n);
+
 const byte *unc0_strsearch(const byte *haystack, Unc_Size haystack_n,
                            const byte *needle, Unc_Size needle_n);
 const byte *unc0_strsearchr(const byte *haystack, Unc_Size haystack_n,
@@ -114,26 +147,29 @@ int unc0_strpushrv(Unc_Allocator *alloc, Unc_Byte **o, Unc_Size *n, Unc_Size *c,
 
 #ifdef UNCIL_DEFINES
 #define TMALLOC(T, A, purpose, n) \
-    ((T *)(unc0_malloc(A, purpose, (n) * sizeof(T))))
+    ((T *)(unc0_tmalloc(A, purpose, sizeof(T), n)))
 #define TMALLOCZ(T, A, purpose, n) \
-    ((T *)(unc0_mallocz(A, purpose, (n) * sizeof(T))))
+    ((T *)(unc0_tmallocz(A, purpose, sizeof(T), n)))
 #define TMREALLOC(T, A, purpose, p, n, z) \
-    ((T *)(unc0_mrealloc(A, purpose, p, (n) * sizeof(T), (z) * sizeof(T))))
+    ((T *)(unc0_tmrealloc(A, purpose, p, sizeof(T), n, z)))
 #define TMREALLOCZ(T, A, purpose, p, n, z) \
-    ((T *)(unc0_mreallocz(A, purpose, p, (n) * sizeof(T), (z) * sizeof(T))))
+    ((T *)(unc0_tmreallocz(A, purpose, p, sizeof(T), n, z)))
 #define TMFREE(T, A, ptr, n) \
-    (unc0_mfree(A, (T *)ptr, (n) * sizeof(T)))
+    (unc0_tmfree(A, (T *)ptr, sizeof(T), n))
 
 #define TMMALLOC(T, A, purpose, n) \
-    ((T *)(unc0_mmalloc(A, purpose, (n) * sizeof(T))))
+    ((T *)(unc0_tmmalloc(A, purpose, sizeof(T), n)))
 #define TMMALLOCZ(T, A, purpose, n) \
-    ((T *)(unc0_mmallocz(A, purpose, (n) * sizeof(T))))
+    ((T *)(unc0_tmmallocz(A, purpose, sizeof(T), n)))
 #define TMMREALLOC(T, A, purpose, p, z) \
-    ((T *)(unc0_mmrealloc(A, purpose, p, (z) * sizeof(T))))
+    ((T *)(unc0_tmmrealloc(A, purpose, sizeof(T), p, z)))
 #define TMMREALLOCZ(T, A, purpose, p, z) \
-    ((T *)(unc0_mmreallocz(A, purpose, p, (z) * sizeof(T))))
+    ((T *)(unc0_tmmreallocz(A, purpose, sizeof(T), p, z)))
 #define TMMFREE(T, A, ptr) \
     (unc0_mmfree(A, (T *)ptr))
+    
+#define TMEMCPY(T, dst, src, n) (unc0_tmemcpy(dst, src, sizeof(T), n))
+#define TMEMMOVE(T, dst, src, n) (unc0_tmemmove(dst, src, sizeof(T), n))
 #endif
 
 #endif /* UNCIL_UMEM_H */

@@ -39,6 +39,8 @@ typedef enum Unc_Alloc_Purpose {
     Unc_AllocOpaque,
     Unc_AllocBlob,
     Unc_AllocFunc,
+    Unc_AllocInternal,
+    Unc_AllocLibrary,
     Unc_AllocExternal
 } Unc_Alloc_Purpose;
 

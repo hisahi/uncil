@@ -75,7 +75,7 @@ static int saferng(Unc_Size n, byte *b) {
         --n;
     }
 }
-#elif UNCIL_IS_WINDOWS
+#elif 0 && UNCIL_IS_WINDOWS
 #error "Not yet implemented"
 #define SAFERNG 1
 #define SAFERNGINIT 1
