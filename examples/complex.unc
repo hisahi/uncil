@@ -52,7 +52,7 @@ end
 complex.__mul = function __mul(a, b)
     if type(b) == "object" and getprototype(b) == complex then
         return complex.new(a.real * b.real - a.imag * b.imag,
-                        a.real * b.imag + a.imag + b.real)
+                           a.real * b.imag + a.imag * b.real)
     else
         return complex.new(a.real * b, a.imag * b)
     end
@@ -60,7 +60,7 @@ end
 complex.__mul2 = function __mul2(a, b)
     if type(a) == "object" and getprototype(a) == complex then
         return complex.new(a.real * b.real - a.imag * b.imag,
-                        a.real * b.imag + a.imag + b.real)
+                           a.real * b.imag + a.imag * b.real)
     else
         return complex.new(a * b.real, a * b.imag)
     end
