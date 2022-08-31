@@ -105,52 +105,52 @@ int unc0_initopaque(Unc_View *w, Unc_Opaque *o, size_t n, void **data,
 }
 
 int unc0_oqgetattrv(Unc_View *w, Unc_Opaque *o,
-                   Unc_Value *attr, Unc_Value **out) {
+                   Unc_Value *attr, int *found, Unc_Value *out) {
     for (;;) {
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
             return unc0_dgetattrv(w,
                                   LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
-                                  attr, out);
+                                  attr, found, out);
         case Unc_TObject:
             return unc0_ogetattrv(w,
                                   LEFTOVER(Unc_Object, VGETENT(&o->prototype)),
-                                  attr, out);
+                                  attr, found, out);
         case Unc_TOpaque:
             o = LEFTOVER(Unc_Opaque, VGETENT(&o->prototype));
             continue;
         default:
-            *out = NULL;
+            *found = 0;
             return 0;
         }
     }
 }
 
 int unc0_oqgetattrs(Unc_View *w, Unc_Opaque *o,
-                   Unc_Size n, const byte *b, Unc_Value **out) {
+                   Unc_Size n, const byte *b, int *found, Unc_Value *out) {
     for (;;) {
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
             return unc0_dgetattrs(w,
                                   LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
-                                  n, b, out);
+                                  n, b, found, out);
         case Unc_TObject:
             return unc0_ogetattrs(w,
                                   LEFTOVER(Unc_Object, VGETENT(&o->prototype)),
-                                  n, b, out);
+                                  n, b, found, out);
         case Unc_TOpaque:
             o = LEFTOVER(Unc_Opaque, VGETENT(&o->prototype));
             continue;
         default:
-            *out = NULL;
+            *found = 0;
             return 0;
         }
     }
 }
 
 int unc0_oqgetattrc(Unc_View *w, Unc_Opaque *o,
-                   const byte *s, Unc_Value **out) {
-    return unc0_oqgetattrs(w, o, strlen((const char *)s), s, out);
+                   const byte *s, int *found, Unc_Value *out) {
+    return unc0_oqgetattrs(w, o, strlen((const char *)s), s, found, out);
 }
 
 /* call destructor if specified */

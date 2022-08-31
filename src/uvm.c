@@ -653,23 +653,27 @@ int unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
     case Unc_TObject:
     case Unc_TOpaque:
     {
-        Unc_Value *o;
-        int e;
+        Unc_Value o = UNC_BLANK;
+        int e, f;
         e = unc0_stackinsertn(w, &w->sval, argc++, v);
         if (e) return e;
 unc0_fcallv_call_again:
-        e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(call)), &o);
+        e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(call)), &f, &o);
         if (e) return e;
-        if (o) {
-            switch (o->type) {
+        if (f) {
+            switch (o.type) {
             case Unc_TFunction:
-                return unc0_fcall(w, LEFTOVER(Unc_Function, VGETENT(o)), argc,
+                e = unc0_fcall(w, LEFTOVER(Unc_Function, VGETENT(&o)), argc,
                                   spew, fromc, allowc, x);
+                VSETNULL(w, &o);
+                return e;
             case Unc_TBoundFunction:
-                return unc0_fcallv(w, o, argc, spew, fromc, allowc, x);
+                e = unc0_fcallv(w, &o, argc, spew, fromc, allowc, x);
+                VSETNULL(w, &o);
+                return e;
             case Unc_TObject:
             case Unc_TOpaque:
-                v = o;
+                v = &o;
                 goto unc0_fcallv_call_again;
             default:
                 ;
@@ -715,11 +719,13 @@ FORCEINLINE void unc0_getpub(Unc_View *w, jmp_buf *env,
         }
     }
     g = unc0_gethtbls(w, w->pubs, sl, sb);
-    UNC_UNLOCKF(w->world->public_lock);
-    if (g)
+    if (g) {
         VCOPY(w, v, g);
-    else
+        UNC_UNLOCKF(w->world->public_lock);
+    } else {
+        UNC_UNLOCKF(w->world->public_lock);
         longjmp(*env, unc0_err_withname(w, UNCIL_ERR_ARG_NOSUCHNAME, sl, sb));
+    }
 }
 
 FORCEINLINE void unc0_setpub(Unc_View *w, jmp_buf *env,
@@ -1770,31 +1776,35 @@ static void dofcall(Unc_View *w, jmp_buf *env, Unc_Size argc, int spew,
 
 INLINE void dofcall_o(Unc_View *w, jmp_buf *env, Unc_Size argc, int spew,
                     Unc_RegFast dst, Unc_Value *fn, const byte **pc) {
-    Unc_Value *o;
-    int e;
+    Unc_Value o = UNC_BLANK;
+    int e, f;
     e = unc0_stackinsertn(w, &w->sval, argc++, fn);
     if (e) THROWERRSTPC(e);
 dofcall_again:
-    e = unc0_getprotomethod(w, fn, PASSSTRL(OPOVERLOAD(call)), &o);
+    e = unc0_getprotomethod(w, fn, PASSSTRL(OPOVERLOAD(call)), &f, &o);
     if (e) THROWERRSTPC(e);
-    if (o) {
-        switch (o->type) {
+    if (f) {
+        switch (o.type) {
         case Unc_TFunction:
-            dofcall(w, env, argc, spew, dst, o, pc);
+            dofcall(w, env, argc, spew, dst, &o, pc);
+            VSETNULL(w, &o);
             return;
         case Unc_TBoundFunction:
         {
-            Unc_FunctionBound *b = LEFTOVER(Unc_FunctionBound, VGETENT(o));
+            Unc_FunctionBound *b = LEFTOVER(Unc_FunctionBound, VGETENT(&o));
             e = unc0_stackinsertn(w, &w->sval, argc - 1, &b->boundto);
             ++argc;
-            if (UNLIKELY(e))
+            if (UNLIKELY(e)) {
+                VSETNULL(w, &o);
                 THROWERRSTPC(e);
+            }
             dofcall(w, env, argc, spew, dst, &b->fn, pc);
+            VSETNULL(w, &o);
             return;
         }
         case Unc_TObject:
         case Unc_TOpaque:
-            fn = o;
+            fn = &o;
             goto dofcall_again;
         default:
             ;
@@ -1877,15 +1887,19 @@ static void dolspr(Unc_View *w, jmp_buf *env, int spew,
     case Unc_TArray:
     {
         Unc_Array *a = LEFTOVER(Unc_Array, VGETENT(list));
+        UNC_LOCKL(a->lock);
         if (spew) {
             int e = unc0_stackpush(w, &w->sval, a->size, a->data);
-            if (UNLIKELY(e))
+            if (UNLIKELY(e)) {
+                UNC_UNLOCKL(a->lock);
                 THROWERRVMPC(e);
+            }
         } else if (a->size) {
             VCOPY(w, tr, &a->data[0]);
         } else {
             VSETNULL(w, tr);
         }
+        UNC_UNLOCKL(a->lock);
         return;
     }
     case Unc_TObject:

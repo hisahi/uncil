@@ -578,13 +578,15 @@ int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
             return 0;
         }
         {
-            Unc_Value *o;
-            unc0_getprotomethod(w, in, PASSSTRL(OPOVERLOAD(name)), &o);
-            if (o && o->type == Unc_TString) {
-                Unc_String *s = LEFTOVER(Unc_String, VGETENT(o));
+            int ofound;
+            Unc_Value o = UNC_BLANK;
+            unc0_getprotomethod(w, in, PASSSTRL(OPOVERLOAD(name)), &ofound, &o);
+            if (ofound && o.type == Unc_TString) {
+                Unc_String *s = LEFTOVER(Unc_String, VGETENT(&o));
                 nsn = s->size;
                 nsb = unc0_getstringdata(s);
             }
+            VSETNULL(w, &o);
         }
         if (VGETTYPE(in) == Unc_TOpaque)
             return cvt2str_spn(out, udata, PASSSTRL("opaque"), VGETENT(in),

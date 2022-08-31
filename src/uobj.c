@@ -61,9 +61,12 @@ INLINE void nextgen(Unc_Dict *o) {
 }
 
 int unc0_dgetindx(Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, Unc_Value **out) {
+                   Unc_Value *attr, int *found, Unc_Value *out) {
+    Unc_Value *p;
     UNC_LOCKL(o->lock);
-    *out = unc0_gethtblv(w, &o->data, attr);
+    p = unc0_gethtblv(w, &o->data, attr);
+    *found = !!p;
+    if (p) VCOPY(w, out, p);
     UNC_UNLOCKL(o->lock);
     return 0;
 }
@@ -95,8 +98,8 @@ int unc0_ddelindx(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
 }
 
 int unc0_dgetattrv(Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, Unc_Value **out) {
-    return unc0_dgetindx(w, o, attr, out);
+                   Unc_Value *attr, int *found, Unc_Value *out) {
+    return unc0_dgetindx(w, o, attr, found, out);
 }
 
 int unc0_dsetattrv(Unc_View *w, Unc_Dict *o,
@@ -109,9 +112,12 @@ int unc0_ddelattrv(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
 }
 
 int unc0_dgetattrs(Unc_View *w, Unc_Dict *o,
-                   size_t n, const byte *b, Unc_Value **out) {
+                   size_t n, const byte *b, int *found, Unc_Value *out) {
+    Unc_Value *p;
     UNC_LOCKL(o->lock);
-    *out = unc0_gethtblvs(w, &o->data, n, b);
+    p = unc0_gethtblvs(w, &o->data, n, b);
+    *found = !!p;
+    if (p) VCOPY(w, out, p);
     UNC_UNLOCKL(o->lock);
     return 0;
 }
@@ -144,13 +150,14 @@ int unc0_ddelattrs(Unc_View *w, Unc_Dict *o, size_t n, const byte *b) {
 }
 
 int unc0_ogetattrv(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value **out) {
+                   Unc_Value *attr, int *found, Unc_Value *out) {
     Unc_Value *res;
     for (;;) {
         UNC_LOCKL(o->lock);
         res = unc0_gethtblv(w, &o->data, attr);
         if (res) {
-            *out = res;
+            VCOPY(w, out, res);
+            *found = 1;
             UNC_UNLOCKL(o->lock);
             return 0;
         }
@@ -158,7 +165,7 @@ int unc0_ogetattrv(Unc_View *w, Unc_Object *o,
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
             return unc0_dgetattrv(w, LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
-                                  attr, out);
+                                  attr, found, out);
         case Unc_TObject:
             o = LEFTOVER(Unc_Object, VGETENT(&o->prototype));
             continue;
@@ -170,7 +177,7 @@ int unc0_ogetattrv(Unc_View *w, Unc_Object *o,
                 case Unc_TTable:
                     return unc0_dgetattrv(w,
                                 LEFTOVER(Unc_Dict, VGETENT(&q->prototype)),
-                                attr, out);
+                                attr, found, out);
                 case Unc_TObject:
                     o = LEFTOVER(Unc_Object, VGETENT(&q->prototype));
                     goto exitgetattrforv;
@@ -178,6 +185,7 @@ int unc0_ogetattrv(Unc_View *w, Unc_Object *o,
                     q = LEFTOVER(Unc_Opaque, VGETENT(&q->prototype));
                     continue;
                 default:
+                    *found = 0;
                     return 0;
                 }
             }
@@ -187,18 +195,20 @@ exitgetattrforv:
         default:
             break;
         }
+        *found = 0;
         return 0;
     }
 }
 
 int unc0_ogetattrs(Unc_View *w, Unc_Object *o,
-                   size_t n, const byte *b, Unc_Value **out) {
+                   size_t n, const byte *b, int *found, Unc_Value *out) {
     Unc_Value *res;
     for (;;) {
         UNC_LOCKL(o->lock);
         res = unc0_gethtblvs(w, &o->data, n, b);
         if (res) {
-            *out = res;
+            VCOPY(w, out, res);
+            *found = 1;
             UNC_UNLOCKL(o->lock);
             return 0;
         }
@@ -207,7 +217,7 @@ int unc0_ogetattrs(Unc_View *w, Unc_Object *o,
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
             return unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
-                                  n, b, out);
+                                  n, b, found, out);
         case Unc_TObject:
             o = LEFTOVER(Unc_Object, VGETENT(&o->prototype));
             continue;
@@ -219,7 +229,7 @@ int unc0_ogetattrs(Unc_View *w, Unc_Object *o,
                 case Unc_TTable:
                     return unc0_dgetattrs(w,
                                 LEFTOVER(Unc_Dict, VGETENT(&q->prototype)),
-                                  n, b, out);
+                                  n, b, found, out);
                 case Unc_TObject:
                     o = LEFTOVER(Unc_Object, VGETENT(&q->prototype));
                     goto exitgetattrfors;
@@ -227,7 +237,7 @@ int unc0_ogetattrs(Unc_View *w, Unc_Object *o,
                     q = LEFTOVER(Unc_Opaque, VGETENT(&q->prototype));
                     continue;
                 default:
-                    *out = NULL;
+                    *found = 0;
                     return 0;
                 }
             }
@@ -235,47 +245,49 @@ exitgetattrfors:
             continue;
         }
         default:
-            *out = NULL;
+            *found = 0;
             return 0;
         }
     }
 }
 
 static int unc0_ovgetattrs(Unc_View *w, Unc_Value *v,
-                   size_t n, const byte *b, Unc_Value **out) {
+                   size_t n, const byte *b, int *found, Unc_Value *out) {
 unc0_ovgetattrs_again:
     switch (VGETTYPE(v)) {
     case Unc_TTable:
-        return unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(v)), n, b, out);
+        return unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(v)),
+                              n, b, found, out);
     case Unc_TObject:
-        return unc0_ogetattrs(w, LEFTOVER(Unc_Object, VGETENT(v)), n, b, out);
+        return unc0_ogetattrs(w, LEFTOVER(Unc_Object, VGETENT(v)),
+                              n, b, found, out);
     case Unc_TOpaque:
         v = &LEFTOVER(Unc_Opaque, VGETENT(v))->prototype;
         goto unc0_ovgetattrs_again;
     default:
-        *out = NULL;
+        *found = 0;
         return 0;
     }
 }
 
 int unc0_getprotomethod(Unc_View *w, Unc_Value *v,
-                   size_t n, const byte *b, Unc_Value **out) {
+                   size_t n, const byte *b, int *found, Unc_Value *out) {
     switch (VGETTYPE(v)) {
     case Unc_TObject:
         return unc0_ovgetattrs(w, &LEFTOVER(Unc_Object, VGETENT(v))->prototype,
-                               n, b, out);
+                               n, b, found, out);
     case Unc_TOpaque:
         return unc0_ovgetattrs(w, &LEFTOVER(Unc_Opaque, VGETENT(v))->prototype,
-                               n, b, out);
+                               n, b, found, out);
     default:
-        *out = NULL;
+        *found = 0;
         return 0;
     }
 }
 
 int unc0_ogetattrc(struct Unc_View *w, Unc_Object *o,
-                   const byte *s, Unc_Value **out) {
-    return unc0_ogetattrs(w, o, strlen((const char *)s), s, out);
+                   const byte *s, int *found, Unc_Value *out) {
+    return unc0_ogetattrs(w, o, strlen((const char *)s), s, found, out);
 }
 
 void unc0_ofreeze(struct Unc_View *w, Unc_Object *o) {
@@ -335,91 +347,99 @@ int unc0_odelattrs(Unc_View *w, Unc_Object *o, size_t n, const byte *b) {
 }
 
 int unc0_ogetindx(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value **out) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(getindex)), &fn);
+                   Unc_Value *attr, int *found, Unc_Value *out) {
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(getindex)),
+                        &fnf, &fn);
     if (e) return e;
-    if (fn) {
+    if (fnf) {
         size_t d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         Unc_Value tmp;
         VINITENT(&tmp, Unc_TObject, UNLEFTOVER(o));
         if ((e = unc0_stackpushv(w, &w->sval, &tmp))) {
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc0_stackpush(w, &w->sval, 1, attr))) {
+            VDECREF(w, &fn);
             unc0_restoredepth(w, &w->sval, d);
             return e;
         }
         if ((e = unc_newpile(w, &ret))) {
+            VDECREF(w, &fn);
             unc0_restoredepth(w, &w->sval, d);
             return e;
         }
         w->region.base[ret.r] -= 2;
-        e = unc0_fcallv(w, fn, 2, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 2, 1, 1, 1, 0);
         if (!e)
             e = unc0_run(w);
         else if (!UNCIL_IS_ERR(e))
             e = 0;
         if (e) {
+            VDECREF(w, &fn);
             return e;
         } else {
             Unc_Tuple tuple;
             unc_returnvalues(w, &ret, &tuple);
             if (tuple.count == 1) {
                 w->tmpval = tuple.values[0];
-                *out = &w->tmpval;
+                VMOVE(w, out, &w->tmpval);
                 --w->sval.top;
-                /* decrease reference without killing; the assumption is that
-                   this will be assigned again anyway. if not, GC will clean
-                   it up */
-                if (UNCIL_OF_REFTYPE(&w->tmpval))
-                    UNCIL_DECREFEX(w, VGETENT(&w->tmpval));
+                VDECREF(w, &fn);
                 return 0;
             } else if (tuple.count > 1) {
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return UNCIL_ERR_LOGIC_OVLTOOMANY;
             } else {
                 unc_discard(w, &ret);
-                *out = NULL;
+                *found = 0;
+                VDECREF(w, &fn);
                 return 0;
             }
         }
     }
-    return unc0_ogetattrv(w, o, attr, out);
+    return unc0_ogetattrv(w, o, attr, found, out);
 }
 
 int unc0_osetindx(Unc_View *w, Unc_Object *o,
                    Unc_Value *attr, Unc_Value *v) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(setindex)), &fn);
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(setindex)),
+                        &fnf, &fn);
     if (e) return e;
-    if (fn) {
+    if (fnf) {
         size_t d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         Unc_Value tmp;
         VINITENT(&tmp, Unc_TObject, UNLEFTOVER(o));
         if ((e = unc0_stackpushv(w, &w->sval, &tmp))) {
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc0_stackpush(w, &w->sval, 1, attr))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         w->region.base[ret.r] -= 2;
-        e = unc0_fcallv(w, fn, 2, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 2, 1, 1, 1, 0);
         if (!e)
             e = unc0_run(w);
         else if (!UNCIL_IS_ERR(e))
             e = 0;
         if (!e)
             unc_discard(w, &ret);
+        VDECREF(w, &fn);
         return e;
     }
     return unc0_osetattrv(w, o, attr, v);
@@ -431,34 +451,39 @@ int unc0_osetindxraw(Unc_View *w, Unc_Object *o,
 }
 
 int unc0_odelindx(Unc_View *w, Unc_Object *o, Unc_Value *attr) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(delindex)), &fn);
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(delindex)),
+                        &fnf, &fn);
     if (e) return e;
-    if (fn) {
+    if (fnf) {
         size_t d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         Unc_Value tmp;
         VINITENT(&tmp, Unc_TObject, UNLEFTOVER(o));
         if ((e = unc0_stackpushv(w, &w->sval, &tmp))) {
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc0_stackpush(w, &w->sval, 1, attr))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         w->region.base[ret.r] -= 2;
-        e = unc0_fcallv(w, fn, 2, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 2, 1, 1, 1, 0);
         if (!e)
             e = unc0_run(w);
         else if (!UNCIL_IS_ERR(e))
             e = 0;
         if (!e)
             unc_discard(w, &ret);
+        VDECREF(w, &fn);
         return e;
     }
     return unc0_odelattrv(w, o, attr);

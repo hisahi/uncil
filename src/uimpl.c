@@ -1337,19 +1337,23 @@ int unc_iscallable(Unc_View *w, Unc_Value *v) {
     case Unc_TObject:
     case Unc_TOpaque:
     {
-        Unc_Value *o;
-        int e;
+        Unc_Value o = UNC_BLANK;
+        int e, f;
 unc_iscallable_again:
-        e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(call)), &o);
-        if (e) return e;
-        if (o) {
-            switch (o->type) {
+        e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(call)), &f, &o);
+        if (e) {
+            VSETNULL(w, &o);
+            return e;
+        }
+        if (f) {
+            switch (o.type) {
             case Unc_TFunction:
             case Unc_TBoundFunction:
+                VSETNULL(w, &o);
                 return 1;
             case Unc_TObject:
             case Unc_TOpaque:
-                v = o;
+                v = &o;
                 goto unc_iscallable_again;
             default:
                 ;

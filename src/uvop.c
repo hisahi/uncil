@@ -154,12 +154,12 @@ int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
                                     int q, Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TTable: {
-        Unc_Value *r;
-        int e;
-        e = unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(a)), sl, sb, &r);
+        Unc_Value r = UNC_BLANK;
+        int e, f;
+        e = unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(a)), sl, sb, &f, &r);
         if (e) return e;
-        if (r)
-            VCOPY(w, v, r);
+        if (f)
+            VMOVE(w, v, &r);
         else {
             if (q)
                 VSETNULL(w, v);
@@ -169,12 +169,12 @@ int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
         return 0;
     }
     case Unc_TObject: {
-        Unc_Value *r;
-        int e;
-        e = unc0_ogetattrs(w, LEFTOVER(Unc_Object, VGETENT(a)), sl, sb, &r);
+        Unc_Value r = UNC_BLANK;
+        int e, f;
+        e = unc0_ogetattrs(w, LEFTOVER(Unc_Object, VGETENT(a)), sl, sb, &f, &r);
         if (e) return e;
-        if (r)
-            VCOPY(w, v, r);
+        if (f)
+            VMOVE(w, v, &r);
         else {
             if (q)
                 VSETNULL(w, v);
@@ -187,13 +187,13 @@ int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
     {
         Unc_Opaque *oq = LEFTOVER(Unc_Opaque, VGETENT(a));
         if (VGETTYPE(&oq->prototype)) {
-            int e;
-            Unc_Value *o;
-            e = unc0_getprotomethod(w, a, sl, sb, &o);
+            Unc_Value o = UNC_BLANK;
+            int e, f;
+            e = unc0_getprotomethod(w, a, sl, sb, &f, &o);
             if (e)
                 return e;
-            else if (o)
-                VCOPY(w, v, o);
+            else if (f)
+                VMOVE(w, v, &o);
             else {
                 if (q)
                     VSETNULL(w, v);
@@ -240,12 +240,12 @@ int unc0_vgetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
                    Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TTable: {
-        Unc_Value *r;
-        int e;
-        e = unc0_dgetattrv(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, &r);
+        Unc_Value r = UNC_BLANK;
+        int e, f;
+        e = unc0_dgetattrv(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, &f, &r);
         if (e) return e;
-        if (r)
-            VCOPY(w, v, r);
+        if (f)
+            VMOVE(w, v, &r);
         else {
             if (q)
                 VSETNULL(w, v);
@@ -255,12 +255,12 @@ int unc0_vgetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
         return 0;
     }
     case Unc_TObject: {
-        Unc_Value *r;
-        int e;
-        e = unc0_ogetattrv(w, LEFTOVER(Unc_Object, VGETENT(a)), i, &r);
+        Unc_Value r = UNC_BLANK;
+        int e, f;
+        e = unc0_ogetattrv(w, LEFTOVER(Unc_Object, VGETENT(a)), i, &f, &r);
         if (e) return e;
-        if (r)
-            VCOPY(w, v, r);
+        if (f)
+            VMOVE(w, v, &r);
         else {
             if (q)
                 VSETNULL(w, v);
@@ -307,12 +307,12 @@ int unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
     case Unc_TArray:
         return unc0_agetindx(w, LEFTOVER(Unc_Array, VGETENT(a)), i, q, v);
     case Unc_TTable: {
-        Unc_Value *r;
-        int e;
-        e = unc0_dgetindx(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, &r);
+        Unc_Value r = UNC_BLANK;
+        int e, f;
+        e = unc0_dgetindx(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, &f, &r);
         if (e) return e;
-        if (r)
-            VCOPY(w, v, r);
+        if (f)
+            VMOVE(w, v, &r);
         else {
             if (q)
                 VSETNULL(w, v);
@@ -322,12 +322,12 @@ int unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
         return 0;
     }
     case Unc_TObject: {
-        Unc_Value *r;
-        int e;
-        e = unc0_ogetindx(w, LEFTOVER(Unc_Object, VGETENT(a)), i, &r);
+        Unc_Value r = UNC_BLANK;
+        int e, f;
+        e = unc0_ogetindx(w, LEFTOVER(Unc_Object, VGETENT(a)), i, &f, &r);
         if (e) return e;
-        if (r)
-            VCOPY(w, v, r);
+        if (f)
+            VMOVE(w, v, &r);
         else {
             if (q)
                 VSETNULL(w, v);
@@ -646,27 +646,30 @@ int unc0_vcvt2flt(Unc_View *w, Unc_Value *out, Unc_Value *in) {
 
 int unc0_vovlunary(Unc_View *w, Unc_Value *in,
                         Unc_Value *out, Unc_Size bn, const byte *bb) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_getprotomethod(w, in, bn, bb, &fn);
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_getprotomethod(w, in, bn, bb, &fnf, &fn);
     if (e) return e;
-    if (fn) {
+    if (fnf) {
         Unc_Size d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         if ((e = unc0_stackpush(w, &w->sval, 1, in))) {
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         w->region.base[ret.r] -= 1;
-        e = unc0_fcallv(w, fn, 1, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 1, 1, 1, 1, 0);
         if (!e)
             e = unc0_run(w);
         else if (!UNCIL_IS_ERR(e))
             e = 0;
         if (e) {
+            VDECREF(w, &fn);
             return e;
         } else {
             Unc_Tuple tuple;
@@ -674,9 +677,11 @@ int unc0_vovlunary(Unc_View *w, Unc_Value *in,
             if (tuple.count == 1) {
                 VIMPOSE(w, out, &tuple.values[0]);
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return 1;
             } else if (tuple.count > 1) {
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return UNCIL_ERR_LOGIC_OVLTOOMANY;
             }
         }
@@ -688,31 +693,35 @@ int unc0_vovlunary(Unc_View *w, Unc_Value *in,
 int unc0_vovlbinary(Unc_View *w, Unc_Value *a, Unc_Value *b,
                         Unc_Value *out, Unc_Size bn, const byte *bb,
                                         Unc_Size b2n, const byte *b2b) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_getprotomethod(w, a, bn, bb, &fn);
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_getprotomethod(w, a, bn, bb, &fnf, &fn);
     if (e) return e;
-    if (fn) {
+    if (fnf) {
         Unc_Size d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         if ((e = unc0_stackpush(w, &w->sval, 1, a))) {
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc0_stackpush(w, &w->sval, 1, b))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         w->region.base[ret.r] -= 2;
-        e = unc0_fcallv(w, fn, 2, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 2, 1, 1, 1, 0);
         if (!e)
             e = unc0_run(w);
         else if (!UNCIL_IS_ERR(e))
             e = 0;
         if (e) {
+            VDECREF(w, &fn);
             return e;
         } else {
             Unc_Tuple tuple;
@@ -720,37 +729,44 @@ int unc0_vovlbinary(Unc_View *w, Unc_Value *a, Unc_Value *b,
             if (tuple.count == 1) {
                 VIMPOSE(w, out, &tuple.values[0]);
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return 1;
             } else if (tuple.count > 1) {
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return UNCIL_ERR_LOGIC_OVLTOOMANY;
             }
         }
         unc_discard(w, &ret);
     }
-    e = unc0_getprotomethod(w, b, b2n, b2b, &fn);
+    VSETNULL(w, &fn);
+    e = unc0_getprotomethod(w, b, b2n, b2b, &fnf, &fn);
     if (e) return e;
-    if (fn) {
+    if (fnf) {
         Unc_Size d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         if ((e = unc0_stackpush(w, &w->sval, 1, a))) {
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc0_stackpush(w, &w->sval, 1, b))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         w->region.base[ret.r] -= 2;
-        e = unc0_fcallv(w, fn, 2, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 2, 1, 1, 1, 0);
         if (!e)
             e = unc0_run(w);
         else if (!UNCIL_IS_ERR(e))
             e = 0;
         if (e) {
+            VDECREF(w, &fn);
             return e;
         } else {
             Unc_Tuple tuple;
@@ -758,9 +774,11 @@ int unc0_vovlbinary(Unc_View *w, Unc_Value *a, Unc_Value *b,
             if (tuple.count == 1) {
                 VIMPOSE(w, out, &tuple.values[0]);
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return 1;
             } else if (tuple.count > 1) {
                 unc_discard(w, &ret);
+                VDECREF(w, &fn);
                 return UNCIL_ERR_LOGIC_OVLTOOMANY;
             }
         }
@@ -770,28 +788,32 @@ int unc0_vovlbinary(Unc_View *w, Unc_Value *a, Unc_Value *b,
 }
 
 int unc0_vdowith(Unc_View *w, Unc_Value *v) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(open)), &fn);
-    if (!e && fn) {
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(open)), &fnf, &fn);
+    if (!e && fnf) {
         Unc_Size d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         Unc_Value ex;
-        if ((e = unc0_stackpush(w, &w->sval, 1, v)))
+        if ((e = unc0_stackpush(w, &w->sval, 1, v))) {
+            VDECREF(w, &fn);
             return e;
+        }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return e;
         }
         w->region.base[ret.r] -= 1;
         VIMPOSE(w, &ex, &w->exc);
-        e = unc0_fcallv(w, fn, 1, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 1, 1, 1, 1, 0);
         if (!e) {
             unc0_run(w);
             unc_discard(w, &ret);
         }
         VDECREF(w, &w->exc);
         w->exc = ex;
+        VDECREF(w, &fn);
         if (UNCIL_IS_ERR(e))
             return e;
     }
@@ -799,27 +821,31 @@ int unc0_vdowith(Unc_View *w, Unc_Value *v) {
 }
 
 void unc0_vdowout(Unc_View *w, Unc_Value *v) {
-    int e;
-    Unc_Value *fn;
-    e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(close)), &fn);
-    if (!e && fn) {
+    int e, fnf;
+    Unc_Value fn = UNC_BLANK;
+    e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(close)), &fnf, &fn);
+    if (!e && fnf) {
         Unc_Size d = unc0_stackdepth(&w->sval);
         Unc_Pile ret;
         Unc_Value ex;
-        if ((e = unc0_stackpush(w, &w->sval, 1, v)))
+        if ((e = unc0_stackpush(w, &w->sval, 1, v))) {
+            VDECREF(w, &fn);
             return;
+        }
         if ((e = unc_newpile(w, &ret))) {
             unc0_restoredepth(w, &w->sval, d);
+            VDECREF(w, &fn);
             return;
         }
         w->region.base[ret.r] -= 1;
         VIMPOSE(w, &ex, &w->exc);
-        e = unc0_fcallv(w, fn, 1, 1, 1, 1, 0);
+        e = unc0_fcallv(w, &fn, 1, 1, 1, 1, 0);
         if (!e) {
             unc0_run(w);
             unc_discard(w, &ret);
         }
         VDECREF(w, &w->exc);
         w->exc = ex;
+        VDECREF(w, &fn);
     }
 }
