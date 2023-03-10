@@ -2,7 +2,7 @@
  
 Uncil -- builtin convert library impl
 
-Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2023 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1554,7 +1554,7 @@ static int encodeb64digit(int b, const char *extra) {
     else if (b < 52)
         return 'a' + b - 26;
     else if (b < 62)
-        return '0' + b - 62;
+        return '0' + b - 52;
     else
         return extra[b - 62];
 }
@@ -1681,13 +1681,23 @@ Unc_RetVal unc0_lib_convert_decodeb64(Unc_View *w, Unc_Tuple args,
         tmp = (tmp << 6) | q;
         bits += 6;
         if (bits >= 8) {
-            bits -= 8;
-            *sp++ = tmp >> bits;
+            unsigned lowbit = bits - 8;
+            *sp++ = tmp >> lowbit;
+            tmp &= (1 << lowbit) - 1;
+            bits = lowbit;
         }
     }
 
-    while (bn && *b == '=')
-        ++b, --bn;
+    if (!bits && bn && *b == '=')
+        goto invalid_padding; /* always invalid */
+    while (bn && *b == '=' && bits <= 24)
+        ++b, --bn, bits += 6;
+    if (bits > 24 || (bits & 7)) {
+invalid_padding:
+        unc_mfree(w, s);
+        unc_unlock(w, &args.values[0]);
+        return unc_throwexc(w, "value", "invalid padding");
+    }
 
     unc_unlock(w, &args.values[0]);
     s = unc_mrealloc(w, s, sp - s);
@@ -1838,7 +1848,7 @@ Unc_RetVal uncilmain_convert(struct Unc_View *w) {
     if (e) return e;
     e = unc_exportcfunction(w, "decodeb64", &unc0_lib_convert_decodeb64,
                             UNC_CFUNC_CONCURRENT,
-                            1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
+                            1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
     e = unc_exportcfunction(w, "encodetext", &unc0_lib_convert_encodetext,
                             UNC_CFUNC_CONCURRENT,

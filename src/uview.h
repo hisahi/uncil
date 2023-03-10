@@ -2,7 +2,7 @@
  
 Uncil -- view header
 
-Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2023 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -2,7 +2,7 @@
  
 Uncil -- module system impl
 
-Copyright (c) 2021-2022 Sampo Hippeläinen (hisahi)
+Copyright (c) 2021-2023 Sampo Hippeläinen (hisahi)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -315,10 +315,7 @@ static int unc0_dorequire_unc(Unc_View *w, Unc_Size name_n, const char *name,
         int e;
 
         e = unc0_reqstorestate(w, &sav);
-        if (e) {
-            fclose(f);
-            return e;
-        }
+        if (e) return e;
         w->program = NULL;
         w->import = 1;
         w->fmain.type = Unc_TNull;
