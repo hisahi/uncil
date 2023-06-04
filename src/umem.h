@@ -49,7 +49,7 @@ typedef struct Unc_Allocator {
 #include <mimalloc-override.h>
 #endif
 
-#define UNCIL_MEMOP_INLINE !UNCIL_NOLIBC
+#define UNCIL_MEMOP_INLINE 0
 
 Unc_RetVal unc0_initalloc(Unc_Allocator *alloc, struct Unc_World *w,
                           Unc_Alloc fn, void *data);

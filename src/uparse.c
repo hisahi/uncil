@@ -2517,7 +2517,7 @@ eatelseif:
             return UNCIL_ERR(SYNTAX);
     case ULT_Kend:
         if (!had_else && expr)
-            return UNCIL_ERR(SYNTAX_INLINEIFMUSTELSE);
+            return UNCIL_ERR(SYNTAX_INLINEIFNOELSE);
         consume(c);
 exit_if:
         SETLABEL(c, jelse);
@@ -2701,7 +2701,7 @@ static Unc_RetVal eatforblk(Unc_ParserContext *c, int expr) {
                     return UNCIL_ERR(SYNTAX);
                 if (peek(c) == ULT_SEllipsis) {
                     if (nowellipsis)
-                        return UNCIL_ERR(SYNTAX_ONLYONEELLIPSIS);
+                        return UNCIL_ERR(SYNTAX_MANYELLIPSES);
                     nowellipsis = 1;
                     consume(c);
                 }
@@ -3191,7 +3191,7 @@ static Unc_RetVal eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save,
     /* get actual number of values to read */
     for (;;) {
         if (peek(c) == ULT_SEllipsis) /* not ok with compound assignment */
-            return UNCIL_ERR(SYNTAX_ELLIPSISCOMPOUND);
+            return UNCIL_ERR(SYNTAX_COMPOUNDELLIP);
         else
             MUST(eatatomw(c, &shell)); /* ghosted */
         ++pushed;
@@ -3414,7 +3414,7 @@ static Unc_RetVal eateqlist(Unc_ParserContext *c) {
         for (;;) {
             if (peek(c) == ULT_SEllipsis) { /* ghosted */
                 if (ellipsis)
-                    return UNCIL_ERR(SYNTAX_ONLYONEELLIPSIS);
+                    return UNCIL_ERR(SYNTAX_MANYELLIPSES);
                 consume(c);
                 if (peek(c) != ULT_I && peek(c) != ULT_SComma
                                      && peek(c) != ULT_OSet)
@@ -3514,7 +3514,7 @@ static Unc_RetVal eateqlist(Unc_ParserContext *c) {
                     if (consume(c) != ULT_SComma) return UNCIL_ERR(SYNTAX);
                 if (peek(c) == ULT_SEllipsis) {
                     if (ellipsis)
-                        return UNCIL_ERR(SYNTAX_ONLYONEELLIPSIS);
+                        return UNCIL_ERR(SYNTAX_MANYELLIPSES);
                     ellipsis = 1;
                     consume(c);
                     if (peek(c) != ULT_I && peek(c) != ULT_SComma
@@ -3634,7 +3634,7 @@ static Unc_RetVal eatpublist(Unc_ParserContext *c) {
             case UNC_QOPER_TYPE_BINDABLE:
                 break;
             default:
-                return UNCIL_ERR(SYNTAX_CANNOTPUBLICLOCAL);
+                return UNCIL_ERR(SYNTAX_PUBLICONLOCAL);
             }
         }
         if (ok) {
@@ -4097,7 +4097,7 @@ static Unc_RetVal eatfunc(Unc_ParserContext *c, int ftype) {
                         if (peek(c) == ULT_SComma)
                             return UNCIL_ERR(SYNTAX_UNPACKLAST);
                         else if (peek(c) == ULT_OSet)
-                            return UNCIL_ERR(SYNTAX_NODEFAULTUNPACK);
+                            return UNCIL_ERR(SYNTAX_UNPACKDEFAULT);
                         else if (peek(c) != ULT_SParenR)
                             return UNCIL_ERR(SYNTAX);
                         break;

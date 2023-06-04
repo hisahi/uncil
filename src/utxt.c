@@ -392,12 +392,12 @@ int unc0_cconv_latin1_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-#define ADD_ENC(name, fnenc, fndec)                                            \
+#define ADD_ENC(ename, fnenc, fndec)                                           \
     t->data[ctr].enc = &fnenc;                                                 \
     t->data[ctr].dec = &fndec;                                                 \
-    t->data[ctr].name_n = sizeof(name) - 1;                                    \
-    t->data[ctr].name = name;                                                  \
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL(name)))) return e
+    t->data[ctr].name_n = sizeof(ename) - 1;                                   \
+    t->data[ctr].name = ename;                                                 \
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL(ename)))) return e
 
 Unc_RetVal unc0_adddefaultencs(Unc_View *w, Unc_EncodingTable *t) {
     Unc_RetVal e = 0;
