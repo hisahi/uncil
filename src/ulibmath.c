@@ -125,7 +125,7 @@ static Unc_Float unc0_math_atanh(Unc_Float x) {
 }
 
 static Unc_Float unc0_math_log2(Unc_Float x) {
-    return UNC_FLOAT_FUNC(log)(x) * UNC_FLOAT_FUNC(log)(2);
+    return UNC_FLOAT_FUNC(log)(x) / UNC_FLOAT_FUNC(log)(2);
 }
 #endif
 
