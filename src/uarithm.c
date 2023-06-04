@@ -24,17 +24,20 @@ SOFTWARE.
 
 *******************************************************************************/
 
+#include <float.h>
 #include <limits.h>
+
+#define UNCIL_DEFINES
+
+#include "uarithm.h"
+#include "udef.h"
+#include "uerr.h"
+
 #if UNCIL_C99
 #include <tgmath.h>
 #else
 #include <math.h>
 #endif
-
-#define UNCIL_DEFINES
-
-#include "uarithm.h"
-#include "uerr.h"
 
 /* figure out how many bits we can shift by, since shifting too much
    leads to UB in C */
@@ -43,9 +46,9 @@ SOFTWARE.
 #define INIT_BIT_WIDTH()
 #else
 #define BIT_WIDTH bitWidth
-#define INIT_BIT_WIDTH() if (!bitWidth) bitWidth = initBitWidth()
+#define INIT_BIT_WIDTH() if (!bitWidth) bitWidth = unc0_init_bitwidth()
 /* sizeof(Unc_UInt) * CHAR_BIT means type is 32 bits wide, and since
-   UNC_UINT_MAX >= 2^32-1 (because it's unsigned long (long), this will work) */
+   UNC_UINT_MAX >= 2^32-1 (this works because it's unsigned long (long)) */
 #define FULL_BITS (sizeof(Unc_UInt) * CHAR_BIT)
 #ifndef UINT32_MAX
 #define UINT32_MAX 4294967295
@@ -55,7 +58,7 @@ static int bitWidth = 0;
 /* maximum shift count */
 
 /* count number of bits in int type */
-static int initBitWidth(void) {
+static int unc0_init_bitwidth(void) {
     Unc_UInt i = (Unc_UInt)UNC_UINT_MAX;
     int s = 0;
     while (i)
@@ -65,7 +68,7 @@ static int initBitWidth(void) {
 
 #endif
 
-Unc_Int unc0_shiftl(Unc_Int a, Unc_Int b) {
+Unc_Int unc0_shiftl2(Unc_Int a, Unc_UInt b) {
     INIT_BIT_WIDTH();
     if (b >= BIT_WIDTH)
         return 0; /* too much shifting, stop here */
@@ -73,16 +76,30 @@ Unc_Int unc0_shiftl(Unc_Int a, Unc_Int b) {
         return a << b;
 }
 
-Unc_Int unc0_shiftr(Unc_Int a, Unc_Int b) {
+Unc_Int unc0_shiftr2(Unc_Int a, Unc_UInt b) {
     /* check if our right shift is already arithmetic */
-    static const int asr = (-9) >> 1 == -5;
+    CONSTEXPR int asr = (-9) >> 1 == -5;
     INIT_BIT_WIDTH();
     if (b >= BIT_WIDTH)
         return a < 0 ? -1 : 0; /* too much shifting, stop here */
     else if (asr || a >= 0)
         return a >> b;
     else /* define right shift on negative numbers (arithmetic) */
-        return (a >> b) | (~0 << (BIT_WIDTH - b));
+        return (a >> b) | (~((Unc_UInt)0) << (BIT_WIDTH - b));
+}
+
+Unc_Int unc0_shiftl(Unc_Int a, Unc_Int b) {
+    if (b < 0)
+        return unc0_shiftr2(a, (Unc_UInt)-b);
+    else
+        return unc0_shiftl2(a, b);
+}
+
+Unc_Int unc0_shiftr(Unc_Int a, Unc_Int b) {
+    if (b < 0)
+        return unc0_shiftl2(a, (Unc_UInt)-b);
+    else
+        return unc0_shiftr2(a, b);
 }
 
 /* can -a be represented correctly (a + (-a) = 0
@@ -150,6 +167,34 @@ Unc_Int unc0_imod(Unc_Int a, Unc_Int b) {
     return (a % b + b) % b;
 }
 
+Unc_Float unc0_adjexp10(Unc_Float x, long p) {
+#if UNCIL_C99
+    return x * powl(10.L, p);
+#else
+    return x * pow(10., p);
+#endif
+}
+
+Unc_Float unc0_fnan(void) {
+#if UNCIL_C99
+    return NAN;
+#elif UNCIL_IEEE754
+    return (Unc_Float)0.0 / (Unc_Float)0.0;
+#else
+    return HUGE_VAL - HUGE_VAL + HUGE_VAl;
+#endif
+}
+
+Unc_Float unc0_finfty(void) {
+#if UNCIL_C99
+    return INFINITY;
+#elif UNCIL_IEEE754
+    return (Unc_Float)1.0 / (Unc_Float)0.0;
+#else
+    return HUGE_VAL;
+#endif
+}
+
 /* floored integer division */
 Unc_Float unc0_fidiv(Unc_Float a, Unc_Float b) {
     return floor(a / b);
@@ -165,14 +210,6 @@ Unc_Float unc0_ffrac(Unc_Float x) {
     return x - floor(x);
 }
 
-Unc_Float unc0_adjexp10(Unc_Float x, long p) {
-#if UNCIL_C99
-    return x * powl(10.L, p);
-#else
-    return x * pow(10., p);
-#endif
-}
-
 int unc0_fisfinite(Unc_Float x) {
 #if UNCIL_C99
     return isfinite(x);
@@ -182,22 +219,30 @@ int unc0_fisfinite(Unc_Float x) {
 #endif
 }
 
-Unc_Float unc0_fnan(void) {
-#if UNCIL_C99
-    return NAN;
-#elif __STDC_IEC_559__
-    return (Unc_Float)0.0 / (Unc_Float)0.0;
+Unc_FloatMax unc0_mfrexp(Unc_FloatMax num, int *exp) {
+    return frexp(num, exp);
+}
+
+Unc_FloatMax unc0_mldexp(Unc_FloatMax num, int exp) {
+    return ldexp(num, exp);
+}
+
+Unc_FloatMax unc0_mpow10(Unc_Int exp) {
+    return pow((Unc_FloatMax)10, exp);
+}
+
+Unc_FloatMax unc0_mpow10n(Unc_Int exp) {
+    return pow((Unc_FloatMax)10, -exp);
+}
+
+Unc_FloatMax unc0_mmodf(Unc_FloatMax num, Unc_FloatMax *iptr) {
+#if UNC_FLOATMAX_LONG
+    return modfl(num, iptr);
 #else
-    return HUGE_VAL - HUGE_VAL + HUGE_VAl;
+    return modf(num, iptr);
 #endif
 }
 
-Unc_Float unc0_finfty(void) {
-#if UNCIL_C99
-    return INFINITY;
-#elif __STDC_IEC_559__
-    return (Unc_Float)1.0 / (Unc_Float)0.0;
-#else
-    return HUGE_VAL;
-#endif
+intmax_t unc0_malog10f(Unc_Float num) {
+    return (intmax_t)floor(log10(fabs(num)));
 }

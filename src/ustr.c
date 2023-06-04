@@ -24,8 +24,6 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <string.h>
-
 #define UNCIL_DEFINES
 
 #include "uerr.h"
@@ -34,7 +32,7 @@ SOFTWARE.
 #include "uutf.h"
 
 /* create empty string */
-int unc0_initstringempty(Unc_Allocator *alloc, Unc_String *s) {
+Unc_RetVal unc0_initstringempty(Unc_Allocator *alloc, Unc_String *s) {
     (void)alloc;
     s->size = 0;
     s->flags = 0;
@@ -42,7 +40,7 @@ int unc0_initstringempty(Unc_Allocator *alloc, Unc_String *s) {
 }
 
 /* create string by copying n bytes from b (no validity check!) */
-int unc0_initstring(Unc_Allocator *alloc, Unc_String *s,
+Unc_RetVal unc0_initstring(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size n, const byte *b) {
     if (n > UNC_INT_MAX) return UNCIL_ERR_ARG_STRINGTOOLONG;
     if ((s->size = n) >= UNC_STRING_SHORT) {
@@ -60,13 +58,14 @@ int unc0_initstring(Unc_Allocator *alloc, Unc_String *s,
 }
 
 /* create string by copying a C string (no validity check!) */
-int unc0_initstringc(Unc_Allocator *alloc, Unc_String *s, const char *b) {
-    return unc0_initstring(alloc, s, strlen(b), (const byte *)b);
+Unc_RetVal unc0_initstringc(Unc_Allocator *alloc,
+                            Unc_String *s, const char *b) {
+    return unc0_initstring(alloc, s, unc0_strlen(b), (const byte *)b);
 }
 
 /* create string with external buffer that is not owned by us */
 /* b must be null-terminated */
-static int unc0_initstringnotowned(Unc_Allocator *alloc, Unc_String *s,
+static Unc_RetVal unc0_initstringnotowned(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size n, const byte *b) {
     if (n > UNC_INT_MAX) return UNCIL_ERR_ARG_STRINGTOOLONG;
     if ((s->size = n) >= UNC_STRING_SHORT) {
@@ -81,13 +80,14 @@ static int unc0_initstringnotowned(Unc_Allocator *alloc, Unc_String *s,
 }
 
 /* create string mirroring an external C string (no validity check!) */
-int unc0_initstringcl(Unc_Allocator *alloc, Unc_String *s, const char *b) {
-    return unc0_initstringnotowned(alloc, s, strlen(b), (const byte *)b);
+Unc_RetVal unc0_initstringcl(Unc_Allocator *alloc,
+                             Unc_String *s, const char *b) {
+    return unc0_initstringnotowned(alloc, s, unc0_strlen(b), (const byte *)b);
 }
 
 /* create string by usurping b */
-int unc0_initstringmove(Unc_Allocator *alloc, Unc_String *s,
-                        Unc_Size n, byte *b) {
+Unc_RetVal unc0_initstringmove(Unc_Allocator *alloc, Unc_String *s,
+                               Unc_Size n, byte *b) {
     if (n > UNC_INT_MAX) return UNCIL_ERR_ARG_STRINGTOOLONG;
     if ((s->size = n) >= UNC_STRING_SHORT) {
         s->d.b.data.c = b;
@@ -101,9 +101,9 @@ int unc0_initstringmove(Unc_Allocator *alloc, Unc_String *s,
 }
 
 /* create string by concatenating a and b (byte blocks) */
-int unc0_initstringfromcat(Unc_Allocator *alloc, Unc_String *s,
-                        Unc_Size an, const byte *a,
-                        Unc_Size bn, const byte *b) {
+Unc_RetVal unc0_initstringfromcat(Unc_Allocator *alloc, Unc_String *s,
+                                  Unc_Size an, const byte *a,
+                                  Unc_Size bn, const byte *b) {
     Unc_Size n = an + bn;
     if (n > UNC_INT_MAX) return UNCIL_ERR_ARG_STRINGTOOLONG;
     if ((s->size = n) >= UNC_STRING_SHORT) {
@@ -123,21 +123,21 @@ int unc0_initstringfromcat(Unc_Allocator *alloc, Unc_String *s,
 }
 
 /* create string by concatenating a (Uncil string) and b */
-int unc0_initstringfromcatl(Unc_Allocator *alloc, Unc_String *s,
+Unc_RetVal unc0_initstringfromcatl(Unc_Allocator *alloc, Unc_String *s,
                         const Unc_String *a, Unc_Size n, const byte *b) {
     return unc0_initstringfromcat(alloc, s, a->size, unc0_getstringdata(a),
                                             n, b);
 }
 
 /* create string by concatenating a and b (Uncil string) */
-int unc0_initstringfromcatr(Unc_Allocator *alloc, Unc_String *s,
+Unc_RetVal unc0_initstringfromcatr(Unc_Allocator *alloc, Unc_String *s,
                         Unc_Size n, const byte *a, const Unc_String *b) {
     return unc0_initstringfromcat(alloc, s, n, a,
                                             b->size, unc0_getstringdata(b));
 }
 
 /* create string by concatenating a and b (Uncil strings) */
-int unc0_initstringfromcatlr(Unc_Allocator *alloc, Unc_String *s,
+Unc_RetVal unc0_initstringfromcatlr(Unc_Allocator *alloc, Unc_String *s,
                         const Unc_String *a, const Unc_String *b) {
     return unc0_initstringfromcat(alloc, s, a->size, unc0_getstringdata(a),
                                             b->size, unc0_getstringdata(b));
@@ -189,10 +189,10 @@ int unc0_cmpstr(Unc_String *a, Unc_String *b) {
 }
 
 /* string code point index getter */
-int unc0_sgetcodepat(Unc_View *w, Unc_String *s, Unc_Value *indx,
+Unc_RetVal unc0_sgetcodepat(Unc_View *w, Unc_String *s, Unc_Value *indx,
                                  int permissive, Unc_Value *out) {
     Unc_Int i;
-    int e = unc0_vgetint(w, indx, &i);
+    Unc_RetVal e = unc0_vgetint(w, indx, &i);
     const byte *s0, *s1;
     Unc_Size n = UNC_UTF8_MAX_SIZE;
     if (e) {
@@ -227,10 +227,11 @@ int unc0_sgetcodepat(Unc_View *w, Unc_String *s, Unc_Value *indx,
     return unc_newstring(w, out, s1 - s0, (const char *)s0);
 }
 
+#if 0
 /* modifies existing string! make sure the string you modify only has
    one reference, as strings should be immutable! */
-int unc0_strmcat(Unc_Allocator *alloc, Unc_String *s,
-                 Unc_Size bn, const byte *b) {
+Unc_RetVal unc0_strmcat(Unc_Allocator *alloc, Unc_String *s,
+                        Unc_Size bn, const byte *b) {
     byte *p;
     Unc_Size n = s->size;
     ASSERT(n > UNC_STRING_SHORT);
@@ -243,3 +244,5 @@ int unc0_strmcat(Unc_Allocator *alloc, Unc_String *s,
     p[n + bn] = 0;
     return 0;
 }
+#endif
+

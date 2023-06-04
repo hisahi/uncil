@@ -47,49 +47,55 @@ typedef struct Unc_Object {
 
 struct Unc_View;
 
-int unc0_initdict(struct Unc_View *w, Unc_Dict *o);
-int unc0_initobj(struct Unc_View *w, Unc_Object *o, Unc_Value *proto);
+Unc_RetVal unc0_initdict(struct Unc_View *w, Unc_Dict *o);
+Unc_RetVal unc0_initobj(struct Unc_View *w, Unc_Object *o, Unc_Value *proto);
 
-int unc0_dgetattrv(struct Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, int *found, Unc_Value *out);
-int unc0_dgetattrs(struct Unc_View *w, Unc_Dict *o,
-                   Unc_Size n, const byte *b, int *found, Unc_Value *out);
-int unc0_dsetattrv(struct Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, Unc_Value *v);
-int unc0_dsetattrs(struct Unc_View *w, Unc_Dict *o,
-                   Unc_Size n, const byte *b, Unc_Value *v);
-int unc0_ddelattrv(struct Unc_View *w, Unc_Dict *o, Unc_Value *attr);
-int unc0_ddelattrs(struct Unc_View *w, Unc_Dict *o, Unc_Size n, const byte *b);
-int unc0_dgetindx(struct Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, int *found, Unc_Value *out);
-int unc0_dsetindx(struct Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, Unc_Value *v);
-int unc0_ddelindx(struct Unc_View *w, Unc_Dict *o, Unc_Value *attr);
+Unc_RetVal unc0_dgetattrv(struct Unc_View *w, Unc_Dict *o,
+                          Unc_Value *attr, int *found, Unc_Value *out);
+Unc_RetVal unc0_dgetattrs(struct Unc_View *w, Unc_Dict *o,
+                          Unc_Size n, const byte *b,
+                          int *found, Unc_Value *out);
+Unc_RetVal unc0_dsetattrv(struct Unc_View *w, Unc_Dict *o,
+                          Unc_Value *attr, Unc_Value *v);
+Unc_RetVal unc0_dsetattrs(struct Unc_View *w, Unc_Dict *o,
+                          Unc_Size n, const byte *b, Unc_Value *v);
+Unc_RetVal unc0_ddelattrv(struct Unc_View *w, Unc_Dict *o, Unc_Value *attr);
+Unc_RetVal unc0_ddelattrs(struct Unc_View *w, Unc_Dict *o,
+                          Unc_Size n, const byte *b);
+Unc_RetVal unc0_dgetindx(struct Unc_View *w, Unc_Dict *o,
+                         Unc_Value *attr, int *found, Unc_Value *out);
+Unc_RetVal unc0_dsetindx(struct Unc_View *w, Unc_Dict *o,
+                         Unc_Value *attr, Unc_Value *v);
+Unc_RetVal unc0_ddelindx(struct Unc_View *w, Unc_Dict *o, Unc_Value *attr);
+Unc_Size unc0_dgetsize(Unc_View *w, Unc_Dict *o);
 
-int unc0_ogetattrv(struct Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, int *found, Unc_Value *out);
-int unc0_ogetattrs(struct Unc_View *w, Unc_Object *o,
-                   Unc_Size n, const byte *b, int *found, Unc_Value *out);
-int unc0_ogetattrc(struct Unc_View *w, Unc_Object *o,
-                   const byte *s, int *found, Unc_Value *out);
-int unc0_osetattrv(struct Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value *v);
-int unc0_osetattrs(struct Unc_View *w, Unc_Object *o,
-                   Unc_Size n, const byte *b, Unc_Value *v);
-int unc0_odelattrv(struct Unc_View *w, Unc_Object *o, Unc_Value *attr);
-int unc0_odelattrs(struct Unc_View *w, Unc_Object *o, Unc_Size n, const byte *b);
-int unc0_ogetindx(struct Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, int *found, Unc_Value *out);
-int unc0_osetindx(struct Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value *v);
-int unc0_osetindxraw(struct Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value *v);
-int unc0_odelindx(struct Unc_View *w, Unc_Object *o, Unc_Value *attr);
+Unc_RetVal unc0_ogetattrv(struct Unc_View *w, Unc_Object *o,
+                          Unc_Value *attr, int *found, Unc_Value *out);
+Unc_RetVal unc0_ogetattrs(struct Unc_View *w, Unc_Object *o,
+                          Unc_Size n, const byte *b,
+                          int *found, Unc_Value *out);
+Unc_RetVal unc0_ogetattrc(struct Unc_View *w, Unc_Object *o,
+                          const byte *s, int *found, Unc_Value *out);
+Unc_RetVal unc0_osetattrv(struct Unc_View *w, Unc_Object *o,
+                          Unc_Value *attr, Unc_Value *v);
+Unc_RetVal unc0_osetattrs(struct Unc_View *w, Unc_Object *o,
+                          Unc_Size n, const byte *b, Unc_Value *v);
+Unc_RetVal unc0_odelattrv(struct Unc_View *w, Unc_Object *o, Unc_Value *attr);
+Unc_RetVal unc0_odelattrs(struct Unc_View *w, Unc_Object *o,
+                          Unc_Size n, const byte *b);
+Unc_RetVal unc0_ogetindx(struct Unc_View *w, Unc_Object *o,
+                         Unc_Value *attr, int *found, Unc_Value *out);
+Unc_RetVal unc0_osetindx(struct Unc_View *w, Unc_Object *o,
+                         Unc_Value *attr, Unc_Value *v);
+Unc_RetVal unc0_osetindxraw(struct Unc_View *w, Unc_Object *o,
+                            Unc_Value *attr, Unc_Value *v);
+Unc_RetVal unc0_odelindx(struct Unc_View *w, Unc_Object *o, Unc_Value *attr);
 
 void unc0_ofreeze(struct Unc_View *w, Unc_Object *o);
 
-int unc0_getprotomethod(struct Unc_View *w, Unc_Value *v,
-                   Unc_Size n, const byte *b, int *found, Unc_Value *out);
+Unc_RetVal unc0_getprotomethod(struct Unc_View *w, Unc_Value *v,
+                               Unc_Size n, const byte *b,
+                               int *found, Unc_Value *out);
 
 void unc0_dropdict(struct Unc_View *w, Unc_Dict *o);
 void unc0_dropobj(struct Unc_View *w, Unc_Object *o);

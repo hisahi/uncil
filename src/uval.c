@@ -78,9 +78,9 @@ static void unc0_unbind(Unc_Entity *e, Unc_View *w) {
     UNC_LOCKFINAL(r->lock);
 }
 
-int unc0_bind(Unc_Entity *e, Unc_View *w, Unc_Value *v) {
+Unc_RetVal unc0_bind(Unc_Entity *e, Unc_View *w, Unc_Value *v) {
     Unc_ValueRef *r = LEFTOVER(Unc_ValueRef, e);
-    int err = UNC_LOCKINITL(r->lock);
+    Unc_RetVal err = UNC_LOCKINITL(r->lock) ? UNCIL_ERR_MEM : 0;
     if (!err) {
         e->type = Unc_TRef;
         if (v)
@@ -226,17 +226,19 @@ static Unc_Entity *unc0_draft(Unc_View *w, Unc_ValueType type) {
 }
 
 Unc_Entity *unc0_wake(struct Unc_View *w, Unc_ValueType type) {
+#if !DEBUG_NO_SLEEPERS
     Unc_Entity **p = &w->sleepers[0], *e;
     int s = UNC_SLEEPER_VALUES;
     while (--s) {
         e = *p;
         if (e && e->type == type) {
-            e->mark = 0;
             if (UNC_LOCKFP(w, w->world->entity_lock) && !*p) {
                 /* GC happened during a pause */
                 UNC_UNLOCKF(w->world->entity_lock);
                 break;
             }
+            ATOMICLSET(e->refs, 0);
+            e->mark = 0;
             *p = NULL;
             unc0_relink(&w->world->etop, e);
             UNC_UNLOCKF(w->world->entity_lock);
@@ -244,6 +246,7 @@ Unc_Entity *unc0_wake(struct Unc_View *w, Unc_ValueType type) {
         }
         ++p;
     }
+#endif
     return prepent(w, unc0_draft(w, type));
 }
 
@@ -253,6 +256,11 @@ void unc0_wreck(Unc_Entity *e, struct Unc_World *w) {
 }
 
 void unc0_unwake(Unc_Entity *e, struct Unc_View *w) {
+#if DEBUG_NO_SLEEPERS
+    (void)UNC_LOCKFP(w, w->world->entity_lock);
+    unc0_wreck(e, w->world);
+    UNC_UNLOCKF(w->world->entity_lock);
+#else
     int i = w->sleeper_next;
     if (w->sleepers[i]) {
         if (!UNC_LOCKFP(w, w->world->entity_lock) || w->sleepers[i]) {
@@ -265,6 +273,7 @@ void unc0_unwake(Unc_Entity *e, struct Unc_View *w) {
     w->sleepers[i] = e;
     w->sleeper_next = (i + 1) % UNC_SLEEPER_VALUES;
     e->mark = SLEEPING;
+#endif
 }
 
 void unc0_hibernate(Unc_Entity *e, Unc_View *w) {
@@ -306,7 +315,7 @@ const char *unc0_getvaluetypename(Unc_ValueType t) {
     return "";
 }
 
-int unc0_makeweak(Unc_View *w, Unc_Value *from, Unc_Value *to) {
+Unc_RetVal unc0_makeweak(Unc_View *w, Unc_Value *from, Unc_Value *to) {
     if (IS_OF_REFTYPE(from)) {
         Unc_Entity *e = VGETENT(from);
         Unc_Value res;
@@ -346,14 +355,14 @@ void unc0_fetchweak(struct Unc_View *w, Unc_Value *wp, Unc_Value *dst) {
     }
 }
 
-int unc0_vrefnew(Unc_View *w, Unc_Value *v, Unc_ValueType type) {
+Unc_RetVal unc0_vrefnew(Unc_View *w, Unc_Value *v, Unc_ValueType type) {
     Unc_Entity *e = unc0_wake(w, type);
     if (!e) return UNCIL_ERR_MEM;
     VINITENT(v, type, e);
     return 0;
 }
 
-int unc0_hashvalue(Unc_View *w, Unc_Value *v, unsigned *hash) {
+Unc_RetVal unc0_hashvalue(Unc_View *w, Unc_Value *v, unsigned *hash) {
     switch (VGETTYPE(v)) {
     case Unc_TNull:
         *hash = 0;
@@ -471,7 +480,7 @@ int unc0_vcvt2bool(Unc_View *w, Unc_Value *v) {
     }
 }
 
-int unc0_vgetint(Unc_View *w, Unc_Value *v, Unc_Int *out) {
+Unc_RetVal unc0_vgetint(Unc_View *w, Unc_Value *v, Unc_Int *out) {
     switch (VGETTYPE(v)) {
     case Unc_TInt:
         *out = VGETINT(v);
@@ -497,7 +506,7 @@ int unc0_vgetint(Unc_View *w, Unc_Value *v, Unc_Int *out) {
     }
 }
 
-int unc0_vgetfloat(Unc_View *w, Unc_Value *v, Unc_Float *out) {
+Unc_RetVal unc0_vgetfloat(Unc_View *w, Unc_Value *v, Unc_Float *out) {
     switch (VGETTYPE(v)) {
     case Unc_TInt:
         *out = (Unc_Float)VGETINT(v);
@@ -524,3 +533,43 @@ int unc0_vgetfloat(Unc_View *w, Unc_Value *v, Unc_Float *out) {
         return UNCIL_ERR_CONVERT_TOFLOAT;
     }
 }
+
+void unc0_reversevalues(Unc_Value *v, size_t n) {
+    Unc_Value *a = v, *b = v + n - 1;
+    while (a < b) {
+        Unc_Value tmp = *a;
+        *a++ = *b;
+        *b-- = tmp;
+    }
+}
+
+
+Unc_RetVal unc0_verifyopaque(Unc_View *w, Unc_Value *v, Unc_Value *prototype,
+                             Unc_Size *n, void **p, const char *emsg) {
+    Unc_RetVal e = unc_verifyopaque(w, v, prototype, NULL, p);
+    switch (e) {
+    case UNCIL_ERR_ARG_FAILEDVERIFY:
+    case UNCIL_ERR_TYPE_NOTOPAQUE:
+        return unc_throwexc(w, "type", emsg);
+    default:
+        return e;
+    }
+}
+
+#if DEBUGPRINT_REFS
+Unc_AtomicLarge unc0_incref_debug(Unc_Entity *ent) {
+    Unc_AtomicLarge p = ent->refs;
+    Unc_AtomicLarge r = ATOMICLINC(ent->refs);
+    DEBUGPRINT(REFS, ("INCREF %p (%lu => %lu) // ", (void *)ent,
+                        (unsigned long)p, (unsigned long)ent->refs));
+    return r;
+}
+
+Unc_AtomicLarge unc0_decref_debug(Unc_Entity *ent) {
+    Unc_Size p = (Unc_Size)ent->refs;
+    Unc_AtomicLarge r = ATOMICLDEC(ent->refs);
+    DEBUGPRINT(REFS, ("DECREF %p (%lu => %lu) // ", (void *)ent,
+                        (unsigned long)p, (unsigned long)ent->refs));
+    return r;
+}
+#endif

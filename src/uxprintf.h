@@ -27,14 +27,52 @@ SOFTWARE.
 #ifndef UNCIL_UXPRINTF_H
 #define UNCIL_UXPRINTF_H
 
+#include <limits.h>
 #include <stdarg.h>
+#include <stddef.h>
 
-int unc0_vxprintf(int (*out)(char outp, void *udata),
-                 void *udata, const char *format, va_list arg);
-int unc0_xprintf(int (*out)(char outp, void *udata),
-                 void *udata, const char *format, ...);
+#include "udef.h"
 
-int unc0_vxsnprintf(char *out, size_t n, const char *format, va_list arg);
-int unc0_xsnprintf(char *out, size_t n, const char *format, ...);
+#define UNC0_PRINTF_UTF8 1
+#define UNC0_PRINTF_SKIPPOS 2
+
+#define UNC_PRINTF_EOF ((size_t)(-1))
+
+size_t unc0_vxprintf(int (*out)(char outp, void *udata),
+                     void *udata, int gflags, size_t format_n,
+                     const char *format, va_list arg);
+size_t unc0_xprintf(int (*out)(char outp, void *udata),
+                    void *udata, int gflags, size_t format_n,
+                    const char *format, ...);
+
+size_t unc0_vxsnprintf(char *out, size_t n, int gflags,
+                       const char *format, va_list arg);
+size_t unc0_xsnprintf(char *out, size_t n, int gflags,
+                      const char *format, ...);
+
+#define UNC_PRINTFSPEC_NULL  0x00
+#define UNC_PRINTFSPEC_STAR  0x01
+#define UNC_PRINTFSPEC_C     0x02 /* int */
+#define UNC_PRINTFSPEC_S     0x03 /* const char* */
+#define UNC_PRINTFSPEC_P     0x06 /* void* */
+#define UNC_PRINTFSPEC_N     0x07 /* int* */
+#define UNC_PRINTFSPEC_LF    0x08 /* double */
+#define UNC_PRINTFSPEC_LLF   0x09 /* long double */
+#define UNC_PRINTFSPEC_I     0x10 /* signed int */
+#define UNC_PRINTFSPEC_LI    0x11 /* signed long */
+#define UNC_PRINTFSPEC_LLI   0x12 /* signed long long */
+#define UNC_PRINTFSPEC_JI    0x13 /* intmax_t */
+#define UNC_PRINTFSPEC_TI    0x14 /* ptrdiff_t */
+#define UNC_PRINTFSPEC_ZI    0x15 /* size_t */
+#define UNC_PRINTFSPEC_U     0x18 /* unsigned int */
+#define UNC_PRINTFSPEC_LU    0x19 /* unsigned long */
+#define UNC_PRINTFSPEC_LLU   0x1A /* unsigned long long */
+#define UNC_PRINTFSPEC_JU    0x1B /* uintmax_t */
+#define UNC_PRINTFSPEC_TU    0x1C /* ptrdiff_t */
+#define UNC_PRINTFSPEC_ZU    0x1D /* size_t */
+
+#define UNC_PRINTFSPEC_MAX      4
+size_t unc0_printf_specparse(unsigned *output, const char **p_format,
+                             int gflags);
 
 #endif /* UNCIL_UXPRINTF_H */

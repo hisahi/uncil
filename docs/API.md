@@ -46,6 +46,21 @@ typedef struct Unc_Tuple {
   `Unc_Pile` variables. These need not be initialized when passing a pointer
   to `unc_newpile` or `unc_call` (but must be with the former if calling
   `unc_callex`).
+* `Unc_ModuleCFunc` is a struct for some of the parameters of
+  `unc_exportcfunction` for `unc_exportcfunctions`.
+  See `unc_exportcfunctions` for documentation:
+```
+typedef struct Unc_ModuleCFunc {
+    Unc_CFunc func;
+    const char *name;
+    unsigned char argcount;
+    unsigned char optcount;
+    unsigned char ellipsis;
+    int cflags;
+} Unc_ModuleCFunc;
+```
+  * Note the types of `argcount` and `optcount`. `Unc_ModuleCFunc` cannot be
+    used with larger values.
 
 Function pointer types:
 `typedef void *(*Unc_Alloc)(void *udata, Unc_Alloc_Purpose purpose, size_t oldsize, size_t newsize, void *ptr);`
@@ -87,7 +102,8 @@ The following assumptions can be made:
 * `ptr` is not `NULL` if `newsize` is 0.
 
 The allocator is assumed to be thread-safe. If it is not, it should implement
-its own locking system.
+its own locking system. The allocator may not call **any** functions from the
+Uncil API or otherwise undefined behavior will occur.
 
 `typedef Unc_RetVal (*Unc_CFunc)(Unc_View *w, Unc_Tuple args, void *udata);`
 Wraps C functions for calling from Uncil code.
@@ -96,7 +112,7 @@ Wraps C functions for calling from Uncil code.
 * `udata` is the pointer given as `udata` to `unc_newcfunction`
   or `unc_exportcfunction`.
 The value should return an error code (such as those returned by Uncil API
-calls). If everything was successful, return `0`.
+calls). If everything was successful, return `0` (alias: `UNCIL_OK`).
 
 `typedef Unc_RetVal (*Unc_OpaqueDestructor)(Unc_View *w, size_t n, void *data);`
 Called when an opaque object is about to be destroyed. An error may be returned,
@@ -108,6 +124,9 @@ Other types:
   Different worlds are completely separate and they shall not meet.
   There are three kinds of views: (proper/main) views, nondaemon subviews
   and daemon subviews.
+  * As with most structs, you should **NOT** access `Unc_View` or
+    `Unc_World` fields directly. They should be considered strictly
+    internal state.
 
 ## Restrictions
 
@@ -150,10 +169,11 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 `Unc_View *unc_create(void);`
 * Creates a new Uncil world (global state), a (main) view (local state) and
   attaches the view to that world. With `unc_create`, Uncil will use the
-  standard `malloc`, `realloc`, `free` functions.
+  standard `malloc`, `realloc`, `free` functions. If Uncil is compiled with
+  `UNCIL_NOSTDALLOC`, this function always fails.
 * Equivalent to `unc_createex(NULL, NULL, UNC_MMASK_DEFAULT)`.
 * The returned value is a valid `Unc_View` pointer, or `NULL` if
-  allocation fails.
+  allocation of memory or some other required system resource fails.
 * The builtin modules available are all except the following:
   `fs`, `gc`, `io`, `os`, `process`, `sys`, `thread`,
   as these might be used by Uncil scripts to affect the system they are
@@ -167,6 +187,8 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * A custom allocator can be specified here (`udata` is a pointer that is given
   to the allocator every time it is called). `alloc` may also be `NULL` in
   which case Uncil will use the standard `malloc`, `realloc`, `free` functions.
+  Note that if Uncil is compiled with `UNCIL_NOSTDALLOC`, an allocator must
+  be provided, or this function will always return `NULL`.
 * `mmask` specifies a module mask (mmask) to control the available modules.
   All modules that were compiled into the Uncil interpreter are loaded in
   regardless; the mask only controls which ones are available for
@@ -254,14 +276,14 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
     * `UNCIL_ERR_SYNTAX_TOODEEP`
     * `UNCIL_ERR_SYNTAX_BADBREAK`
     * `UNCIL_ERR_SYNTAX_BADCONTINUE`
-    * `UNCIL_ERR_SYNTAX_INLINEIFMUSTELSE`
+    * `UNCIL_ERR_SYNTAX_INLINEIFNOELSE`
     * `UNCIL_ERR_SYNTAX_NOFOROP`
-    * `UNCIL_ERR_SYNTAX_CANNOTPUBLICLOCAL`
+    * `UNCIL_ERR_SYNTAX_PUBLICONLOCAL`
     * `UNCIL_ERR_SYNTAX_OPTAFTERREQ`
     * `UNCIL_ERR_SYNTAX_UNPACKLAST`
-    * `UNCIL_ERR_SYNTAX_NODEFAULTUNPACK`
-    * `UNCIL_ERR_SYNTAX_ONLYONEELLIPSIS`
-    * `UNCIL_ERR_SYNTAX_FUNCTABLEUNNAMED`
+    * `UNCIL_ERR_SYNTAX_UNPACKDEFAULT`
+    * `UNCIL_ERR_SYNTAX_MANYELLIPSES`
+    * `UNCIL_ERR_SYNTAX_TBLNONAMEFUNC`
   * `UNCIL_ERR_TOODEEP`: the program is too complicated.
   * `UNCIL_ERR_IO_INVALIDENCODING`: the source code has invalid UTF-8
     (all source code is assumed to be encoded in UTF-8).
@@ -308,13 +330,13 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
   * Any from `unc_loadfile`
   * `UNCIL_ERR_IO_GENERIC`: for I/O errors from the file.
 
-`int unc_dumpfile(Unc_View *w, FILE *file);`
+`Unc_RetVal unc_dumpfile(Unc_View *w, FILE *file);`
 * Dumps the currently loaded program into a file as byte code.
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
   * `UNCIL_ERR_IO_GENERIC`: for I/O errors from the file.
 
-`int unc_dumpstream(Unc_View *w, int (*putch)(int, void *), void *udata);`
+`Unc_RetVal unc_dumpstream(Unc_View *w, int (*putch)(int, void *), void *udata);`
 * Dumps the currently loaded program into a stream as byte code.
 * Error codes: see `unc_dumpfile`.
 
@@ -367,7 +389,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * It is guaranteed that `Unc_TNull` == 0; thus this can also be used to
   check whether a value is `null`.
 
-`int unc_getpublic(Unc_View *w, Unc_Size nl, const char *name, Unc_Value *value);`
+`Unc_RetVal unc_getpublic(Unc_View *w, Unc_Size nl, const char *name, Unc_Value *value);`
 * Gets the public variable with the given name (string passed with explicit
   length) and assigns it into the given value slot.
 * Error codes:
@@ -380,7 +402,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
 
-`int unc_getpublicc(Unc_View *w, const char *name, Unc_Value *value);`
+`Unc_RetVal unc_getpublicc(Unc_View *w, const char *name, Unc_Value *value);`
 * Gets the public variable with the given name (string passed with implicit
   length, "C string") and assigns it into the given value slot.
 * Error codes: see `unc_getpublic`.
@@ -503,6 +525,12 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
     opaque locks are _not_ re-entrant.
   * See `unc_lockopaque`.
 
+`Unc_RetVal unc_verifyopaque(Unc_View *w, Unc_Value *v, Unc_Value *prototype, Unc_Size *n, void **p);`
+* Same as `unc_lockopaque`, but the prototype of the opaque object is also
+  checked. If the prototype does not match the given `prototype` (checked with
+  `unc_issame`, i.e. reference equality), `UNCIL_ERR_ARG_FAILEDVERIFY` is
+  returned as the error code and the object is not locked.
+
 `void unc_unlock(Unc_View *w, Unc_Value *v);`
 * Unlocks a value (such as a blob, an array or opaque object locked by the
   previous two API calls). All locked values must be unlocked before the
@@ -511,6 +539,9 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
   `Unc_Byte *` to blob data, `void *` to opaque data or `Unc_Value *` to array
   data) is considered invalid and dereferencing it will result in
   undefined behavior.
+* Every call to `unc_unlock` must be preceded by a lock call. Unlocking the
+  same value multiple times for every lock operation is not allowed and
+  results in undefined behavior.
 
 `void unc_lockthisfunc(Unc_View *w);`
 * Locks the lock associated with the current function.
@@ -667,7 +698,8 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * Assigns a string (of type `string`) into `v`. A new string is created
   and its contents are taken from the given pointer which must have been
   allocated with `unc_malloc()`. The pointer is _moved_ and should be considered
-  freed afterwards. A null terminator is added automatically.
+  freed afterwards. A null terminator is added automatically (and should not
+  be included in `n`).
 * `n` represents the size of the string in `c` (which may be smaller than the
   number of bytes in `c`, but may not be larger).
 * The returned value will have a reference count of 1, and thus it should be
@@ -810,10 +842,10 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
   * `UNCIL_ERR_ARG_INVALIDPROTOTYPE`: the prototype is not of a valid type
     (it must be `null`, a `table`, an `object` or `opaque`)
-  * `UNCIL_ERR_ARG_REFCOPYOUTOFBOUNDS`: a refcopy index was out of bounds.
+  * `UNCIL_ERR_ARG_BADREFCOPYINDEX`: a refcopy index was out of bounds.
   * If an error code is returned, `v` is left as it was before.
 
-`Unc_RetVal unc_newcfunction(Unc_View *w, Unc_Value *v, Unc_CFunc func, int cflags, Unc_Size argcount, int ellipsis, Unc_Size optcount, Unc_Value *defaults, Unc_Size refcount, Unc_Value *initvalues, Unc_Size refcopycount, Unc_Size *refcopies, const char *fname, void *udata);`
+`Unc_RetVal unc_newcfunction(Unc_View *w, Unc_Value *v, Unc_CFunc func, Unc_Size argcount, Unc_Size optcount, int ellipsis, int cflags, Unc_Value *defaults, Unc_Size refcount, Unc_Value *initvalues, Unc_Size refcopycount, Unc_Size *refcopies, const char *fname, void *udata);`
 * Assigns a function (of type `function`) into `v`. The function will wrap
   an existing C function `func` of type `Unc_CFunc`.
 * `cflags` can be any of the following:
@@ -838,18 +870,34 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
   `unc_newopaque`.
 * `fname` is a C string to the name of the function. It will be copied.
 * `udata` is a pointer that will be given to `func` every time it is called.
+  Prefer using opaque objects as refs instead if possible.
 * The returned value will have a reference count of 1, and thus it should be
   passed to `unc_decref` or `unc_clear` before the function (that called
   `unc_newcfunction`) ends.
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
-  * `UNCIL_ERR_ARG_REFCOPYOUTOFBOUNDS`: a refcopy index was out of bounds.
+  * `UNCIL_ERR_ARG_BADREFCOPYINDEX`: a refcopy index was out of bounds.
   * If an error code is returned, `v` is left as it was before.
 
-`Unc_RetVal unc_exportcfunction(Unc_View *w, const char *name, Unc_CFunc func, int cflags, Unc_Size argcount, int ellipsis, Unc_Size optcount, Unc_Value *defaults, Unc_Size refcount, Unc_Value *initvalues, Unc_Size refcopycount, Unc_Size *refcopies, void *udata);`
+`Unc_RetVal unc_exportcfunction(Unc_View *w, const char *name, Unc_CFunc func, Unc_Size argcount, Unc_Size optcount, int ellipsis, int cflags, Unc_Value *defaults, Unc_Size refcount, Unc_Value *initvalues, Unc_Size refcopycount, Unc_Size *refcopies, void *udata);`
 * This function is a combination of `unc_newcfunction` and `unc_setpublicc`.
-  The created function is directly assigned as a public value.
-  Error codes: see `unc_newcfunction`, `unc_setpublic`.
+* The created function is directly assigned as a public value.
+* Error codes: see `unc_newcfunction`, `unc_setpublic`.
+
+`Unc_RetVal unc_exportcfunctions(Unc_View *w, Unc_Size functioncount, const Unc_ModuleCFunc* functions, Unc_Size refcount, Unc_Value *initvalues, void *udata);`
+* Allows exporting multiple functinos. Takes in an array of `Unc_ModuleCFunc`.
+* The `name`, `func`, `cflags`, `argcount`, `ellipsis` and `optcount`
+  values in the struct behave the same as for `unc_newcfunction` or
+  `unc_exportcfunction`.
+* The `refcount`, `initvalues` and `udata` values give as parameters behave the
+  same as for `unc_newcfunction`  or `unc_exportcfunction`.
+* `defaults` is passed as `NULL` (i.e. all optional values will have `null`
+  as the default value), `refcopycount` as 0, `refcopies` as NULL.
+* Error codes: see `unc_newcfunction`, `unc_setpublic`.
+
+`Unc_RetVal unc_attrcfunctions(Unc_View *w, Unc_Value *v, Unc_Size functioncount, const Unc_ModuleCFunc* functions, Unc_Size refcount, Unc_Value *initvalues, void *udata);`
+* Same as `unc_exportcfunctions` except the functions are not added as
+  public values, but as attributes into the value `v`.
 
 `void unc_setopaqueptr(Unc_View *w, Unc_Value *v, void *data);`
 * Assigns a `void *` (of type `opaqueptr`) into `v`.
@@ -860,7 +908,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * Error codes:
   * `UNCIL_ERR_TYPE_NOTOBJECT`: value was not an object.
 
-`int unc_yield(Unc_View *w);`
+`Unc_RetVal unc_yield(Unc_View *w);`
 * If there is a request to currently pause all Uncil threads, pauses this
   thread.
 * C functions should call this function in longer-duration loops in order to
@@ -873,7 +921,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * If called in a C function with `UNC_CFUNC_EXCLUSIVE`, always immediately
   returns zero.
 
-`int unc_yieldfull(Unc_View *w);`
+`Unc_RetVal unc_yieldfull(Unc_View *w);`
 * Same as `unc_yield`, but may also let other threads run the C function
   (if it has not been declared as `UNC_CFUNC_CONCURRENT`).
 
@@ -884,11 +932,9 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
 
-`Unc_RetVal unc_push(Unc_View *w, Unc_Size n, Unc_Value *v, Unc_Size *counter);`
+`Unc_RetVal unc_push(Unc_View *w, Unc_Size n, Unc_Value *v);`
 * Pushes one or more values from `v` onto the stack. The stack is used to
   pass arguments to other functions or to return values.
-* If `counter` is not `NULL`, `n` will be automatically added to the value
-  it is pointing at.
 * Any pushed values will have their reference counts incremented.
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
@@ -896,28 +942,52 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
     values as before (but references, such as `unc_returnvalues` tuples,
     might still be invalidated).
 
-`Unc_RetVal unc_pushmove(Unc_View *w, Unc_Value *v, Unc_Size *counter);`
+`Unc_RetVal unc_pushmove(Unc_View *w, Unc_Value *v);`
 * Pushes `v` onto the stack. Unlike `unc_push`, this does not increment the
   reference count. It is effectively a combined `unc_push` + `unc_clear`.
-* If `counter` is not `NULL`, 1 will be automatically added to the value
-  it is pointing at.
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
   * If an error code is returned, the stack will have the same number of
     values as before (but references, such as `unc_returnvalues` tuples,
     might still be invalidated).
 
-`void unc_pop(Unc_View *w, Unc_Size n, Unc_Size *counter);`
+`Unc_RetVal unc_returnlocal(Unc_View *w, Unc_RetVal e, Unc_Value *v);`
+* This function is designed to be used as the return expression for C functions
+  that want to return an `Unc_Value` initialized as a local variable.
+* Pushes `v` onto the stack. Unlike `unc_push`, this does not increment the
+  reference count.
+* Unlike `unc_pushmove`, `v` is cleared regardless of whether there was
+  an error or not.
+* If `e` has an error, no value is pushed and the error is returned as is.
+* Error codes:
+  * any error code: `e` is returned as-is if it contains an error.
+  * `UNCIL_ERR_MEM`: could not allocate enough memory.
+  * If an error code is returned, the stack will have the same number of
+    values as before (but references, such as `unc_returnvalues` tuples,
+    might still be invalidated).
+
+`Unc_RetVal unc_returnlocalarray(Unc_View *w, Unc_RetVal e, Unc_Size n, Unc_Value *v);`
+* This function is designed to be used as the return expression for C functions
+  that want to return `Unc_Value` instances on a local array.
+* Pushes `n` values from `v` onto the stack. Unlike `unc_push`, this does not
+  increment the reference count.
+* Unlike `unc_push`, `v` is cleared regardless of whether there was
+  an error or not.
+* If `e` has an error, no value is pushed and the error is returned as is.
+* Error codes:
+  * any error code: `e` is returned as-is if it contains an error.
+  * `UNCIL_ERR_MEM`: could not allocate enough memory.
+  * If an error code is returned, the stack will have the same number of
+    values as before (but references, such as `unc_returnvalues` tuples,
+    might still be invalidated).
+
+`void unc_pop(Unc_View *w, Unc_Size n);`
 * Removes `n` top values from the stack.
-* If `counter` is not `NULL`, `n` will be automatically subtracted
-  from the value it is pointing at.
 * Any popped values are discarded and will have their reference
   counts decremented.
 
-`Unc_RetVal unc_shove(Unc_View *w, Unc_Size d, Unc_Size n, Unc_Value *v, Unc_Size *counter);`
+`Unc_RetVal unc_shove(Unc_View *w, Unc_Size d, Unc_Size n, Unc_Value *v);`
 * Pushes one or more values from `v` onto the stack under `d` elements.
-* If `counter` is not `NULL`, `n` will be automatically added to the value
-  it is pointing at.
 * Any pushed values will have their reference counts incremented.
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
@@ -925,11 +995,9 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
     values as before (but references, such as `unc_returnvalues` tuples,
     might still be invalidated).
 
-`void unc_yank(Unc_View *w, Unc_Size d, Unc_Size n, Unc_Size *counter);`
+`void unc_yank(Unc_View *w, Unc_Size d, Unc_Size n);`
 * Removes one or more values from the stack under `d` elements. `d`
   must be greater than or equal to `n`.
-* If `counter` is not `NULL`, `n` will be automatically subtracted from the
-  value it is pointing at.
 * Any popped values are discarded and will have their reference
   counts decremented.
 
@@ -968,6 +1036,8 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 `void *unc_malloc(Unc_View *w, size_t n);`
 * Allocates `n` bytes through the configured Uncil allocator.
 * The initial contents of the allocated region are all zeros.
+* An allocation with `n = 0` is valid and returns a non-NULL pointer if
+  successful.
 * Returns `NULL` in case of failure.
 
 `void *unc_mrealloc(Unc_View *w, void *p, size_t n);`
@@ -1030,6 +1100,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
   Uncil VM execution context and then exit once finished.
 * Error codes:
   * `UNCIL_ERR_MEM`: could not allocate enough memory.
+  * `UNCIL_ERR_RESOURCE`: could not allocate some required system resource.
   * `UNCIL_ERR_UNCIL`: an Uncil error occurred
     (accessible through `unc_getexception` that should be the following
      call right after `unc_call`/`unc_callex`).
@@ -1043,7 +1114,7 @@ Unless otherwise specified, functions that return `Unc_RetVal` return
 * Gets the last error in `w` as an Uncil error object and assigns it to `out`.
   The result will have a non-zero reference count (it is incremented).
 
-`void unc_getexceptionfromcode(Unc_View *w, Unc_Value *out, int e);`
+`void unc_getexceptionfromcode(Unc_View *w, Unc_Value *out, Unc_RetVal e);`
 * Converts an error code `e` into an Uncil error object and assigns it to `out`.
   The result will have a non-zero reference count (it is incremented).
   The error object may have less details than with `unc_getexception`.
@@ -1131,7 +1202,7 @@ Use these only if you know what you are doing.
     * `unc_gettype`
   * `unc_vmpause` calls do not stack and thus they are covered by the above.
 
-`int unc_vmresume(Unc_View *w);`
+`Unc_RetVal unc_vmresume(Unc_View *w);`
 * Tells the Uncil VM that it is no longer "paused". Required to be called
   after a `unc_vmpause`.
 * May block until VMs should no longer be paused.

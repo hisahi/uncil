@@ -25,8 +25,8 @@ SOFTWARE.
 *******************************************************************************/
 
 #include <limits.h>
+
 #include <stdio.h>
-#include <string.h>
 
 #define UNCIL_DEFINES
 
@@ -38,47 +38,31 @@ SOFTWARE.
 #include "uvali.h"
 #include "uview.h"
 
-#define MAX_EXT_LEN 6
+Unc_RetVal unc0_stdlibinit(Unc_World *w, Unc_View *v);
 
-int unc0_stdlibinit(Unc_World *w, Unc_View *v);
-
-INLINE void unc0_reqrestorestate0(Unc_View *w, Unc_ModuleFrame *sav) {
+static void unc0_reqrestorestate(Unc_View *w, Unc_ModuleFrame *sav) {
     ASSERT(w->mframes == sav);
     w->mframes = sav->nextf;
+    VSETNULL(w, &w->fmain);
+    unc0_drophtbls(w, &sav->temp_exports);
+    unc0_drophtbls(w, &sav->temp_pubs);
+    unc0_stackfree(w, &w->sreg);
+    if (w->program) unc0_progdecref(w->program, &w->world->alloc);
     w->import = sav->import;
     w->sreg = sav->sreg;
     w->pubs = sav->pubs;
     w->exports = sav->exports;
-    unc0_wsetprogram(w, sav->program);
-    /* wsetprogram does progincref, we don't need it */
-    unc0_progdecref(sav->program, &w->world->alloc);
+    w->program = sav->program;
     w->met_str = sav->met_str;
     w->met_blob = sav->met_blob;
     w->met_arr = sav->met_arr;
-    w->met_dict = sav->met_dict;
+    w->met_table = sav->met_table;
     w->curdir_n = sav->curdir_n;
     w->curdir = sav->curdir;
     w->fmain = sav->fmain;
 }
 
-static void unc0_reqrestorestate1(Unc_View *w, Unc_ModuleFrame *sav) {
-    VCOPY(w, &w->met_str, &sav->met_str);
-    VCOPY(w, &w->met_blob, &sav->met_blob);
-    VCOPY(w, &w->met_arr, &sav->met_arr);
-    VCOPY(w, &w->met_dict, &sav->met_dict);
-    unc0_reqrestorestate0(w, sav);
-}
-
-static void unc0_reqrestorestate(Unc_View *w, Unc_ModuleFrame *sav) {
-    VSETNULL(w, &w->fmain);
-    unc0_drophtbls(w, w->exports);
-    unc0_drophtbls(w, w->pubs);
-    unc0_stackfree(w, &w->sreg);
-    unc0_reqrestorestate1(w, sav);
-}
-
-static int unc0_reqstorestate(Unc_View *w, Unc_ModuleFrame *sav) {
-    int e;
+static void unc0_reqstorestate(Unc_View *w, Unc_ModuleFrame *sav) {
     sav->import = w->import;
     sav->sreg = w->sreg;
     sav->pubs = w->pubs;
@@ -87,23 +71,26 @@ static int unc0_reqstorestate(Unc_View *w, Unc_ModuleFrame *sav) {
     sav->met_str = w->met_str;
     sav->met_blob = w->met_blob;
     sav->met_arr = w->met_arr;
-    sav->met_dict = w->met_dict;
-    sav->nextf = w->mframes;
+    sav->met_table = w->met_table;
     sav->curdir_n = w->curdir_n;
     sav->curdir = w->curdir;
     sav->fmain = w->fmain;
+    sav->nextf = w->mframes;
     w->mframes = sav;
-    e = unc0_stackinit(w, &w->sreg, 16);
-    if (e) {
-        unc0_reqrestorestate1(w, sav);
-        return e;
-    }
-    return 0;
+    unc0_stackinit(w, &w->sreg, 0); /* cannot fail with size 0 */
+    w->program = NULL;
+    VINITNULL(&w->fmain);
+    VINITNULL(&w->met_str);
+    VINITNULL(&w->met_blob);
+    VINITNULL(&w->met_arr);
+    VINITNULL(&w->met_table);
+    unc0_inithtbls(&w->world->alloc, w->pubs = &sav->temp_pubs);
+    unc0_inithtbls(&w->world->alloc, w->exports = &sav->temp_exports);
 }
 
-static int unc0_reqimposestate(Unc_View *w, Unc_ModuleFrame *sav,
-                               Unc_Object *obj) {
-    int e = 0;
+static Unc_RetVal unc0_reqimposestate(Unc_View *w, Unc_ModuleFrame *sav,
+                                      Unc_Object *obj) {
+    Unc_RetVal e = 0;
     Unc_HTblS *exports = w->exports;
     Unc_HTblS_V *node;
     Unc_Size i, ie;
@@ -125,8 +112,15 @@ static int unc0_isrelative(size_t n, const byte *path) {
                                      && path[2] == UNCIL_DIRSEP);
 }
 
+static int unc0_module_fileexists(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    fclose(f);
+    return 1;
+}
+
 static void unc0_updatecurdir(Unc_View *w, const char *path) {
-    const char *p = strchr(path, 0);
+    const char *p = path + unc0_strlen(path);
     while (p >= path)
         if (*--p == UNCIL_DIRSEP)
             break;
@@ -139,58 +133,35 @@ static void unc0_updatecurdir(Unc_View *w, const char *path) {
     }
 }
 
-/* p must be at least name_n + MAX_EXT_LEN long */
-static int unc0_dorequire_path_i(Unc_View *w, const char *name,
-                                 Unc_Object *obj) {
-    FILE *f;
-    Unc_HTblS pubs, exports;
+static Unc_RetVal unc0_dorequire_path_i(Unc_View *w, const char *name,
+                                        Unc_Object *obj) {
+    Unc_ModuleFrame sav;
+    Unc_Pile pile;
+    Unc_RetVal e;
 
-    f = fopen(name, "r");
-    if (!f)
+    if (!unc0_module_fileexists(name))
         return UNCIL_ERR_ARG_MODULENOTFOUND;
-    fclose(f);
 
-    {
-        Unc_ModuleFrame sav;
-        Unc_Pile pile;
-        int e;
-
-        e = unc0_reqstorestate(w, &sav);
-        if (e)
-            return e;
-        w->program = NULL;
-        w->import = 1;
-        w->fmain.type = Unc_TNull;
-        unc0_inithtbls(&w->world->alloc, w->pubs = &pubs);
-        unc0_inithtbls(&w->world->alloc, w->exports = &exports);
-        e = unc0_stdlibinit(w->world, w);
-        if (e) {
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
-        unc0_updatecurdir(w, name);
-        e = unc_loadfileauto(w, name);
-        if (e) {
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
-        e = unc_call(w, NULL, 0, &pile);
-        if (e) {
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
-        unc_discard(w, &pile);
-        e = unc0_reqimposestate(w, &sav, obj);
-        unc0_reqrestorestate(w, &sav);
-        if (e) return e;
-    }
-    return 0;
+    unc0_reqstorestate(w, &sav);
+    e = unc0_stdlibinit(w->world, w);
+    if (e) goto fail;
+    unc0_updatecurdir(w, name);
+    w->import = 1;
+    e = unc_loadfileauto(w, name);
+    if (e) goto fail;
+    e = unc_call(w, NULL, 0, &pile);
+    if (e) goto fail;
+    unc_discard(w, &pile);
+    e = unc0_reqimposestate(w, &sav, obj);
+fail:
+    unc0_reqrestorestate(w, &sav);
+    return e;
 }
 
-static int unc0_dorequire_path_fmt(Unc_Allocator *alloc, int kind,
-        char **buf, size_t *buf_c,
-        Unc_Size path_n, const byte *path,
-        Unc_Size name_n, const byte *name) {
+static Unc_RetVal unc0_dorequire_path_fmt(Unc_Allocator *alloc, int kind,
+                                          char **buf, size_t *buf_c,
+                                          Unc_Size path_n, const byte *path,
+                                          Unc_Size name_n, const byte *name) {
     size_t req = path_n + name_n + 16;
     char *d;
     if (req > (Unc_Size)(size_t)-1) return UNCIL_ERR_MEM;
@@ -227,9 +198,10 @@ static int unc0_dorequire_path_fmt(Unc_Allocator *alloc, int kind,
     return 0;
 }
 
-static int unc0_dorequire_path(Unc_View *w, Unc_Size name_n, const byte *name,
-                               Unc_Object *obj) {
-    int e = UNCIL_ERR_ARG_MODULENOTFOUND, ee;
+static Unc_RetVal unc0_dorequire_path(Unc_View *w,
+                                      Unc_Size name_n, const byte *name,
+                                      Unc_Object *obj) {
+    Unc_RetVal e = UNCIL_ERR_ARG_MODULENOTFOUND;
     char *buf = NULL;
     size_t buf_sz = 0;
     Unc_Value v = w->world->modulepaths;
@@ -238,114 +210,84 @@ static int unc0_dorequire_path(Unc_View *w, Unc_Size name_n, const byte *name,
     if (unc0_isrelative(name_n, name)) {
         e = unc0_dorequire_path_fmt(alloc, 0, &buf, &buf_sz,
                         w->curdir_n, w->curdir, name_n, name);
-        if (e) {
-            unc0_mfree(alloc, buf, buf_sz);
-            return e;
-        }
+        if (e) goto fail0;
         e = unc0_dorequire_path_i(w, buf, obj);
-        if (!e || e != UNCIL_ERR_ARG_MODULENOTFOUND) {
-            unc0_mfree(alloc, buf, buf_sz);
-            return e;
-        }
+        if (!e || e != UNCIL_ERR_ARG_MODULENOTFOUND) goto fail0;
         e = unc0_dorequire_path_fmt(alloc, 1, &buf, &buf_sz,
                         w->curdir_n, w->curdir, name_n, name);
-        if (e) {
-            unc0_mfree(alloc, buf, buf_sz);
-            return e;
-        }
+        if (e) goto fail0;
         e = unc0_dorequire_path_i(w, buf, obj);
+fail0:
         unc0_mfree(alloc, buf, buf_sz);
         return e;
     }
 
+    e = UNCIL_ERR_ARG_MODULENOTFOUND;
     if (VGETTYPE(&v) == Unc_TArray) {
         Unc_Array *arr = LEFTOVER(Unc_Array, VGETENT(&v));
         Unc_Size i, ik = arr->size;
         for (i = 0; i < ik; ++i) {
             if (arr->data[i].type == Unc_TString) {
                 Unc_String *str = LEFTOVER(Unc_String, VGETENT(&arr->data[i]));
-                ee = unc0_dorequire_path_fmt(alloc, 0, &buf, &buf_sz, str->size,
+                e = unc0_dorequire_path_fmt(alloc, 0, &buf, &buf_sz, str->size,
                                 unc0_getstringdata(str), name_n, name);
-                if (ee) {
-                    unc0_mfree(alloc, buf, buf_sz);
-                    return ee;
-                }
+                if (e) break;
                 e = unc0_dorequire_path_i(w, buf, obj);
-                if (!e || e != UNCIL_ERR_ARG_MODULENOTFOUND) {
-                    unc0_mfree(alloc, buf, buf_sz);
-                    return e;
-                }
-                ee = unc0_dorequire_path_fmt(alloc, 1, &buf, &buf_sz, str->size,
+                if (e != UNCIL_ERR_ARG_MODULENOTFOUND) break;
+                e = unc0_dorequire_path_fmt(alloc, 1, &buf, &buf_sz, str->size,
                                 unc0_getstringdata(str), name_n, name);
-                if (ee) {
-                    unc0_mfree(alloc, buf, buf_sz);
-                    return ee;
-                }
+                if (e) break;
                 e = unc0_dorequire_path_i(w, buf, obj);
-                if (!e || e != UNCIL_ERR_ARG_MODULENOTFOUND) {
-                    unc0_mfree(alloc, buf, buf_sz);
-                    return e;
-                }
+                if (e != UNCIL_ERR_ARG_MODULENOTFOUND) break;
             }
         }
     }
+
     unc0_mfree(alloc, buf, buf_sz);
-    return UNCIL_ERR_ARG_MODULENOTFOUND;
+    return e;
 }
+
+static const char *unc_file_ext = ".unc";
+#define MAX_EXT_LEN sizeof(unc_file_ext)
 
 /* p must be at least name_n + MAX_EXT_LEN long */
-static int unc0_dorequire_unc(Unc_View *w, Unc_Size name_n, const char *name,
-                              char *p, Unc_Object *obj) {
-    FILE *f;
-    Unc_HTblS pubs, exports;
+static Unc_RetVal unc0_dorequire_unc(Unc_View *w,
+                                     Unc_Size name_n, const char *name,
+                                     char *p, Unc_Object *obj) {
+    Unc_ModuleFrame sav;
+    Unc_Pile pile;
+    Unc_RetVal e;
 
     if (name_n > INT_MAX) return UNCIL_ERR_ARG_MODULENOTFOUND;
-    sprintf(p, "%.*s", (int)name_n, name);
-    if (name_n <= 4 || strcmp(name + name_n - 4, ".unc"))
-        strcat(p, ".unc");
+    unc0_memcpy(p, name, name_n);
+    if (name_n <= sizeof(unc_file_ext) ||
+        /* - 1 for null terminator */
+            !unc0_memcmp(name + name_n - (sizeof(unc_file_ext) - 1),
+                    unc_file_ext, sizeof(unc_file_ext) - 1))
+        unc0_memcpy(p + name_n, unc_file_ext, sizeof(unc_file_ext));
+    else
+        p[name_n] = 0;
     
-    f = fopen(p, "r");
-    if (!f)
+    if (!unc0_module_fileexists(name))
         return UNCIL_ERR_ARG_MODULENOTFOUND;
-    fclose(f);
     
-    {
-        Unc_ModuleFrame sav;
-        Unc_Pile pile;
-        int e;
-
-        e = unc0_reqstorestate(w, &sav);
-        if (e) return e;
-        w->program = NULL;
-        w->import = 1;
-        w->fmain.type = Unc_TNull;
-        unc0_inithtbls(&w->world->alloc, w->pubs = &pubs);
-        unc0_inithtbls(&w->world->alloc, w->exports = &exports);
-        e = unc0_stdlibinit(w->world, w);
-        if (e) {
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
-        unc0_updatecurdir(w, p);
-        e = unc_loadfileauto(w, p);
-        if (e) {
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
-        e = unc_call(w, NULL, 0, &pile);
-        if (e) {
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
-        unc_discard(w, &pile);
-        e = unc0_reqimposestate(w, &sav, obj);
-        unc0_reqrestorestate(w, &sav);
-        if (e) return e;
-    }
-    return 0;
+    unc0_reqstorestate(w, &sav);
+    e = unc0_stdlibinit(w->world, w);
+    if (e) goto fail;
+    unc0_updatecurdir(w, p);
+    w->import = 1;
+    e = unc_loadfileauto(w, p);
+    if (e) goto fail;
+    e = unc_call(w, NULL, 0, &pile);
+    if (e) goto fail;
+    unc_discard(w, &pile);
+    e = unc0_reqimposestate(w, &sav, obj);
+fail:
+    unc0_reqrestorestate(w, &sav);
+    return e;
 }
 
-int unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
+Unc_RetVal unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
                               Unc_Object *obj) {
     if (name_n) {
         Unc_CMain lib = NULL;
@@ -361,16 +303,22 @@ int unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
                 lib = &uncilmain_coroutine, mask = UNC_MMASK_M_COROUTINE;
             break;
         case 'f':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("s"), name_n - 1, name + 1))
                 lib = &uncilmain_fs, mask = UNC_MMASK_M_FS;
+#endif
             break;
         case 'g':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("c"), name_n - 1, name + 1))
                 lib = &uncilmain_gc, mask = UNC_MMASK_M_GC;
+#endif
             break;
         case 'i':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("o"), name_n - 1, name + 1))
                 lib = &uncilmain_io, mask = UNC_MMASK_M_IO;
+#endif
             break;
         case 'j':
             if (unc0_strreqr(PASSSTRL("son"), name_n - 1, name + 1))
@@ -381,12 +329,16 @@ int unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
                 lib = &uncilmain_math, mask = UNC_MMASK_M_MATH;
             break;
         case 'o':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("s"), name_n - 1, name + 1))
                 lib = &uncilmain_os, mask = UNC_MMASK_M_OS;
+#endif
             break;
         case 'p':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("rocess"), name_n - 1, name + 1))
                 lib = &uncilmain_process, mask = UNC_MMASK_M_PROCESS;
+#endif
             break;
         case 'r':
             if (unc0_strreqr(PASSSTRL("andom"), name_n - 1, name + 1))
@@ -395,12 +347,16 @@ int unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
                 lib = &uncilmain_regex, mask = UNC_MMASK_M_REGEX;
             break;
         case 's':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("ys"), name_n - 1, name + 1))
                 lib = &uncilmain_sys, mask = UNC_MMASK_M_SYS;
+#endif
             break;
         case 't':
+#if !UNCIL_SANDBOXED
             if (unc0_strreqr(PASSSTRL("hread"), name_n - 1, name + 1))
                 lib = &uncilmain_thread, mask = UNC_MMASK_M_THREAD;
+#endif
             if (unc0_strreqr(PASSSTRL("ime"), name_n - 1, name + 1))
                 lib = &uncilmain_time, mask = UNC_MMASK_M_TIME;
             break;
@@ -411,25 +367,16 @@ int unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
         }
 
         if (lib && (w->world->mmask & mask)) {
-            int e;
+            Unc_RetVal e;
             Unc_ModuleFrame sav;
-            Unc_HTblS pubs, exports;
 
-            e = unc0_reqstorestate(w, &sav);
-            if (e)
-                return e;
-            w->program = NULL;
-            w->import = 1;
-            w->fmain.type = Unc_TNull;
-            unc0_inithtbls(&w->world->alloc, w->pubs = &pubs);
-            unc0_inithtbls(&w->world->alloc, w->exports = &exports);
+            unc0_reqstorestate(w, &sav);
             e = unc0_stdlibinit(w->world, w);
-            if (e) {
-                unc0_reqrestorestate(w, &sav);
-                return e;
-            }
+            if (e) goto fail;
+            w->import = 1;
             e = (*lib)(w);
             if (!e) e = unc0_reqimposestate(w, &sav, obj);
+fail:
             unc0_reqrestorestate(w, &sav);
             return e;
         }
@@ -437,9 +384,9 @@ int unc0_dorequire_std(Unc_View *w, Unc_Size name_n, const byte *name,
     return UNCIL_ERR_ARG_MODULENOTFOUND;
 }
 
-int unc0_dorequire(Unc_View *w, Unc_Size name_n,
-                   const byte *name, Unc_Object *obj) {
-    int e = UNCIL_ERR_ARG_MODULENOTFOUND;
+Unc_RetVal unc0_dorequire(Unc_View *w, Unc_Size name_n,
+                          const byte *name, Unc_Object *obj) {
+    Unc_RetVal e = UNCIL_ERR_ARG_MODULENOTFOUND;
     char buf[64], *p = buf;
     if (e == UNCIL_ERR_ARG_MODULENOTFOUND)
         e = unc0_dorequire_path(w, name_n, name, obj);
@@ -460,8 +407,8 @@ int unc0_dorequire(Unc_View *w, Unc_Size name_n,
 #include <dlfcn.h>
 #define LOADEDLIB void *
 
-int unc0_dorequirec_impl_open(Unc_Allocator *alloc, const char *path,
-                              LOADEDLIB *handle) {
+Unc_RetVal unc0_dorequirec_impl_open(Unc_Allocator *alloc,
+                                     const char *path, LOADEDLIB *handle) {
     LOADEDLIB p = dlopen(path, RTLD_LAZY);
     if (p) {
         *handle = p;
@@ -470,7 +417,8 @@ int unc0_dorequirec_impl_open(Unc_Allocator *alloc, const char *path,
     return UNCIL_ERR_ARG_MODULENOTFOUND;
 }
 
-int unc0_dorequirec_impl_call(Unc_View *w, LOADEDLIB handle, const char *fn) {
+Unc_RetVal unc0_dorequirec_impl_call(Unc_View *w, LOADEDLIB handle,
+                                     const char *fn) {
     char *e;
     Unc_CMain f;
     dlerror();
@@ -487,10 +435,10 @@ void unc0_dorequirec_impl_close(LOADEDLIB handle) {
 #error "requirec implementation missing"
 #endif
 
-static int unc0_dorequirec_path_fmt(Unc_Allocator *alloc,
-        char **buf, size_t *buf_c,
-        Unc_Size path_n, const byte *path,
-        Unc_Size name_n, const byte *name) {
+static Unc_RetVal unc0_dorequirec_path_fmt(Unc_Allocator *alloc,
+                                           char **buf, size_t *buf_c,
+                                           Unc_Size path_n, const byte *path,
+                                           Unc_Size name_n, const byte *name) {
     size_t req = path_n + name_n + 4;
     char *d;
     if (req > (Unc_Size)(size_t)-1) return UNCIL_ERR_MEM;
@@ -511,46 +459,30 @@ static int unc0_dorequirec_path_fmt(Unc_Allocator *alloc,
     return 0;
 }
 
-int unc0_dorequirec_i(Unc_View *w, const char *name,
-                      const char *fn, Unc_Object *obj) {
+Unc_RetVal unc0_dorequirec_i(Unc_View *w, const char *name,
+                             const char *fn, Unc_Object *obj) {
 #if !UNCIL_REQUIREC_IMPL
     return UNCIL_ERR_ARG_MODULENOTFOUND;
 #else
     Unc_Allocator *alloc = &w->world->alloc;
-    Unc_HTblS pubs, exports;
     LOADEDLIB lib;
     
     {
         Unc_ModuleFrame sav;
-        int e;
+        Unc_RetVal e;
 
         e = unc0_dorequirec_impl_open(alloc, name, &lib);
         if (e) return e;
 
-        e = unc0_reqstorestate(w, &sav);
-        if (e) {
-            unc0_dorequirec_impl_close(lib);
-            return e;
-        }
-        w->program = NULL;
-        w->import = 1;
-        w->fmain.type = Unc_TNull;
-        unc0_inithtbls(alloc, w->pubs = &pubs);
-        unc0_inithtbls(alloc, w->exports = &exports);
+        unc0_reqstorestate(w, &sav);
         e = unc0_stdlibinit(w->world, w);
-        if (e) {
-            unc0_dorequirec_impl_close(lib);
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
+        if (e) goto fail;
         unc0_updatecurdir(w, name);
+        w->import = 1;
         e = unc0_dorequirec_impl_call(w, lib, fn);
-        if (e) {
-            unc0_dorequirec_impl_close(lib);
-            unc0_reqrestorestate(w, &sav);
-            return e;
-        }
+        if (e) goto fail;
         e = unc0_reqimposestate(w, &sav, obj);
+fail:
         unc0_reqrestorestate(w, &sav);
         if (e) {
             unc0_dorequirec_impl_close(lib);
@@ -561,17 +493,17 @@ int unc0_dorequirec_i(Unc_View *w, const char *name,
 #endif
 }
 
-int unc0_dorequirec(Unc_View *w,
-                    Unc_Size dname_n, const byte *dname,
-                    Unc_Size fname_n, const byte *fname,
-                    Unc_Object *obj) {
+Unc_RetVal unc0_dorequirec(Unc_View *w,
+                           Unc_Size dname_n, const byte *dname,
+                           Unc_Size fname_n, const byte *fname,
+                           Unc_Object *obj) {
 #if !UNCIL_REQUIREC_IMPL
     return UNCIL_ERR_ARG_MODULENOTFOUND;
 #else
     Unc_Allocator *alloc = &w->world->alloc;
     Unc_Value v = w->world->moduledlpaths;
     char *n;
-    int e = UNCIL_ERR_ARG_MODULENOTFOUND, ee;
+    Unc_RetVal e = UNCIL_ERR_ARG_MODULENOTFOUND;
     char *buf = NULL;
     size_t buf_sz = 0;
 
@@ -586,47 +518,31 @@ int unc0_dorequirec(Unc_View *w,
     } else
         n = "uncilmain";
 
+    e = UNCIL_ERR_ARG_MODULENOTFOUND;
     if (unc0_isrelative(dname_n, dname)) {
         e = unc0_dorequirec_path_fmt(alloc, &buf, &buf_sz,
                         w->curdir_n, w->curdir, dname_n, dname);
         if (!e) e = unc0_dorequirec_i(w, buf, n, obj);
-        unc0_mfree(alloc, buf, buf_sz);
-        return e;
-    }
-
-    if (VGETTYPE(&v) == Unc_TArray) {
+    } else if (VGETTYPE(&v) == Unc_TArray) {
         Unc_Array *arr = LEFTOVER(Unc_Array, VGETENT(&v));
         Unc_Size i, ik = arr->size;
         for (i = 0; i < ik; ++i) {
             if (arr->data[i].type == Unc_TString) {
                 Unc_String *str = LEFTOVER(Unc_String, VGETENT(&arr->data[i]));
-                ee = unc0_dorequirec_path_fmt(alloc, &buf, &buf_sz, str->size,
+                e = unc0_dorequirec_path_fmt(alloc, &buf, &buf_sz, str->size,
                                 unc0_getstringdata(str), dname_n, dname);
-                if (ee) {
-                    unc0_mfree(alloc, buf, buf_sz);
-                    return ee;
-                }
+                if (e) break;
                 e = unc0_dorequirec_i(w, buf, n, obj);
-                if (e != UNCIL_ERR_ARG_MODULENOTFOUND) {
-                    unc0_mfree(alloc, buf, buf_sz);
-                    return e;
-                }
+                if (e != UNCIL_ERR_ARG_MODULENOTFOUND) break;
             }
         }
     } else {
-        ee = unc0_dorequirec_path_fmt(alloc, &buf, &buf_sz, 0, NULL,
+        e = unc0_dorequirec_path_fmt(alloc, &buf, &buf_sz, 0, NULL,
                                       dname_n, dname);
-        if (ee) {
-            unc0_mfree(alloc, buf, buf_sz);
-            return ee;
-        }
-        e = unc0_dorequirec_i(w, buf, n, obj);
-        if (e != UNCIL_ERR_ARG_MODULENOTFOUND) {
-            unc0_mfree(alloc, buf, buf_sz);
-            return e;
-        } 
+        if (!e) e = unc0_dorequirec_i(w, buf, n, obj);
     }
+
     unc0_mfree(alloc, buf, buf_sz);
-    return UNCIL_ERR_ARG_MODULENOTFOUND;
+    return e;
 #endif
 }

@@ -74,16 +74,20 @@ typedef volatile Unc_Size Unc_AtomicLarge;
 
 #else
 /* don't use atomics */
+#if UNCIL_NOLIBC
+typedef volatile unsigned short Unc_AtomicFlag;
+typedef volatile unsigned short Unc_AtomicSmall;
+#else
 typedef volatile sig_atomic_t Unc_AtomicFlag;
 typedef volatile sig_atomic_t Unc_AtomicSmall;
+#endif
 typedef volatile Unc_Size Unc_AtomicLarge;
 #ifdef UNCIL_DEFINES
 #if UNCIL_MT_OK
 #error "atomic operations required for multithreaded build"
 #endif
 int unc0_nonatomictas(Unc_AtomicFlag *v);
-Unc_AtomicSmall unc0_nonatomicsxchg(Unc_AtomicSmall *var,
-                                    Unc_AtomicSmall val);
+Unc_AtomicSmall unc0_nonatomicsxchg(Unc_AtomicSmall *var, Unc_AtomicSmall val);
 #define ATOMICSSET(a, x) (a = (x))
 #define ATOMICSINC(a) (++a)
 #define ATOMICSDEC(a) (--a)
@@ -110,12 +114,8 @@ Unc_AtomicSmall unc0_nonatomicsxchg(Unc_AtomicSmall *var,
     UNC_LOCKFQ(x) tries to lock x and returns <>0 if locked, =0 if not
     UNC_LOCKINITL(x) and UNC_LOCKINITF(x) initialize those two lock types
         (may return != 0 in case of failure)
-    UNC_LOCKSTATICF(x) should declare a static variable named x that is
-        initialized with a lock, if possible. if not, define
-        UNC_LOCKSTATICFINIT0(x) and UNC_LOCKSTATICFINIT1(x).
-        UNC_LOCKSTATICFINIT0 is always outside of a function, while
-        UNC_LOCKSTATICFINIT1 is before the first use of that lock.
-        define them as empty if you don't need them
+    UNC_LOCKSTATICL(x) should declare a static variable of the same
+            type as LOCKLIGHT. it need not be initialized.
     UNC_LOCKFINAL(x) and UNC_LOCKFINAF(x) deinitialize those two lock types
         (these two shall never fail as the lock should be unlocked)
     UNC_YIELD() should yield the thread
@@ -152,7 +152,8 @@ void unc0_pthread_paused(struct Unc_View *view);
 void unc0_pthread_resumed(struct Unc_View *view);
 
 #if !UNCIL_ALTLIGHTLOCK
-#define UNC_LOCKSTATICL(x) static pthread_mutex_t x = PTHREAD_MUTEX_INITIALIZER;
+#define UNC_LOCKSTATICL(x) static pthread_mutex_t x =                          \
+                            PTHREAD_MUTEX_INITIALIZER;
 #define UNC_LOCKINITL(x) pthread_mutex_init(&(x), NULL)
 #define UNC_LOCKL(x) unc0_pthread_lock(&(x))
 #define UNC_LOCKLQ(x) (!pthread_mutex_trylock(&(x)))
@@ -167,9 +168,6 @@ void unc0_pthread_resumed(struct Unc_View *view);
 #define UNC_LOCKFINAL(x)
 #endif
 
-#define UNC_LOCKSTATICF(x) static pthread_mutex_t x = PTHREAD_MUTEX_INITIALIZER;
-#define UNC_LOCKSTATICFINIT0(x)
-#define UNC_LOCKSTATICFINIT1(x)
 #define UNC_LOCKINITF(x) unc0_pthread_init(&(x))
 #define UNC_LOCKF(x) unc0_pthread_lock(&(x))
 #define UNC_LOCKFP(w, x) unc0_pthread_lockorpause(w, &(x))
@@ -210,7 +208,7 @@ void unc0_c11_paused(struct Unc_View *view);
 void unc0_c11_resumed(struct Unc_View *view);
 
 #if !UNCIL_ALTLIGHTLOCK
-#define UNC_LOCKSTATICL(x)
+#define UNC_LOCKSTATICL(x) static mtx_t x;
 #define UNC_LOCKINITL(x) mtx_init(&(x), mtx_plain) != thrd_success
 #define UNC_LOCKL(x) unc0_c11_lock(&(x))
 #define UNC_LOCKLQ(x) (mtx_trylock(&(x)) == thrd_success)
@@ -225,13 +223,6 @@ void unc0_c11_resumed(struct Unc_View *view);
 #define UNC_LOCKFINAL(x)
 #endif
 
-#define UNC_LOCKSTATICF(x) static mtx_t x;
-#define UNC_LOCKSTATICFINIT0(x)                                                \
-               static once_flag uncil_static_init0_flag_##x = ONCE_FLAG_INIT;  \
-                                static void uncil_static_init0_##x(void) {     \
-                                    if (UNC_LOCKINITF(x)) abort(); }
-#define UNC_LOCKSTATICFINIT1(x) call_once(&uncil_static_init0_flag_##x,        \
-                                          &uncil_static_init0_##x)
 #define UNC_LOCKINITF(x) unc0_c11_init(&(x))
 #define UNC_LOCKF(x) unc0_c11_lock(&(x))
 #define UNC_LOCKFP(w, x) unc0_c11_lockorpause(w, &(x))
@@ -259,9 +250,6 @@ void unc0_c11_resumed(struct Unc_View *view);
 #define UNC_UNLOCKL(x)
 #define UNC_LOCKFINAL(x)
 
-#define UNC_LOCKSTATICF(x)
-#define UNC_LOCKSTATICFINIT0(x)
-#define UNC_LOCKSTATICFINIT1(x)
 #define UNC_LOCKINITF(x) 0
 #define UNC_LOCKF(x)
 #define UNC_LOCKFQ(x) 1

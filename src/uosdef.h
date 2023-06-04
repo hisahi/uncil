@@ -27,6 +27,8 @@ SOFTWARE.
 #ifndef UNCIL_UOSDEF_H
 #define UNCIL_UOSDEF_H
 
+#include "ucstd.h"
+
 #if (HAVE_UNISTD_H || defined(__unix__) || defined(__unix) ||                  \
      defined(__QNX__) || (defined(__APPLE__) && defined(__MACH__)))
 #ifndef _POSIX_C_SOURCE
@@ -48,8 +50,21 @@ SOFTWARE.
 #include <sys/param.h>
 #if defined(__linux__)
 #define UNCIL_IS_LINUX 1
+#elif defined(_AIX)
+#define UNCIL_IS_AIX 1
+#elif defined(__sun) || defined(sun)
+#define UNCIL_IS_SUNOS 1
 #elif defined(BSD)
 #define UNCIL_IS_BSD 1
+#if __OpenBSD__
+#define UNCIL_IS_OPENBSD 1
+#elif __FreeBSD__
+#define UNCIL_IS_FREEBSD 1
+#elif __NetBSD__
+#define UNCIL_IS_NETBSD 1
+#elif __DragonFly__
+#define UNCIL_IS_DRAGONFLY_BSD 1
+#endif
 #endif
 
 #elif defined(__APPLE__)
@@ -79,7 +94,7 @@ SOFTWARE.
 #elif TARGET_CPU_ARM
 #define UNCIL_CPU_IS_ARM 1
 #elif TARGET_CPU_ARM64
-#define UNCIL_CPU_IS_ARM64 1
+#define UNCIL_CPU_IS_AARCH64 1
 #elif TARGET_CPU_MIPS
 #define UNCIL_CPU_IS_MIPS 1
 #elif TARGET_CPU_SPARC
@@ -98,10 +113,14 @@ SOFTWARE.
 
 #elif defined(_POSIX_VERSION)
 #define UNCIL_IS_POSIX 1
+
+#elif defined(MSDOS) || defined(__MSDOS__)
+#define UNCIL_IS_MSDOS 1
 #endif
 
 #if !UNCIL_CPU_NOCHECK
 #if defined(_MSC_VER)
+
 #if defined(_M_PPC)
 #define UNCIL_CPU_IS_PPC 1
 #elif defined(_M_IA64)
@@ -113,21 +132,29 @@ SOFTWARE.
 #elif defined(_M_AMD64)
 #define UNCIL_CPU_IS_AMD64 1
 #elif defined(_M_ARM64)
-#define UNCIL_CPU_IS_ARM64 1
+#define UNCIL_CPU_IS_AARCH64 1
 #elif defined(_M_ARM)
 #define UNCIL_CPU_IS_ARM 1
 #elif defined(_M_ALPHA)
 #define UNCIL_CPU_IS_ALPHA 1
 #endif
+
+#elif defined(__INTEL_COMPILER)
+#if defined(__x86_64__)
+#define UNCIL_CPU_IS_AMD64 1
+#elif defined(__i386__)
+#define UNCIL_CPU_IS_X86 1
+#endif
+
 #elif defined(__GNUC__) || defined(__clang__)
-#if defined(__amd64__)
+#if defined(__amd64__) || defined(__x86_64__)
 #define UNCIL_CPU_IS_AMD64 1
 #elif defined(__i386__)
 #define UNCIL_CPU_IS_X86 1
 #elif defined(__ia64__)
 #define UNCIL_CPU_IS_IA64 1
 #elif defined(__aarch64__)
-#define UNCIL_CPU_IS_ARM64 1
+#define UNCIL_CPU_IS_AARCH64 1
 #elif defined(__arm__)
 #define UNCIL_CPU_IS_ARM 1
 #elif defined(__powerpc64__)
@@ -138,13 +165,22 @@ SOFTWARE.
 #define UNCIL_CPU_IS_ALPHA 1
 #elif defined(__m68k__)
 #define UNCIL_CPU_IS_M68K 1
+#elif defined(__mips__) && _MIPSEL
+#define UNCIL_CPU_IS_MIPSEL 1
 #elif defined(__mips__)
 #define UNCIL_CPU_IS_MIPS 1
+#elif defined(__sparc__) && __arch64__
+#define UNCIL_CPU_IS_SPARC64 1
 #elif defined(__sparc__)
 #define UNCIL_CPU_IS_SPARC 1
 #elif defined(__riscv)
 #define UNCIL_CPU_IS_RISCV 1
+#elif defined(__s390__) || defined(__s390x__)
+#define UNCIL_CPU_IS_S390 1
+#elif defined(__SH4__)
+#define UNCIL_CPU_IS_SH4 1
 #endif
+
 #endif
 #endif
 
@@ -168,7 +204,7 @@ SOFTWARE.
 #endif
 #endif
 
-#if UNCIL_CPU_IS_PPC64 | UNCIL_CPU_IS_ARM64 |                                  \
+#if UNCIL_CPU_IS_PPC64 | UNCIL_CPU_IS_AARCH64 |                                  \
     UNCIL_CPU_IS_IA64 | UNCIL_CPU_IS_AMD64
 #define UNCIL_64BIT 1
 #endif
@@ -179,16 +215,30 @@ SOFTWARE.
 #define UNCIL_TARGET "android"
 #elif UNCIL_IS_LINUX
 #define UNCIL_TARGET "linux"
+#elif UNCIL_IS_OPENBSD
+#define UNCIL_TARGET "openbsd"
+#elif UNCIL_IS_FREEBSD
+#define UNCIL_TARGET "freebsd"
+#elif UNCIL_IS_NETBSD
+#define UNCIL_TARGET "netbsd"
+#elif UNCIL_IS_DRAGONFLY_BSD
+#define UNCIL_TARGET "dragonflybsd"
 #elif UNCIL_IS_BSD
 #define UNCIL_TARGET "bsd"
 #elif UNCIL_IS_IOS
 #define UNCIL_TARGET "ios"
 #elif UNCIL_IS_MACOS
 #define UNCIL_TARGET "macos"
+#elif UNCIL_IS_SUNOS
+#define UNCIL_TARGET "sunos"
+#elif UNCIL_IS_AIX
+#define UNCIL_TARGET "aix"
 #elif UNCIL_IS_UNIX
 #define UNCIL_TARGET "unix"
 #elif UNCIL_IS_POSIX
 #define UNCIL_TARGET "posix"
+#elif UNCIL_IS_MSDOS
+#define UNCIL_TARGET "msdos"
 #else
 #define UNCIL_TARGET "other"
 #endif
@@ -207,18 +257,26 @@ SOFTWARE.
 #define UNCIL_CPU_ARCH "8086"
 #elif UNCIL_CPU_IS_AMD64
 #define UNCIL_CPU_ARCH "amd64"
-#elif UNCIL_CPU_IS_ARM64
-#define UNCIL_CPU_ARCH "arm64"
+#elif UNCIL_CPU_IS_AARCH64
+#define UNCIL_CPU_ARCH "aarch64"
 #elif UNCIL_CPU_IS_ARM
 #define UNCIL_CPU_ARCH "arm"
+#elif UNCIL_CPU_IS_RISCV
+#define UNCIL_CPU_ARCH "riscv"
+#elif UNCIL_CPU_IS_MIPSEL
+#define UNCIL_CPU_ARCH "mipsel"
 #elif UNCIL_CPU_IS_MIPS
 #define UNCIL_CPU_ARCH "mips"
+#elif UNCIL_CPU_IS_SPARC64
+#define UNCIL_CPU_ARCH "sparc64"
 #elif UNCIL_CPU_IS_SPARC
 #define UNCIL_CPU_ARCH "sparc"
 #elif UNCIL_CPU_IS_ALPHA
 #define UNCIL_CPU_ARCH "alpha"
-#elif UNCIL_CPU_IS_RISCV
-#define UNCIL_CPU_ARCH "riscv"
+#elif UNCIL_CPU_IS_S390
+#define UNCIL_CPU_ARCH "s390"
+#elif UNCIL_CPU_IS_SH4
+#define UNCIL_CPU_ARCH "sh4"
 #else
 #define UNCIL_CPU_ARCH "other"
 #endif
@@ -227,8 +285,7 @@ SOFTWARE.
 #define UNCIL_MT_PROVIDER "pthread"
 #define UNCIL_MT_PTHREAD 1
 #define UNCIL_MT_OK 1
-#elif __STDC_VERSION__ >= 201112L &&                                           \
-        !__STDC_NO_ATOMICS__ && !__STDC_NO_THREADS__
+#elif UNCIL_C11 && !__STDC_NO_ATOMICS__ && !__STDC_NO_THREADS__
 #define UNCIL_MT_PROVIDER "C11"
 #define UNCIL_MT_C11 1
 #define UNCIL_MT_OK 1
@@ -249,26 +306,47 @@ SOFTWARE.
 #define UNCIL_COMPILED_WITH "Clang " __clang_version__
 #elif __GNUC__
 #define UNCIL_COMPILED_WITH "gcc " __VERSION__
+#elif defined(__INTEL_COMPILER)
+#if __INTEL_COMPILER >= 2000
+#define UNCIL_COMPILED_WITH "Intel C/C++ "                                     \
+              UNCIL_STRINGIFY(__INTEL_COMPILER)                                \
+          "." UNCIL_STRINGIFY(__INTEL_COMPILER_UPDATE) ".*"
+#elif defined(__INTEL_COMPILER_UPDATE)
+#define UNCIL_COMPILED_WITH "Intel C/C++ "                                     \
+              UNCIL_STRINGIFY(__INTEL_COMPILER / 100)                          \
+          "." UNCIL_STRINGIFY(__INTEL_COMPILER % 100)                          \
+          "." UNCIL_STRINGIFY(__INTEL_COMPILER_UPDATE)
+#else
+#define UNCIL_COMPILED_WITH "Intel C/C++ "                                     \
+              UNCIL_STRINGIFY(__INTEL_COMPILER / 100)                          \
+          "." UNCIL_STRINGIFY(__INTEL_COMPILER % 100)
+#endif
 #elif defined(_MSC_VER)
 #ifdef _MSC_FULL_VER
 #define UNCIL_STRINGIFY_PAD2(s) ((s) < 10 ? ("0" UNCIL_STRINGIFY(s))           \
                                           : UNCIL_STRINGIFY(s))
 #define UNCIL_COMPILED_WITH "Microsoft C Compiler "                            \
-          UNCIL_STRINGIFY(_MSC_FULL_VER / 10000000) "."                        \
-          UNCIL_STRINGIFY_PAD2((_MSC_FULL_VER / 100000) % 100) "."             \
-          UNCIL_STRINGIFY(_MSC_FULL_VER % 100000)
+              UNCIL_STRINGIFY(_MSC_FULL_VER / 10000000)                        \
+          "." UNCIL_STRINGIFY_PAD2((_MSC_FULL_VER / 100000) % 100)             \
+          "." UNCIL_STRINGIFY(_MSC_FULL_VER % 100000) ".*"
 #elif defined(_MSC_FULL_VER)
 #define UNCIL_COMPILED_WITH "Microsoft C Compiler "                            \
-          UNCIL_STRINGIFY(_MSC_FULL_VER / 10000000) "."                        \
-          UNCIL_STRINGIFY((_MSC_FULL_VER / 100000) % 100) "."                  \
-          (_MSC_FULL_VER % 100000)
+              UNCIL_STRINGIFY(_MSC_FULL_VER / 10000000)                        \
+          "." UNCIL_STRINGIFY((_MSC_FULL_VER / 100000) % 100)                  \
+          "." (_MSC_FULL_VER % 100000)
 #else
 #define UNCIL_COMPILED_WITH "Microsoft C Compiler "                            \
-          UNCIL_STRINGIFY(_MSC_VER / 100) "."                                  \
-          UNCIL_STRINGIFY(_MSC_VER % 100)
+              UNCIL_STRINGIFY(_MSC_VER / 100)                                  \
+          "." UNCIL_STRINGIFY(_MSC_VER % 100)
 #endif
+#elif defined(__IAR_SYSTEMS_ICC__)
+#define UNCIL_COMPILED_WITH "IAR C/C++ "                                       \
+              UNCIL_STRINGIFY(__VER__ / 100)                                   \
+          "." UNCIL_STRINGIFY(__VER__ % 100)
+#elif defined(__TINYC__)
+#define UNCIL_COMPILED_WITH "Tiny C Compiler"
 #else
-#define UNCIL_COMPILED_WITH UNCIL_STRINGIFY(unknown standard compiler)
+#define UNCIL_COMPILED_WITH "(unknown standard compiler)"
 #endif
 
 /* add new requirec impls here and implement in umodule.c */

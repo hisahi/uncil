@@ -47,17 +47,19 @@ typedef struct Unc_Opaque {
     UNC_LOCKLIGHT(lock)
 } Unc_Opaque;
 
-int unc0_initopaque(struct Unc_View *w, Unc_Opaque *o, size_t n, void **data,
-                        Unc_Value *prototype, Unc_OpaqueDestructor destructor,
-                        Unc_Size refcount, Unc_Value *initvalues,
-                        Unc_Size refcopycount, Unc_Size *refcopies);
+Unc_RetVal unc0_initopaque(struct Unc_View *w, Unc_Opaque *o, size_t n,
+                           void **data, Unc_Value *prototype,
+                           Unc_OpaqueDestructor destructor,
+                           Unc_Size refcount, Unc_Value *initvalues,
+                           Unc_Size refcopycount, Unc_Size *refcopies);
 
-int unc0_oqgetattrv(struct Unc_View *w, Unc_Opaque *o,
-                    Unc_Value *attr, int *found, Unc_Value *out);
-int unc0_oqgetattrs(struct Unc_View *w, Unc_Opaque *o,
-                    Unc_Size n, const byte *b, int *found, Unc_Value *out);
-int unc0_oqgetattrc(struct Unc_View *w, Unc_Opaque *o,
-                    const byte *s, int *found, Unc_Value *out);
+Unc_RetVal unc0_oqgetattrv(struct Unc_View *w, Unc_Opaque *o,
+                           Unc_Value *attr, int *found, Unc_Value *out);
+Unc_RetVal unc0_oqgetattrs(struct Unc_View *w, Unc_Opaque *o,
+                           Unc_Size n, const byte *b,
+                           int *found, Unc_Value *out);
+Unc_RetVal unc0_oqgetattrc(struct Unc_View *w, Unc_Opaque *o,
+                           const byte *s, int *found, Unc_Value *out);
 
 void unc0_graceopaque(struct Unc_View *w, Unc_Opaque *o);
 void unc0_dropopaque(struct Unc_View *w, Unc_Opaque *o);

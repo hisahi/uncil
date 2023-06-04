@@ -31,7 +31,7 @@ SOFTWARE.
 #include "uhash.h"
 #include "umem.h"
 
-int unc0_newcontext(Unc_Context *cxt, Unc_Allocator *alloc) {
+Unc_RetVal unc0_newcontext(Unc_Context *cxt, Unc_Allocator *alloc) {
     cxt->alloc = alloc;
     cxt->regbase = 0;
     cxt->extend = 0;

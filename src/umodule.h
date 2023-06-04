@@ -39,19 +39,20 @@ typedef struct Unc_ModuleFrame {
     Unc_Value met_str;
     Unc_Value met_blob;
     Unc_Value met_arr;
-    Unc_Value met_dict;
+    Unc_Value met_table;
     Unc_Value fmain;
     char import;
     size_t curdir_n;
     const byte *curdir;
+    Unc_HTblS temp_pubs, temp_exports;
 } Unc_ModuleFrame;
 
-int unc0_dorequire(struct Unc_View *w, Unc_Size name_n,
-                   const byte *name, Unc_Object *obj);
-int unc0_dorequirec(Unc_View *w,
-                    Unc_Size dname_n, const byte *dname,
-                    Unc_Size fname_n, const byte *fname,
-                    Unc_Object *obj);
+Unc_RetVal unc0_dorequire(struct Unc_View *w, Unc_Size name_n,
+                          const byte *name, Unc_Object *obj);
+Unc_RetVal unc0_dorequirec(Unc_View *w,
+                           Unc_Size dname_n, const byte *dname,
+                           Unc_Size fname_n, const byte *fname,
+                           Unc_Object *obj);
 
 typedef Unc_RetVal (*Unc_CMain)(struct Unc_View *w);
 

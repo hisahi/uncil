@@ -24,17 +24,23 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <errno.h>
 #include <limits.h>
-/* for f16 */
-#include <math.h>
 
 #define UNCIL_DEFINES
 
 #include "uarithm.h"
 #include "udebug.h"
-#include "ulibio.h"
+#include "umem.h"
 #include "uncil.h"
+#include "uvsio.h"
+
+#if UNCIL_SANDBOXED
+#define UNCIL_NOLIBIO 1
+#endif
+
+#if !UNCIL_NOLIBIO
+#include "ulibio.h"
+#endif
 
 #if UNCIL_C99
 #include <stdint.h>
@@ -97,6 +103,7 @@ struct cbor_decode_context {
     int fle;
 };
 
+#if !UNCIL_NOLIBIO
 struct cbor_decode_file {
     struct ulib_io_file *fp;
     int err;
@@ -113,17 +120,18 @@ static int cbor_decode_file_do(void *p_) {
     }
     return c;
 }
+#endif
 
 #define READCHAR(c) (*c->getch)(c->getch_data)
 
-INLINE int cbordec_err(struct cbor_decode_context *c,
-                       const char *type, const char *msg) {
+INLINE Unc_RetVal cbordec_err(struct cbor_decode_context *c,
+                              const char *type, const char *msg) {
     return unc_throwexc(c->view, type, msg);
 }
 
 #if U64SYNTH
-INLINE int cbordec_len32(struct cbor_decode_context *c,
-                         int z, u32_t *result) {
+INLINE Unc_RetVal cbordec_len32(struct cbor_decode_context *c,
+                                int z, u32_t *result) {
     int x;
     u32_t u = 0;
     ASSERT(z == 1 || z == 2 || z == 4);
@@ -139,11 +147,11 @@ INLINE int cbordec_len32(struct cbor_decode_context *c,
     return 0;
 }
 
-static int cbordec_len(struct cbor_decode_context *c,
-                       int z, u64_t *result) {
+static Unc_RetVal cbordec_len(struct cbor_decode_context *c,
+                              int z, u64_t *result) {
     ASSERT(z == 1 || z == 2 || z == 4 || z == 8);
     if (z > 4) {
-        int e = cbordec_len32(c, 4, &result->h);
+        Unc_RetVal e = cbordec_len32(c, 4, &result->h);
         if (e) return e;
         z -= 4;
     } else
@@ -151,8 +159,8 @@ static int cbordec_len(struct cbor_decode_context *c,
     return cbordec_len32(c, z, &result->l);
 }
 #else
-static int cbordec_len(struct cbor_decode_context *c,
-                       int z, u64_t *result) {
+static Unc_RetVal cbordec_len(struct cbor_decode_context *c,
+                              int z, u64_t *result) {
     int x;
     u64_t u = 0;
     ASSERT(z == 1 || z == 2 || z == 4 || z == 8);
@@ -169,9 +177,10 @@ static int cbordec_len(struct cbor_decode_context *c,
 }
 #endif
 
-INLINE int cbordec_intp(struct cbor_decode_context *c, Unc_Value *v, int z) {
+INLINE Unc_RetVal cbordec_intp(struct cbor_decode_context *c, Unc_Value *v,
+                               int z) {
     u64_t u;
-    int e = cbordec_len(c, z, &u);
+    Unc_RetVal e = cbordec_len(c, z, &u);
     if (e) return e;
 #if U64SYNTH
     if (u.h > (UNC_INT_MAX >> 32) || (u.h == (UNC_INT_MAX >> 32)
@@ -189,9 +198,10 @@ INLINE int cbordec_intp(struct cbor_decode_context *c, Unc_Value *v, int z) {
     return 0;
 }
 
-INLINE int cbordec_intn(struct cbor_decode_context *c, Unc_Value *v, int z) {
+INLINE Unc_RetVal cbordec_intn(struct cbor_decode_context *c, Unc_Value *v,
+                               int z) {
     u64_t u;
-    int e = cbordec_len(c, z, &u);
+    Unc_RetVal e = cbordec_len(c, z, &u);
     if (e) return e;
 #if U64SYNTH
     if (u.h > ((u32_t)-UNC_INT_MIN >> 32)
@@ -210,10 +220,11 @@ INLINE int cbordec_intn(struct cbor_decode_context *c, Unc_Value *v, int z) {
     return 0;
 }
 
-static int cbordec(struct cbor_decode_context *c, Unc_Value *v);
+static Unc_RetVal cbordec(struct cbor_decode_context *c, Unc_Value *v);
 
-INLINE int cbordec_blob(struct cbor_decode_context *c, Unc_Value *v, u64_t l) {
-    int e;
+INLINE Unc_RetVal cbordec_blob(struct cbor_decode_context *c, Unc_Value *v,
+                               u64_t l) {
+    Unc_RetVal e;
     byte *p;
 #if U64SYNTH
     u32_t i, z;
@@ -238,70 +249,71 @@ INLINE int cbordec_blob(struct cbor_decode_context *c, Unc_Value *v, u64_t l) {
     return e;
 }
 
-INLINE int cbordec_blobchnk(struct cbor_decode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cbordec_blobchnk(struct cbor_decode_context *c,
+                                   Unc_Value *v) {
     byte *p;
     Unc_Size z = 0, nz;
-    int e = unc_newblob(c->view, v, z, &p);
+    Unc_RetVal e = unc_newblob(c->view, v, z, &p);
     if (e) return e;
     for (;;) {
         int x = READCHAR(c);
         u64_t ulen = U64_0;
         if (x < 0) {
-            unc_unlock(c->view, v);
-            return cbordec_err(c, "value", "CBOR blob chain unexpected EOF");
+            e = cbordec_err(c, "value", "CBOR blob chain unexpected EOF");
+            break;
         }
         if (x == 0xFF) {
-            unc_unlock(c->view, v);
-            return 0;
+            e = 0;
+            break;
         }
         if ((x >> 5) != 2) {
-            unc_unlock(c->view, v);
-            return cbordec_err(c, "value",
-                "CBOR blob chain: expected blob, "
-                "but value was of another type");
+            e = cbordec_err(c, "value", "CBOR blob chain: expected blob, "
+                                        "but value was of another type");
+            break;
         }
         x &= 31;
         if (x >= 28) {
-            unc_unlock(c->view, v);
-            return cbordec_err(c, "value",
+            e = cbordec_err(c, "value",
                 "CBOR blob chain: invalid length for blob in chain");
+            break;
         }
         if (x >= 24) {
-            int e = cbordec_len(c, 1 << (x - 24), &ulen);
-            if (e) {
-                unc_unlock(c->view, v);
-                return e;
-            }
+            e = cbordec_len(c, 1 << (x - 24), &ulen);
+            if (e) break;
         } else
             U64SETL(ulen, x);
 #if U64SYNTH
-        if (ulen.h)
-            return cbordec_err(c, "system", "CBOR blob too large");
+        if (ulen.h) {
+            e = cbordec_err(c, "system", "CBOR blob too large");
+            break;
+        }
         nz = z + ulen.l;
 #else
         nz = z + ulen;
 #endif
-        if (nz < z)
-            return cbordec_err(c, "system", "CBOR blob too large");
+        if (nz < z) {
+            e = cbordec_err(c, "system", "CBOR blob too large");
+            break;
+        }
         if (z == nz) continue;
         e = unc_resizeblob(c->view, v, nz, &p);
-        if (e) {
-            unc_unlock(c->view, v);
-            return e;
-        }
+        if (e) break;
         while (z < nz) {
             x = READCHAR(c);
             if (x < 0) {
-                unc_unlock(c->view, v);
-                return cbordec_err(c, "value", "CBOR blob unexpected EOF");
+                e = cbordec_err(c, "value", "CBOR blob unexpected EOF");
+                break;
             }
             p[z++] = x;
         }
     }
+    unc_unlock(c->view, v);
+    return e;
 }
 
-INLINE int cbordec_str(struct cbor_decode_context *c, Unc_Value *v, u64_t l) {
-    int e;
+INLINE Unc_RetVal cbordec_str(struct cbor_decode_context *c, Unc_Value *v,
+                              u64_t l) {
+    Unc_RetVal e;
     byte *p, *pp;
 #if U64SYNTH
     u32_t i, z;
@@ -327,73 +339,76 @@ INLINE int cbordec_str(struct cbor_decode_context *c, Unc_Value *v, u64_t l) {
     return e;
 }
 
-INLINE int cbordec_strchnk(struct cbor_decode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cbordec_strchnk(struct cbor_decode_context *c,
+                                  Unc_Value *v) {
     byte *p;
     Unc_Size z = 0, nz;
-    int e;
+    Unc_RetVal e;
     p = unc_malloc(c->view, z);
     if (!p) return UNCIL_ERR_MEM;
     for (;;) {
         int x = READCHAR(c);
         u64_t ulen = U64_0;
         if (x < 0) {
-            unc_mfree(c->view, p);
-            return cbordec_err(c, "value", "CBOR string chain unexpected EOF");
+            e = cbordec_err(c, "value", "CBOR string chain unexpected EOF");
+            break;
         }
         if (x == 0xFF) {
             e = unc_newstringmove(c->view, v, z, (char *)p);
-            if (e) unc_mfree(c->view, p);
-            return e;
+            if (!e) return e;
+            break;
         }
         if ((x >> 5) != 3) {
-            unc_mfree(c->view, p);
-            return cbordec_err(c, "value",
-                "CBOR string chain: expected string, "
-                "but value was of another type");
+            e = cbordec_err(c, "value", "CBOR string chain: expected string, "
+                                        "but value was of another type");
+            break;
         }
         x &= 31;
         if (x >= 28) {
-            unc_mfree(c->view, p);
-            return cbordec_err(c, "value",
+            e = cbordec_err(c, "value",
                 "CBOR string chain: invalid length for string in chain");
+            break;
         }
         if (x >= 24) {
-            int e = cbordec_len(c, 1 << (x - 24), &ulen);
-            if (e) {
-                unc_mfree(c->view, p);
-                return e;
-            }
+            Unc_RetVal e = cbordec_len(c, 1 << (x - 24), &ulen);
+            if (e) break;
         } else
             U64SETL(ulen, x);
 #if U64SYNTH
-        if (ulen.h)
-            return cbordec_err(c, "system", "CBOR blob too large");
+        if (ulen.h) {
+            e = cbordec_err(c, "system", "CBOR blob too large");
+            break;
+        }
         nz = z + ulen.l;
 #else
         nz = z + ulen;
 #endif
-        if (nz < z)
-            return cbordec_err(c, "system", "CBOR blob too large");
+        if (nz < z) {
+            e = cbordec_err(c, "system", "CBOR blob too large");
+            break;
+        }
         if (z == nz) continue;
         p = unc_mrealloc(c->view, p, nz);
         if (!p) {
-            unc_mfree(c->view, p);
-            return UNCIL_ERR_MEM;
+            e = UNCIL_ERR_MEM;
+            break;
         }
         while (z < nz) {
             x = READCHAR(c);
             if (x < 0) {
-                unc_mfree(c->view, p);
-                return cbordec_err(c, "value", "CBOR string unexpected EOF");
+                e = cbordec_err(c, "value", "CBOR string unexpected EOF");
+                break;
             }
             p[z++] = x;
         }
     }
+    unc_mfree(c->view, p);
+    return e;
 }
 
-INLINE int cbordec_arr(struct cbor_decode_context *c, Unc_Value *v,
-                       int forever, u64_t l) {
-    int e;
+INLINE Unc_RetVal cbordec_arr(struct cbor_decode_context *c, Unc_Value *v,
+                              int forever, u64_t l) {
+    Unc_RetVal e;
     Unc_Size z0, z1, j = 0;
     Unc_Value *p;
 #if U64SYNTH
@@ -443,9 +458,9 @@ INLINE int cbordec_arr(struct cbor_decode_context *c, Unc_Value *v,
     return e;
 }
 
-INLINE int cbordec_map(struct cbor_decode_context *c, Unc_Value *v,
-                       int forever, u64_t l) {
-    int e;
+INLINE Unc_RetVal cbordec_map(struct cbor_decode_context *c, Unc_Value *v,
+                              int forever, u64_t l) {
+    Unc_RetVal e;
     Unc_Value pk = UNC_BLANK, pv = UNC_BLANK;
 #if U64SYNTH
     u32_t i, z;
@@ -478,18 +493,19 @@ INLINE int cbordec_map(struct cbor_decode_context *c, Unc_Value *v,
         e = unc_setindex(c->view, v, &pk, &pv);
         if (e)
             break;
-        unc_clear(c->view, &pv);
-        unc_clear(c->view, &pk);
+        VCLEAR(c->view, &pv);
+        VCLEAR(c->view, &pk);
     }
     ++c->recurse;
-    unc_clear(c->view, &pv);
-    unc_clear(c->view, &pk);
+    VCLEAR(c->view, &pv);
+    VCLEAR(c->view, &pk);
     return e;
 }
 
-static int cbordec_tag(struct cbor_decode_context *c, Unc_Value *v, u64_t tag) {
+static Unc_RetVal cbordec_tag(struct cbor_decode_context *c, Unc_Value *v,
+                              u64_t tag) {
     Unc_Value tmp = UNC_BLANK;
-    int e;
+    Unc_RetVal e;
     if (!c->recurse)
         return UNCIL_ERR_TOODEEP;
     --c->recurse;
@@ -504,7 +520,7 @@ static int cbordec_tag(struct cbor_decode_context *c, Unc_Value *v, u64_t tag) {
     return unc_setattrc(c->view, v, "tag", &tmp);
 }
 
-INLINE int cbordec_f16(struct cbor_decode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cbordec_f16(struct cbor_decode_context *c, Unc_Value *v) {
     int x, neg;
     unsigned int u;
     Unc_Float f;
@@ -524,14 +540,14 @@ INLINE int cbordec_f16(struct cbor_decode_context *c, Unc_Value *v) {
     else if (x == 31)
         f = u ? unc0_fnan() : unc0_finfty();
     else
-        f = ldexp(u | 0x400, x - 25);
+        f = unc0_mldexp(u | 0x400, x - 25);
     if (neg)
         f = -f;
     unc_setfloat(c->view, v, f);
     return 0;
 }
 
-INLINE int cbordec_f32(struct cbor_decode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cbordec_f32(struct cbor_decode_context *c, Unc_Value *v) {
     int i, fle = c->fle;
     float f32;
     byte b[sizeof(float)];
@@ -547,7 +563,7 @@ INLINE int cbordec_f32(struct cbor_decode_context *c, Unc_Value *v) {
     return 0;
 }
 
-INLINE int cbordec_f64(struct cbor_decode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cbordec_f64(struct cbor_decode_context *c, Unc_Value *v) {
     int i, fle = c->fle;
     double f64;
     byte b[sizeof(double)];
@@ -563,7 +579,7 @@ INLINE int cbordec_f64(struct cbor_decode_context *c, Unc_Value *v) {
     return 0;
 }
 
-static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
+static Unc_RetVal cbordec(struct cbor_decode_context *c, Unc_Value *v) {
     int x = READCHAR(c);
     int type, len;
     u64_t ulen = U64_0;
@@ -596,7 +612,7 @@ static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
             if (len == 31) {
                 return cbordec_blobchnk(c, v);
             } else if (len < 28) {
-                int e = cbordec_len(c, 1 << (len - 24), &ulen);
+                Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
             } else {
                 return cbordec_err(c, "value",
@@ -610,7 +626,7 @@ static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
             if (len == 31) {
                 return cbordec_strchnk(c, v);
             } else if (len < 28) {
-                int e = cbordec_len(c, 1 << (len - 24), &ulen);
+                Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
             } else {
                 return cbordec_err(c, "value",
@@ -624,7 +640,7 @@ static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
             if (len == 31) {
                 return cbordec_arr(c, v, 1, 0);
             } else if (len < 28) {
-                int e = cbordec_len(c, 1 << (len - 24), &ulen);
+                Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
             } else {
                 return cbordec_err(c, "value",
@@ -638,7 +654,7 @@ static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
             if (len == 31) {
                 return cbordec_map(c, v, 1, 0);
             } else if (len < 28) {
-                int e = cbordec_len(c, 1 << (len - 24), &ulen);
+                Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
             } else {
                 return cbordec_err(c, "value",
@@ -650,7 +666,7 @@ static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
     case 6:
         if (len >= 24) {
             if (len < 28) {
-                int e = cbordec_len(c, 1 << (len - 24), &ulen);
+                Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
             } else {
                 return cbordec_err(c, "value",
@@ -694,19 +710,17 @@ static int cbordec(struct cbor_decode_context *c, Unc_Value *v) {
 }
 
 struct cbor_encode_blob {
-    Unc_Allocator *alloc;
-    byte *s;
-    Unc_Size n, c;
+    struct unc0_strbuf buf;
     int err;
 };
 
 /* 0 = OK, <>0 = error */
 static int cbor_encode_blob_do(Unc_Size n, const byte *c, void *p) {
     struct cbor_encode_blob *s = p;
-    return (s->err = unc0_strpushb(s->alloc, &s->s, &s->n, &s->c,
-                                   6, n, (const byte *)c));
+    return (s->err = unc0_strbuf_putn(&s->buf, n, c));
 }
 
+#if !UNCIL_NOLIBIO
 struct cbor_encode_file {
     struct ulib_io_file *fp;
     int err;
@@ -717,6 +731,7 @@ static int cbor_encode_file_do(Unc_Size n, const byte *c, void *p_) {
     struct cbor_encode_file *p = p_;
     return (p->err = unc0_io_fwrite_p(p->view, p->fp, (const byte *)c, n));
 }
+#endif
 
 struct cbor_encode_context {
     int (*out)(Unc_Size, const byte *, void *);
@@ -730,8 +745,8 @@ struct cbor_encode_context {
     Unc_Size ents_n, ents_c;
 };
 
-INLINE int cborenc_err(struct cbor_encode_context *c,
-                       const char *type, const char *msg) {
+INLINE Unc_RetVal cborenc_err(struct cbor_encode_context *c,
+                              const char *type, const char *msg) {
     return unc_throwexc(c->view, type, msg);
 }
 
@@ -743,8 +758,8 @@ typedef Unc_UInt Unc_CBORInt;
 typedef Unc_Size Unc_CBORInt;
 #endif
 
-INLINE int cborenc_val(struct cbor_encode_context *c,
-                       int type, Unc_CBORInt value) {
+INLINE Unc_RetVal cborenc_val(struct cbor_encode_context *c,
+                              int type, Unc_CBORInt value) {
     int j;
     if (value < 24) {
         byte x = (type << 5) | value;
@@ -785,20 +800,21 @@ INLINE int cborenc_val(struct cbor_encode_context *c,
     }
 }
 
-INLINE int cborenc_raw(struct cbor_encode_context *c, int type, int value) {
+INLINE Unc_RetVal cborenc_raw(struct cbor_encode_context *c,
+                              int type, int value) {
     byte x = (type << 5) | value;
     return (*c->out)(1, &x, c->out_data);
 }
 
-INLINE int cborenc_indef(struct cbor_encode_context *c, int type) {
+INLINE Unc_RetVal cborenc_indef(struct cbor_encode_context *c, int type) {
     return cborenc_raw(c, type, 31);
 }
 
-INLINE int cborenc_eol(struct cbor_encode_context *c) {
+INLINE Unc_RetVal cborenc_eol(struct cbor_encode_context *c) {
     return cborenc_indef(c, 7);
 }
 
-static int cborenc_signent(struct cbor_encode_context *c, void *p) {
+static Unc_RetVal cborenc_signent(struct cbor_encode_context *c, void *p) {
     Unc_Size i = c->ents_n;
     if (i) {
         --i;
@@ -818,9 +834,9 @@ static int cborenc_signent(struct cbor_encode_context *c, void *p) {
     return 0;
 }
 
-static int cborenc(struct cbor_encode_context *c, Unc_Value *v);
+static Unc_RetVal cborenc(struct cbor_encode_context *c, Unc_Value *v);
 
-INLINE int cborenc_int(struct cbor_encode_context *c, Unc_Int i) {
+INLINE Unc_RetVal cborenc_int(struct cbor_encode_context *c, Unc_Int i) {
     if (i < 0) {
         return cborenc_val(c, 1, (Unc_CBORInt)(Unc_UInt)-i);
     } else {
@@ -828,8 +844,9 @@ INLINE int cborenc_int(struct cbor_encode_context *c, Unc_Int i) {
     }
 }
 
-INLINE int cborenc_f32(struct cbor_encode_context *c, float f) {
-    int e, fle = c->fle;
+INLINE Unc_RetVal cborenc_f32(struct cbor_encode_context *c, float f) {
+    Unc_RetVal e;
+    int fle = c->fle;
     byte b[sizeof(float)];
     if ((e = cborenc_raw(c, 7, 26))) return e;
     ASSERT(sizeof(float) == 4);
@@ -838,8 +855,9 @@ INLINE int cborenc_f32(struct cbor_encode_context *c, float f) {
     return (*c->out)(sizeof(b), b, c->out_data);
 }
 
-INLINE int cborenc_f64(struct cbor_encode_context *c, double f) {
-    int e, fle = c->fle;
+INLINE Unc_RetVal cborenc_f64(struct cbor_encode_context *c, double f) {
+    Unc_RetVal e;
+    int fle = c->fle;
     byte b[sizeof(double)];
     if (f == (float)f) return cborenc_f32(c, (float)f);
     if ((e = cborenc_raw(c, 7, 27))) return e;
@@ -849,10 +867,10 @@ INLINE int cborenc_f64(struct cbor_encode_context *c, double f) {
     return (*c->out)(sizeof(b), b, c->out_data);
 }
 
-INLINE int cborenc_blob(struct cbor_encode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cborenc_blob(struct cbor_encode_context *c, Unc_Value *v) {
     Unc_Size sn;
     byte *sp;
-    int e;
+    Unc_RetVal e;
     e = unc_lockblob(c->view, v, &sn, &sp);
     if (e) return e;
     if ((e = cborenc_val(c, 2, sn))) goto cborenc_blob_done;
@@ -862,20 +880,20 @@ cborenc_blob_done:
     return e;
 }
 
-INLINE int cborenc_str(struct cbor_encode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cborenc_str(struct cbor_encode_context *c, Unc_Value *v) {
     Unc_Size sn;
     const char *sp;
-    int e;
+    Unc_RetVal e;
     e = unc_getstring(c->view, v, &sn, &sp);
     if (e) return e;
     if ((e = cborenc_val(c, 3, sn))) return e;
     return (*c->out)(sn, (const byte *)sp, c->out_data);
 }
 
-INLINE int cborenc_arr(struct cbor_encode_context *c, Unc_Value *v) {
+INLINE Unc_RetVal cborenc_arr(struct cbor_encode_context *c, Unc_Value *v) {
     Unc_Size sn;
     Unc_Value *ss;
-    int e;
+    Unc_RetVal e;
     if ((e = cborenc_signent(c, VGETENT(v))))
         return e;
     if (!c->recurse)
@@ -897,8 +915,8 @@ cborenc_arr_done:
     return e;
 }
 
-INLINE int cborenc_obj(struct cbor_encode_context *c, Unc_Value *v) {
-    int e;
+INLINE Unc_RetVal cborenc_obj(struct cbor_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
     Unc_Value iter = UNC_BLANK;
     if ((e = cborenc_signent(c, VGETENT(v))))
         return e;
@@ -933,12 +951,12 @@ INLINE int cborenc_obj(struct cbor_encode_context *c, Unc_Value *v) {
     ++c->recurse;
     --c->ents_n;
 cborenc_obj_done:
-    unc_clear(c->view, &iter);
+    VCLEAR(c->view, &iter);
     return e;
 }
 
-INLINE int cborenc_tag(struct cbor_encode_context *c, Unc_Value *v) {
-    int e;
+INLINE Unc_RetVal cborenc_tag(struct cbor_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
     Unc_Int ik;
     Unc_Value iv = UNC_BLANK;
     if (!c->recurse)
@@ -952,12 +970,12 @@ INLINE int cborenc_tag(struct cbor_encode_context *c, Unc_Value *v) {
     e = cborenc(c, &iv);
     ++c->recurse;
 cborenc_tag_done:
-    unc_clear(c->view, &iv);
+    VCLEAR(c->view, &iv);
     return e;
 }
 
-static int cborenc(struct cbor_encode_context *c, Unc_Value *v) {
-    int e;
+static Unc_RetVal cborenc(struct cbor_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
     switch (unc_gettype(c->view, v)) {
     case Unc_TNull:
         return cborenc_raw(c, 74, 22);
@@ -992,7 +1010,7 @@ static int cborenc(struct cbor_encode_context *c, Unc_Value *v) {
         int stag;
         unc_getprototype(c->view, v, &pr);
         stag = unc_issame(c->view, &pr, c->tagproto);
-        unc_clear(c->view, &pr);
+        VCLEAR(c->view, &pr);
         if (stag) {
             /* semantic tag! */
             return cborenc_tag(c, v);
@@ -1011,8 +1029,8 @@ INLINE int is_float_le(void) {
     return !f_b[0];
 }
 
-Unc_RetVal unc0_lib_cbor_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+Unc_RetVal uncl_cbor_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct cbor_decode_context cxt;
     struct cbor_decode_blob rs;
@@ -1033,12 +1051,12 @@ Unc_RetVal unc0_lib_cbor_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
     if (e == CBOR_EOL)
         e = unc_throwexc(w, "value", "unexpected CBOR terminator");
     unc_unlock(w, &args.values[0]);
-    if (e) return e;
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+#if !UNCIL_NOLIBIO
+Unc_RetVal uncl_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct cbor_decode_context cxt;
     struct cbor_decode_file buf;
@@ -1062,19 +1080,18 @@ Unc_RetVal unc0_lib_cbor_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     if (e == CBOR_EOL)
         e = unc_throwexc(w, "value", "unexpected CBOR terminator");
     else if (unc0_io_ferror(pfile))
-        e = unc0_io_makeerr(w, "cbor.decodefile()", errno);
+        e = unc0_io_makeerr_errno(w, "cbor.decodefile()");
     unc0_io_unlockfile(w, &args.values[0]);
-    if (e) return e;
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
+#endif
 
-Unc_RetVal unc0_lib_cbor_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+Unc_RetVal uncl_cbor_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct cbor_encode_context cxt = { NULL, NULL, 0, NULL, NULL, UNC_BLANK };
-    struct cbor_encode_blob rs = { NULL, NULL, 0, 0 };
+    struct cbor_encode_blob rs;
     (void)ud_;
-
     cxt.view = w;
     cxt.out = &cbor_encode_blob_do;
     cxt.out_data = &rs;
@@ -1087,22 +1104,23 @@ Unc_RetVal unc0_lib_cbor_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
     cxt.ents = NULL;
     cxt.ents_n = cxt.ents_c = 0;
 
-    rs.alloc = &w->world->alloc;
-    
+    unc0_strbuf_init(&rs.buf, &w->world->alloc, Unc_AllocBlob);
+    rs.err = 0;
+
     e = cborenc(&cxt, &args.values[0]);
     if (rs.err) e = rs.err;
-    if (!e) {
-        rs.s = unc_mrealloc(w, rs.s, rs.n);
-        e = unc_newblobmove(w, &v, rs.s);
-        if (!e) e = unc_push(w, 1, &v, NULL);
-    }
+    if (!e) e = unc0_buftoblob(w, &v, &rs.buf);
+    e = unc_returnlocal(w, e, &v);
+    unc0_strbuf_free(&rs.buf);
     unc_mfree(w, cxt.ents);
-    unc_clear(w, &cxt.mapper);
+    VCLEAR(w, &cxt.mapper);
+    VCLEAR(w, &v);
     return e;
 }
 
-Unc_RetVal unc0_lib_cbor_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+#if !UNCIL_NOLIBIO
+Unc_RetVal uncl_cbor_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     struct cbor_encode_context cxt = { NULL, NULL, 0, NULL, NULL, UNC_BLANK };
     struct ulib_io_file *pfile;
     struct cbor_encode_file buf;
@@ -1131,12 +1149,23 @@ Unc_RetVal unc0_lib_cbor_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     if (buf.err < 0)
         e = UNCIL_ERR_INTERNAL;
     else if (unc0_io_ferror(pfile))
-        e = unc0_io_makeerr(w, "cbor.encodefile()", errno);
+        e = unc0_io_makeerr_errno(w, "cbor.encodefile()");
     unc0_io_unlockfile(w, &args.values[0]);
     unc_mfree(w, cxt.ents);
-    unc_clear(w, &cxt.mapper);
+    VCLEAR(w, &cxt.mapper);
     return e;
 }
+#endif
+
+#define FN(x) &uncl_cbor_##x, #x
+static const Unc_ModuleCFunc lib[] = {
+    { FN(decode),        1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(encode),        1, 1, 0, UNC_CFUNC_CONCURRENT },
+#if !UNCIL_NOLIBIO
+    { FN(decodefile),    1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(encodefile),    1, 1, 0, UNC_CFUNC_CONCURRENT },
+#endif
+};
 
 Unc_RetVal uncilmain_cbor(Unc_View *w) {
     Unc_RetVal e;
@@ -1145,8 +1174,10 @@ Unc_RetVal uncilmain_cbor(Unc_View *w) {
     e = unc_newobject(w, &cbor_tag, NULL);
     if (e) return e;
 
+#if !UNCIL_NOLIBIO
     e = unc0_io_init(w);
     if (e) return e;
+#endif
 
     {
         Unc_Value ns = UNC_BLANK;
@@ -1154,31 +1185,11 @@ Unc_RetVal uncilmain_cbor(Unc_View *w) {
         if (e) return e;
         e = unc_setattrc(w, &cbor_tag, "__name", &ns);
         if (e) return e;
-        unc_clear(w, &ns);
+        VCLEAR(w, &ns);
     }
 
     e = unc_setpublicc(w, "semantictag", &cbor_tag);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "decode", &unc0_lib_cbor_decode,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 0, NULL, 1, &cbor_tag, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "encode", &unc0_lib_cbor_encode,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 2, NULL, 1, &cbor_tag, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "decodefile", &unc0_lib_cbor_decodefile,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 0, NULL, 1, &cbor_tag, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "encodefile", &unc0_lib_cbor_encodefile,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 2, NULL, 1, &cbor_tag, 0, NULL, NULL);
-    if (e) return e;
-
-    return 0;
+    return unc_exportcfunctions(w, PASSARRAY(lib), 1, &cbor_tag, NULL);
 }

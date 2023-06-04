@@ -1,0 +1,12 @@
+
+function insertion_sort(a)
+	n = a->length()
+	for i = 1, < n do
+		j = i
+		while j > 0 and a[j - 1] > a[j] do
+			print("Swapping A[" ~ string(j - 1) ~ "] and A[" ~ string(j) ~ "]")
+			a[j - 1], a[j] = a[j], a[j - 1]
+			j -= 1
+		end
+	end
+end

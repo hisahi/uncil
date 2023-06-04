@@ -52,3 +52,7 @@ int unc0_isspace(int c) {
 int unc0_tolower(int c) {
     return unc0_isalpha(c) ? (c | 0x20) : c;
 }
+
+int unc0_toupper(int c) {
+    return unc0_isalpha(c) ? (c & ~0x20) : c;
+}

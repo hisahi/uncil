@@ -25,7 +25,7 @@ SOFTWARE.
 *******************************************************************************/
 
 #include <float.h>
-#include <stdio.h>
+
 #include <string.h>
 
 #define UNCIL_DEFINES
@@ -73,12 +73,58 @@ INLINE char hexdigit(int c) {
 #endif
 }
 
-#define DIVRU(n, d) (((n) + ((d) - 1)) / d)
+Unc_RetVal unc0_buftostring(struct Unc_View *w, Unc_Value *out,
+                            struct unc0_strbuf *buf) {
+    Unc_RetVal e;
+    Unc_Value tmp;
+    if (buf->length && buf->buffer[buf->length - 1]) {
+        e = unc0_strbuf_put1(buf, 0); /* null-terminate */
+        if (e) return e;
+    }
+    unc0_strbuf_compact(buf);
+    e = unc0_vrefnew(w, &tmp, Unc_TString);
+    if (e) return e;
+    if (!buf->length)
+        e = unc0_initstringempty(&w->world->alloc,
+                                 LEFTOVER(Unc_String, VGETENT(&tmp)));
+    else
+        e = unc0_initstringmove(&w->world->alloc,
+                                LEFTOVER(Unc_String, VGETENT(&tmp)),
+                                buf->length - 1, buf->buffer);
+    if (e)
+        unc0_unwake(VGETENT(&tmp), w);
+    else {
+        VMOVE(w, out, &tmp);
+        buf->buffer = NULL;
+        buf->length = buf->capacity = 0;
+    }
+    return e;
+}
+
+Unc_RetVal unc0_buftoblob(struct Unc_View *w, Unc_Value *out,
+                          struct unc0_strbuf *buf) {
+    Unc_RetVal e;
+    Unc_Value tmp;
+    unc0_strbuf_compact(buf);
+    e = unc0_vrefnew(w, &tmp, Unc_TBlob);
+    if (e) return e;
+    e = unc0_initblobmove(&w->world->alloc,
+                          LEFTOVER(Unc_Blob, VGETENT(&tmp)),
+                          buf->length, buf->buffer);
+    if (e)
+        unc0_unwake(VGETENT(&tmp), w);
+    else {
+        VMOVE(w, out, &tmp);
+        buf->buffer = NULL;
+        buf->length = buf->capacity = 0;
+    }
+    return e;
+}
 
 struct printf_wrapper {
     void *udata;
     int (*out)(Unc_Size n, const byte *s, void *udata);
-    int e;
+    Unc_RetVal e;
 };
 
 int printf_wrapper_f(char outp, void *udata) {
@@ -86,49 +132,52 @@ int printf_wrapper_f(char outp, void *udata) {
     return s->e = (s->out)(1, (byte *)&outp, s->udata);
 }
 
-static int cvt2str_i(int (*out)(Unc_Size n, const byte *s, void *udata),
+static Unc_RetVal cvt2str_i(int (*out)(Unc_Size n, const byte *s, void *udata),
             void *udata, Unc_Int i) {
     struct printf_wrapper pf;
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc0_xprintf(&printf_wrapper_f, &pf, "%"PRIUnc_Int"d", i);
+    unc0_xprintf(&printf_wrapper_f, &pf, 0, 0, "%"PRIUnc_Int"d", i);
     return pf.e;
 }
 
-static int cvt2str_u(int (*out)(Unc_Size n, const byte *s, void *udata),
+static Unc_RetVal cvt2str_u(int (*out)(Unc_Size n, const byte *s, void *udata),
             void *udata, Unc_Size u) {
     struct printf_wrapper pf;
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc0_xprintf(&printf_wrapper_f, &pf, "%zu", u);
+    unc0_xprintf(&printf_wrapper_f, &pf, 0, 0, "%zu", u);
     return pf.e;
 }
 
-static int cvt2str_u2x(int (*out)(Unc_Size n, const byte *s, void *udata),
+static Unc_RetVal cvt2str_u2x(
+            int (*out)(Unc_Size n, const byte *s, void *udata),
             void *udata, byte u) {
     struct printf_wrapper pf;
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc0_xprintf(&printf_wrapper_f, &pf, "%02X", u);
+    unc0_xprintf(&printf_wrapper_f, &pf, 0, 0, "%02X", u);
     return pf.e;
 }
 
-static int cvt2str_f(int (*out)(Unc_Size n, const byte *s, void *udata),
+static Unc_RetVal cvt2str_f(int (*out)(Unc_Size n, const byte *s, void *udata),
             void *udata, Unc_Float f) {
     struct printf_wrapper pf;
     pf.udata = udata;
     pf.out = out;
     pf.e = 0;
-    unc0_xprintf(&printf_wrapper_f, &pf,
+    unc0_xprintf(&printf_wrapper_f, &pf, 0, 0,
                 "%."EVALSTRINGIFY(DBL_DIG) PRIUnc_Float"g", f);
-    /*unc0_xprintf(&printf_wrapper_f, &pf, "%"PRIUnc_Float"a", f);*/
+    /*unc0_xprintf(&printf_wrapper_f, &pf, 0, "%"PRIUnc_Float"a", f);*/
     return pf.e;
 }
 
-static int cvt2str_p(int (*out)(Unc_Size n, const byte *s, void *udata),
+#if !UNCIL_SANDBOXED
+#define DIVRU(n, d) (((n) + ((d) - 1)) / d)
+static Unc_RetVal cvt2str_p(int (*out)(Unc_Size n, const byte *s, void *udata),
             void *udata, void *p) {
     char buf[DIVRU(sizeof(uintptr_t) * CHAR_BIT, 4)];
     Unc_Size j = sizeof(buf);
@@ -139,19 +188,22 @@ static int cvt2str_p(int (*out)(Unc_Size n, const byte *s, void *udata),
     } while (j);
     return out(sizeof(buf), (const byte *)buf, udata);
 }
+#endif
 
-static int cvt2str_sp(
+static Unc_RetVal cvt2str_sp(
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata,
             Unc_Size tn, const byte *t, void *p) {
     MUST(out(PASSSTRL("<<"), udata));
     MUST(out(tn, t, udata));
+#if !UNCIL_SANDBOXED
     MUST(out(PASSSTRL(" at 0x"), udata));
     MUST(cvt2str_p(out, udata, p));
+#endif
     MUST(out(PASSSTRL(">>"), udata));
     return 0;
 }
 
-static int cvt2str_spn(
+static Unc_RetVal cvt2str_spn(
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata,
             Unc_Size tn, const byte *t, void *p,
             Unc_Size sn, const byte *sb) {
@@ -162,13 +214,15 @@ static int cvt2str_spn(
         MUST(out(sn, sb, udata));
         MUST(out(PASSSTRL(")"), udata));
     }
+#if !UNCIL_SANDBOXED
     MUST(out(PASSSTRL(" at 0x"), udata));
     MUST(cvt2str_p(out, udata, p));
+#endif
     MUST(out(PASSSTRL(">>"), udata));
     return 0;
 }
 
-static int cvt2str_spq(
+static Unc_RetVal cvt2str_spq(
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata,
             Unc_Size tn, const byte *t, void *p,
             Unc_Size sn, const byte *sb) {
@@ -179,13 +233,15 @@ static int cvt2str_spq(
         MUST(out(sn, sb, udata));
         MUST(out(PASSSTRL("'"), udata));
     }
+#if !UNCIL_SANDBOXED
     MUST(out(PASSSTRL(" at 0x"), udata));
     MUST(cvt2str_p(out, udata, p));
+#endif
     MUST(out(PASSSTRL(">>"), udata));
     return 0;
 }
 
-int unc0_vcvt2strrq(Unc_View *w, Unc_String *s,
+Unc_RetVal unc0_vcvt2strrq(Unc_View *w, Unc_String *s,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata) {
     Unc_Size n = s->size, q;
     const byte *sb = n ? unc0_getstringdata(s) : (const byte *)"", *p;
@@ -238,15 +294,15 @@ int unc0_vcvt2strrq(Unc_View *w, Unc_String *s,
     return 0;
 }
 
-int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
+Unc_RetVal unc0_vcvt2str(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata);
 
-int unc0_vcvt2strq(Unc_View *w, Unc_Value *in,
+Unc_RetVal unc0_vcvt2strq(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata)
 {
     if (VGETTYPE(in) == Unc_TObject || VGETTYPE(in) == Unc_TOpaque) {
         Unc_Value vout;
-        int e = unc0_vovlunary(w, in, &vout,
+        Unc_RetVal e = unc0_vovlunary(w, in, &vout,
                                 PASSSTRL(OPOVERLOAD(quote)));
         if (e) {
             if (UNCIL_IS_ERR(e)) return e;
@@ -272,7 +328,7 @@ int unc0_vcvt2strq(Unc_View *w, Unc_Value *in,
 }
 
 
-int unc0_vcvt2strobj(Unc_View *w, Unc_Value *in,
+Unc_RetVal unc0_vcvt2strobj(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata) {
     void *arr_[32];
     void **arr = arr_;
@@ -515,7 +571,7 @@ strobjdictnosave:
     return 0;
 }
 
-int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
+Unc_RetVal unc0_vcvt2str(Unc_View *w, Unc_Value *in,
             int (*out)(Unc_Size n, const byte *s, void *udata), void *udata) {
     switch (VGETTYPE(in)) {
     case Unc_TNull:
@@ -560,7 +616,7 @@ int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
     case Unc_TObject:
     case Unc_TOpaque:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Size nsn = 0;
         const byte *nsb = NULL;
         Unc_Value vout;
@@ -580,13 +636,14 @@ int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
         {
             int ofound;
             Unc_Value o = UNC_BLANK;
-            unc0_getprotomethod(w, in, PASSSTRL(OPOVERLOAD(name)), &ofound, &o);
+            unc0_getprotomethod(w, in, PASSSTRL(OPOVERLOAD(name)),
+                                &ofound, &o);
             if (ofound && o.type == Unc_TString) {
                 Unc_String *s = LEFTOVER(Unc_String, VGETENT(&o));
                 nsn = s->size;
                 nsb = unc0_getstringdata(s);
             }
-            VSETNULL(w, &o);
+            VCLEAR(w, &o);
         }
         if (VGETTYPE(in) == Unc_TOpaque)
             return cvt2str_spn(out, udata, PASSSTRL("opaque"), VGETENT(in),
@@ -602,7 +659,7 @@ int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
             if (f->f.c.name)   
                 return cvt2str_spq(out, udata, PASSSTRL("function"),
                     VGETENT(in), 
-                    strlen(f->f.c.name), (const byte *)f->f.c.name);
+                    unc0_strlen(f->f.c.name), (const byte *)f->f.c.name);
             else
                 return cvt2str_sp(out, udata, PASSSTRL("function"),
                     VGETENT(in));
@@ -628,37 +685,29 @@ int unc0_vcvt2str(Unc_View *w, Unc_Value *in,
     return 0;
 }
 
-struct savxprint_buf {
-    Unc_Allocator alloc;
-    byte *s;
-    Unc_Size sn;
-    Unc_Size sc;
-};
-
 static int savxprintf__wrapper(char outp, void *udata) {
-    struct savxprint_buf *s = udata;
-    return unc0_strput(&s->alloc, &s->s, &s->sn, &s->sc, 6, outp);
+    struct unc0_strbuf *s = udata;
+    return unc0_strbuf_put1(s, outp);
 }
 
-int unc0_savxprintf(Unc_Allocator *alloc, byte **s, const char *fmt,
-                    va_list arg) {
-    int e;
-    struct savxprint_buf buf;
-    buf.alloc = *alloc;
-    buf.s = unc0_malloc(alloc, Unc_AllocString, buf.sc = 64);
-    buf.sn = 0;
-    if (!buf.s)
-        return -1;
-    e = unc0_vxprintf(&savxprintf__wrapper, &buf, fmt, arg);
-    if (e < 0)
-        unc0_mfree(alloc, buf.s, buf.sc);
+size_t unc0_savxprintf(Unc_Allocator *alloc, byte **s, const char *fmt,
+                       va_list arg) {
+    size_t e;
+    struct unc0_strbuf buf;
+    unc0_strbuf_init(&buf, alloc, Unc_AllocString);
+    e = unc0_vxprintf(&savxprintf__wrapper, &buf, 0, 0, fmt, arg);
+    if (e != UNC_PRINTF_EOF) /* null-terminate */
+        e = unc0_strbuf_put1(&buf, 0) ? UNC_PRINTF_EOF : e;
+    if (e == UNC_PRINTF_EOF)
+        unc0_strbuf_free(&buf);
     else
-        *s = unc0_mrealloc(alloc, Unc_AllocString, buf.s, buf.sc, e);
+        *s = unc0_mrealloc(alloc, Unc_AllocString, buf.buffer,
+                           buf.capacity, e + 1);
     return e;
 }
 
-int unc0_saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...) {
-    int r;
+size_t unc0_saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...) {
+    size_t r;
     va_list va;
     va_start(va, fmt);
     r = unc0_savxprintf(alloc, s, fmt, va);
@@ -666,36 +715,41 @@ int unc0_saxprintf(Unc_Allocator *alloc, byte **s, const char *fmt, ...) {
     return r;
 }
 
-int unc0_usvxprintf(struct Unc_View *w, Unc_Value *out,
-                    const char *fmt, va_list arg) {
-    int e;
-    struct savxprint_buf buf;
-    buf.alloc = w->world->alloc;
-    buf.s = unc0_malloc(&w->world->alloc, Unc_AllocString, buf.sc = 64);
-    buf.sn = 0;
-    if (!buf.s)
-        return -1;
-    e = unc0_vxprintf(&savxprintf__wrapper, &buf, fmt, arg);
-    if (e < 0) {
-        unc0_mfree(&w->world->alloc, buf.s, buf.sc);
-        return UNCIL_ERR_MEM;
-    }
-    buf.s = unc0_mrealloc(&w->world->alloc, Unc_AllocString,
-                          buf.s, buf.sc, buf.sn);
-    e = unc0_vrefnew(w, out, Unc_TString);
-    if (e) return e;
-    e = unc0_initstringmove(&w->world->alloc,
-                            LEFTOVER(Unc_String, VGETENT(out)),
-                            buf.sn, buf.s);
-    if (e) {
-        unc0_unwake(VGETENT(out), w);
-        return e;
-    }
-    return 0;
+size_t unc0_sacvxprintf(struct unc0_strbuf *buf,
+                        int gflags, size_t fmt_n, const char *fmt,
+                        va_list arg) {
+    return unc0_vxprintf(&savxprintf__wrapper, buf, gflags, fmt_n, fmt, arg);
 }
 
-int unc0_usxprintf(struct Unc_View *w, Unc_Value *out, const char *fmt, ...) {
-    int r;
+size_t unc0_sacxprintf(struct unc0_strbuf *buf,
+                       int gflags, size_t fmt_n, const char *fmt, ...) {
+    size_t r;
+    va_list va;
+    va_start(va, fmt);
+    r = unc0_sacvxprintf(buf, gflags, fmt_n, fmt, va);
+    va_end(va);
+    return r;
+}
+
+Unc_RetVal unc0_usvxprintf(struct Unc_View *w, Unc_Value *out,
+                           const char *fmt, va_list arg) {
+    Unc_RetVal e;
+    struct unc0_strbuf buf;
+    unc0_strbuf_init(&buf, &w->world->alloc, Unc_AllocString);
+    e = unc0_vxprintf(&savxprintf__wrapper, &buf, 0, 0, fmt, arg);
+    if (e < 0) {
+        unc0_strbuf_free(&buf);
+        return UNCIL_ERR_MEM;
+    }
+    unc0_strbuf_compact(&buf);
+    e = unc0_buftostring(w, out, &buf);
+    unc0_strbuf_free(&buf);
+    return e;
+}
+
+Unc_RetVal unc0_usxprintf(struct Unc_View *w, Unc_Value *out,
+                          const char *fmt, ...) {
+    Unc_RetVal r;
     va_list va;
     va_start(va, fmt);
     r = unc0_usvxprintf(w, out, fmt, va);
@@ -703,19 +757,22 @@ int unc0_usxprintf(struct Unc_View *w, Unc_Value *out, const char *fmt, ...) {
     return r;
 }
 
-int unc0_std_makeerr(Unc_View *w, const char *mt, const char *prefix, int err) {
-    int e;
+Unc_RetVal unc0_std_makeerr(Unc_View *w, const char *mt,
+                            const char *prefix, Unc_RetVal err) {
+    Unc_RetVal e;
     Unc_Value msg = UNC_BLANK;
 #if __STDC_LIB_EXT1__
     if (err) {
         size_t s = strerrorlen_s(err);
         int preflen;
         if (s > INT_MAX) s = INT_MAX;
-        e = unc0_usxprintf(w, &msg, "%s: %n%*c", prefix, &preflen, (int)s, ' ');
+        e = unc0_usxprintf(w, &msg, "%s: %n%*c", prefix, &preflen,
+                           (int)s, ' ');
         if (e) return UNCIL_ERR_MEM;
         strerror_s(
             (const char *)unc0_getstringdata(LEFTOVER(Unc_String,
-                                             VGETENT(&msg))) + preflen, s, err);
+                                             VGETENT(&msg))) + preflen,
+                                             s, err);
     } else
 #endif
     {
@@ -738,8 +795,8 @@ int sxscanf__wrapper(void *data) {
     return *buf->s++;
 }
 
-int unc0_sxscanf(Unc_Size sn, const byte *bn, const char *format, ...) {
-    int r;
+size_t unc0_sxscanf(Unc_Size sn, const byte *bn, const char *format, ...) {
+    size_t r;
     struct sxscanf_buffer buf;
     va_list va;
     va_start(va, format);

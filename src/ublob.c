@@ -68,7 +68,8 @@ int unc0_initblobmove(Unc_Allocator *alloc, Unc_Blob *s, Unc_Size n, byte *b) {
 }
 
 /* append n bytes form b to blob q */
-int unc0_blobadd(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b) {
+int unc0_blobadd(Unc_Allocator *alloc, Unc_Blob *q,
+                 Unc_Size n, const byte *b) {
     Unc_Size c = q->capacity, s = q->size, ns = s + n;
     if (ns > c) {
         Unc_Size nc = ns + UNC_BLOB_BUFFER - 1;
@@ -106,7 +107,7 @@ int unc0_blobaddn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n) {
         q->data = p;
         q->capacity = nc;
     }
-    unc0_memset(q->data + s, 0, n);
+    unc0_mbzero(q->data + s, n);
     q->size = ns;
     return 0;
 }
@@ -151,7 +152,7 @@ int unc0_blobinsn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n) {
     }
     if (i + n < s)
         unc0_memmove(q->data + i + n, q->data + i, s - n - i);
-    unc0_memset(q->data + i, 0, n);
+    unc0_mbzero(q->data + i, n);
     q->size = ns;
     return 0;
 }
@@ -165,7 +166,8 @@ int unc0_blobdel(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n) {
     q->size -= n;
     if (q->size * 2 < q->capacity) {
         Unc_Size nz = q->capacity / 2;
-        q->data = unc0_mrealloc(alloc, Unc_AllocBlob, q->data, q->capacity, nz);
+        q->data = unc0_mrealloc(alloc, Unc_AllocBlob,
+                                q->data, q->capacity, nz);
         q->capacity = nz;
     }
     return 0;
@@ -183,17 +185,12 @@ int unc0_blobeq(Unc_Blob *a, Unc_Blob *b) {
     if (a == b) return 1;
     UNC_LOCKL(a->lock);
     UNC_LOCKL(b->lock);
-    if (a->size != b->size) {   
-        UNC_UNLOCKL(b->lock); 
-        UNC_UNLOCKL(a->lock);
-        return 0;
-    }
-    if (!a->size) {
-        UNC_UNLOCKL(b->lock);
-        UNC_UNLOCKL(a->lock);
-        return 1;
-    }
-    e = !unc0_memcmp(a->data, b->data, a->size);
+    if (a->size != b->size)
+        e = 0;
+    else if (!a->size)
+        e = 1;
+    else
+        e = !unc0_memcmp(a->data, b->data, a->size);
     UNC_UNLOCKL(b->lock);
     UNC_UNLOCKL(a->lock);
     return e;
@@ -203,15 +200,12 @@ int unc0_blobeq(Unc_Blob *a, Unc_Blob *b) {
 int unc0_blobeqr(Unc_Blob *a, Unc_Size n, const byte *b) {
     int e;
     UNC_LOCKL(a->lock);
-    if (a->size != n) {
-        UNC_UNLOCKL(a->lock);
-        return 0;
-    }
-    if (!n) {
-        UNC_UNLOCKL(a->lock);
-        return 1;
-    }
-    e = !unc0_memcmp(a->data, b, n);
+    if (a->size != n)
+        e = 0;
+    else if (!n)
+        e = 1;
+    else
+        e = !unc0_memcmp(a->data, b, n);
     UNC_UNLOCKL(a->lock);
     return e;
 }

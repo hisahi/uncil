@@ -32,5 +32,6 @@ int unc0_isalpha(int c);
 int unc0_isdigit(int c);
 int unc0_isspace(int c);
 int unc0_tolower(int c);
+int unc0_toupper(int c);
 
 #endif /* UNCIL_UCTYPE_H */

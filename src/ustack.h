@@ -42,24 +42,26 @@ struct Unc_View;
 
 #define unc0_stackdepth(s) ((s)->top - (s)->base)
 
-int unc0_stackinit(struct Unc_View *w, Unc_Stack *s, Unc_Size start);
-int unc0_stackreserve(struct Unc_View *w, Unc_Stack *s, Unc_Size n);
-int unc0_stackpush(struct Unc_View *w, Unc_Stack *s, Unc_Size n, Unc_Value *v);
-int unc0_stackpushv(struct Unc_View *w, Unc_Stack *s, Unc_Value *v);
-int unc0_stackpushn(struct Unc_View *w, Unc_Stack *s, Unc_Size n);
+Unc_RetVal unc0_stackinit(struct Unc_View *w, Unc_Stack *s, Unc_Size start);
+Unc_RetVal unc0_stackreserve(struct Unc_View *w, Unc_Stack *s, Unc_Size n);
+Unc_RetVal unc0_stackpush(struct Unc_View *w, Unc_Stack *s,
+                          Unc_Size n, Unc_Value *v);
+Unc_RetVal unc0_stackpushv(struct Unc_View *w, Unc_Stack *s, Unc_Value *v);
+Unc_RetVal unc0_stackpushn(struct Unc_View *w, Unc_Stack *s, Unc_Size n);
 Unc_Value *unc0_stackat(Unc_Stack *s, int offset);
 Unc_Value *unc0_stackbeyond(Unc_Stack *s, int offset);
-int unc0_stackinsert(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
+Unc_RetVal unc0_stackinsert(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
                                                     Unc_Value *v);
-int unc0_stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
+Unc_RetVal unc0_stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
                                                     Unc_Size n, Unc_Value *v);
-int unc0_stackinsertn(struct Unc_View *w, Unc_Stack *s,
+Unc_RetVal unc0_stackinsertn(struct Unc_View *w, Unc_Stack *s,
                                                     Unc_Size i, Unc_Value *v);
 void unc0_restoredepth(struct Unc_View *w, Unc_Stack *s, Unc_Size d);
 void unc0_stackwunwind(struct Unc_View *w, Unc_Stack *s, Unc_Size d, int ex);
 void unc0_stackpullrug(struct Unc_View *w, Unc_Stack *s, Unc_Size d,
                                                          Unc_Size e);
-void unc0_stackmove(struct Unc_View *w, Unc_Stack *b, Unc_Stack *a, Unc_Size n);
+void unc0_stackmove(struct Unc_View *w, Unc_Stack *b,
+                    Unc_Stack *a, Unc_Size n);
 void unc0_stackpop(struct Unc_View *w, Unc_Stack *s, Unc_Size n);
 void unc0_stackfree(struct Unc_View *w, Unc_Stack *s);
 

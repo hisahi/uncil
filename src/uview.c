@@ -36,11 +36,14 @@ SOFTWARE.
 #include "uvali.h"
 #include "uview.h"
 
-Unc_World *unc0_incept(Unc_Alloc allocfn, void *udata) {
+#define UNCIL_DEFAULT_RECURSE_LIMIT 1024
+
+Unc_World *unc0_launch(Unc_Alloc allocfn, void *udata) {
     Unc_World *world;
     Unc_Allocator alloc;
-    int e;
-    unc0_initalloc(&alloc, NULL, allocfn, udata);
+    Unc_RetVal e = unc0_initalloc(&alloc, NULL, allocfn, udata);
+    if (e) return NULL;
+
     world = unc0_malloc(&alloc, 0, sizeof(Unc_World));
     if (!world) return NULL;
     
@@ -52,14 +55,14 @@ Unc_World *unc0_incept(Unc_Alloc allocfn, void *udata) {
     world->view = NULL;
     world->viewlast = NULL;
     world->wmode = 0;
-    if ((e = UNC_LOCKINITF(world->viewlist_lock))) goto unc0_incept_fail_l0;
-    if ((e = UNC_LOCKINITF(world->public_lock))) goto unc0_incept_fail_l1;
-    if ((e = UNC_LOCKINITF(world->entity_lock))) goto unc0_incept_fail_l2;
+    if ((e = UNC_LOCKINITF(world->viewlist_lock))) goto unc0_launch_fail_l0;
+    if ((e = UNC_LOCKINITF(world->public_lock))) goto unc0_launch_fail_l1;
+    if ((e = UNC_LOCKINITF(world->entity_lock))) goto unc0_launch_fail_l2;
     unc0_inithtbls(&alloc, &world->pubs);
     VINITNULL(&world->met_str);
     VINITNULL(&world->met_blob);
     VINITNULL(&world->met_arr);
-    VINITNULL(&world->met_dict);
+    VINITNULL(&world->met_table);
     VINITNULL(&world->io_file);
     world->ccxt.alloc = NULL;
     unc0_inithtbls(&alloc, &world->modulecache);
@@ -67,18 +70,18 @@ Unc_World *unc0_incept(Unc_Alloc allocfn, void *udata) {
     VINITNULL(&world->modulepaths);
     VINITNULL(&world->moduledlpaths);
     unc0_initenctable(&alloc, &world->encs);
-    if (0) goto unc0_incept_fail;
+    if (0) goto unc0_launch_fail;
     ATOMICLSET(world->refs, 0);
     ATOMICSSET(world->finalize, 0);
     return world;
 
-unc0_incept_fail:
+unc0_launch_fail:
     UNC_LOCKFINAF(world->entity_lock);
-unc0_incept_fail_l2:
+unc0_launch_fail_l2:
     UNC_LOCKFINAF(world->public_lock);
-unc0_incept_fail_l1:
+unc0_launch_fail_l1:
     UNC_LOCKFINAF(world->viewlist_lock);
-unc0_incept_fail_l0:
+unc0_launch_fail_l0:
     unc0_mfree(&alloc, world, sizeof(Unc_World));
     return NULL;
 }
@@ -120,37 +123,6 @@ INLINE void unc0_waitsubviews(Unc_World *w) {
         }
     }
     UNC_UNLOCKF(w->viewlist_lock);
-}
-
-void unc0_doomsday(Unc_View *v, Unc_World *w) {
-    Unc_Allocator alloc = w->alloc;
-    Unc_Entity *e, *ee;
-    if (v) UNC_UNLOCKF(w->viewlist_lock);
-    e = w->etop;
-    if (v) unc0_dropenctable(v, &w->encs);
-    while (e) {
-        if (e->type == Unc_TOpaque)
-            unc0_graceopaque(v, LEFTOVER(Unc_Opaque, e));
-        e = e->down;
-    }
-    if (w->ccxt.alloc) unc0_dropcontext(&w->ccxt);
-    if (v) {
-        unc0_drophtbls(v, &w->pubs);
-        unc0_drophtbls(v, &w->modulecache);
-        unc_clear(v, &w->modulepaths);
-        unc_clear(v, &w->moduledlpaths);
-    }
-    e = w->etop;
-    while (e) {
-        ee = e->down;
-        unc0_scrap(e, &alloc, NULL);
-        unc0_efree(e, &alloc);
-        e = ee;
-    }
-    UNC_LOCKFINAF(w->entity_lock);
-    UNC_LOCKFINAF(w->public_lock);
-    UNC_LOCKFINAF(w->viewlist_lock);
-    unc0_mfree(&alloc, w, sizeof(Unc_World));
 }
 
 #define INITIAL_REGION_SIZE 8
@@ -211,7 +183,7 @@ Unc_View *unc0_newview(Unc_World *w, Unc_ViewType vtype) {
     view->met_str = w->met_str;
     view->met_blob = w->met_blob;
     view->met_arr = w->met_arr;
-    view->met_dict = w->met_dict;
+    view->met_table = w->met_table;
     view->uncfname = NULL;
     view->trampoline = NULL;
     if (!(view->vtype = vtype))
@@ -264,7 +236,7 @@ Unc_View *unc0_newview(Unc_World *w, Unc_ViewType vtype) {
     VINCREF(view, &view->met_str);
     VINCREF(view, &view->met_blob);
     VINCREF(view, &view->met_arr);
-    VINCREF(view, &view->met_dict);
+    VINCREF(view, &view->met_table);
     return view;
 fail5:
 #if UNCIL_MT_OK
@@ -285,10 +257,18 @@ fail0:
     return NULL;
 }
 
+void unc0_wsetprogram(Unc_View *w, Unc_Program *p) {
+    Unc_Program *op = w->program;
+    w->program = unc0_progincref(p);
+    if (op) unc0_progdecref(op, &w->world->alloc);
+    w->bcode = p->code;
+    w->bdata = p->data;
+}
+
 void unc0_freeview(Unc_View *v) {
-    Unc_Size i;
     Unc_World *w = v->world;
     Unc_Allocator alloc = w->alloc;
+    int views_remaining;
     ATOMICSSET(v->paused, 1);
     (void)UNC_LOCKFP(v, w->viewlist_lock);
     unc0_stackwunwind(v, &v->swith, 0, 0);
@@ -301,9 +281,6 @@ void unc0_freeview(Unc_View *v) {
     if (v->pubs && v->pubs != &w->pubs) unc0_drophtbls(v, v->pubs);
     if (v->exports) unc0_drophtbls(v, v->exports);
     if (v->program) unc0_progdecref(v->program, &alloc);
-    for (i = 0; i < UNC_SLEEPER_VALUES; ++i)
-        if (v->sleepers[i])
-            unc0_wreck(v->sleepers[i], w);
     unc0_stackfree(v, &v->sreg);
     unc0_stackfree(v, &v->sval);
     unc0_stackfree(v, &v->swith);
@@ -322,15 +299,52 @@ void unc0_freeview(Unc_View *v) {
 #if UNCIL_MT_OK
     UNC_LOCKFINAF(v->runlock);
 #endif
-    if (!--w->viewc) unc0_doomsday(v, w);
-    else UNC_UNLOCKF(w->viewlist_lock);
-    unc0_mfree(&alloc, v, sizeof(Unc_View));
+    views_remaining = --w->viewc > 0;
+    UNC_UNLOCKF(w->viewlist_lock);
+    if (views_remaining) {
+        Unc_Size i;
+        /* delete sleepers only now. scuttling the world will
+           delete all entities anyway */
+        for (i = 0; i < UNC_SLEEPER_VALUES; ++i)
+            if (v->sleepers[i])
+                unc0_wreck(v->sleepers[i], w);
+        unc0_mfree(&alloc, v, sizeof(Unc_View));
+        return;
+    }
+    unc0_scuttle(v, w);
 }
 
-void unc0_wsetprogram(Unc_View *w, Unc_Program *p) {
-    Unc_Program *op = w->program;
-    w->program = unc0_progincref(p);
-    if (op) unc0_progdecref(op, &w->world->alloc);
-    w->bcode = p->code;
-    w->bdata = p->data;
+void unc0_scuttle(Unc_View *v, Unc_World *w) {
+    Unc_Allocator alloc = w->alloc;
+    Unc_Entity *e, *ee;
+    if (w->ccxt.alloc) unc0_dropcontext(&w->ccxt);
+
+    e = w->etop;
+    while (e) {
+        if (e->type == Unc_TOpaque)
+            unc0_graceopaque(v, LEFTOVER(Unc_Opaque, e));
+        e = e->down;
+    }
+    
+    if (v) {
+        unc0_dropenctable(v, &w->encs);
+        unc0_drophtbls(v, &w->pubs);
+        unc0_drophtbls(v, &w->modulecache);
+        VSETNULL(v, &w->modulepaths);
+        VSETNULL(v, &w->moduledlpaths);
+        unc0_mfree(&alloc, v, sizeof(Unc_View));
+    }
+    
+    e = w->etop;
+    while (e) {
+        ee = e->down;
+        unc0_scrap(e, &alloc, NULL);
+        unc0_efree(e, &alloc);
+        e = ee;
+    }
+    
+    UNC_LOCKFINAF(w->entity_lock);
+    UNC_LOCKFINAF(w->public_lock);
+    UNC_LOCKFINAF(w->viewlist_lock);
+    unc0_mfree(&alloc, w, sizeof(Unc_World));
 }

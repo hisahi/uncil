@@ -91,7 +91,7 @@ typedef struct Unc_ValueRef {
 
 struct Unc_View;
 
-int unc0_bind(Unc_Entity *e, struct Unc_View *w, Unc_Value *v);
+Unc_RetVal unc0_bind(Unc_Entity *e, struct Unc_View *w, Unc_Value *v);
 Unc_Entity *unc0_wake(struct Unc_View *w, Unc_ValueType type);
 void unc0_scrap(Unc_Entity *e, Unc_Allocator *alloc, struct Unc_View *w);
 void unc0_efree(Unc_Entity *e, Unc_Allocator *alloc);
@@ -101,7 +101,7 @@ void unc0_fetchweak(struct Unc_View *w, Unc_Value *wp, Unc_Value *dst);
 
 /* these functions DO NOT lock! */
 void unc0_wreck(Unc_Entity *e, struct Unc_World *w);
-int unc0_makeweak(struct Unc_View *w, Unc_Value *from, Unc_Value *to);
+Unc_RetVal unc0_makeweak(struct Unc_View *w, Unc_Value *from, Unc_Value *to);
 
 #define UNCIL_OF_REFTYPE(V) (((V)->type) < 0)
 #define UNCIL_GETENT(V) (V)->v.c
@@ -111,29 +111,40 @@ int unc0_makeweak(struct Unc_View *w, Unc_Value *from, Unc_Value *to);
                             if (!UNCIL_DECREFEX(w, tX_))                       \
                                 unc0_hibernate(tX_, w); } while (0)
 #define UNCIL_INCREF(w, V) do { if (UNCIL_OF_REFTYPE(V)) {                     \
-                                UNCIL_INCREFE(w, UNCIL_GETENT(V)); } } while (0)
+                                    UNCIL_INCREFE(w, UNCIL_GETENT(V));         \
+                                } } while (0)
 #define UNCIL_DECREF(w, V) do { if (UNCIL_OF_REFTYPE(V)) {                     \
-                                UNCIL_DECREFE(w, UNCIL_GETENT(V)); } } while (0)
+                                    UNCIL_DECREFE(w, UNCIL_GETENT(V));         \
+                                } } while (0)
 
-int unc0_vrefnew(struct Unc_View *w, Unc_Value *v, Unc_ValueType type);
+#if DEBUGPRINT_REFS
+#undef UNCIL_INCREFE
+#undef UNCIL_DECREFEX
+Unc_AtomicLarge unc0_incref_debug(Unc_Entity *ent);
+Unc_AtomicLarge unc0_decref_debug(Unc_Entity *ent);
+#define UNCIL_INCREFE(w, E) unc0_incref_debug(E)
+#define UNCIL_DECREFEX(w, E) unc0_decref_debug(E)
+#endif
+
+Unc_RetVal unc0_vrefnew(struct Unc_View *w, Unc_Value *v, Unc_ValueType type);
 
 int unc0_vcangetint(Unc_Value *v);
 int unc0_vcangetfloat(Unc_Value *v);
 
 int unc0_vcvt2bool(struct Unc_View *w, Unc_Value *v);
-int unc0_vgetint(struct Unc_View *w, Unc_Value *v, Unc_Int *out);
-int unc0_vgetfloat(struct Unc_View *w, Unc_Value *v, Unc_Float *out);
+Unc_RetVal unc0_vgetint(struct Unc_View *w, Unc_Value *v, Unc_Int *out);
+Unc_RetVal unc0_vgetfloat(struct Unc_View *w, Unc_Value *v, Unc_Float *out);
 
-int unc0_hashvalue(struct Unc_View *w, Unc_Value *v, unsigned *hash);
+Unc_RetVal unc0_hashvalue(struct Unc_View *w, Unc_Value *v, unsigned *hash);
 
 const char *unc0_getvaluetypename(Unc_ValueType t);
 
 /* uerr.c */
 /* make sure type is a string literal */
-int unc0_makeexception(struct Unc_View *w, const char *type,
-                       const char *msg, Unc_Value *out);
-int unc0_makeexceptiona(struct Unc_View *w, const char *type, Unc_Size msg_n,
-                        byte *msg, Unc_Value *out);
+Unc_RetVal unc0_makeexception(struct Unc_View *w, const char *type,
+                              const char *msg, Unc_Value *out);
+Unc_RetVal unc0_makeexceptiona(struct Unc_View *w, const char *type,
+                               Unc_Size msg_n, byte *msg, Unc_Value *out);
 void unc0_makeexceptionoroom(struct Unc_View *w, Unc_Value *out,
                                 const char *type, const char *msg);
 void unc0_makeexceptionaoroom(struct Unc_View *w, Unc_Value *out,
@@ -142,11 +153,25 @@ void unc0_makeexceptiontoroom(struct Unc_View *w, Unc_Value *out,
                                 const char *type, Unc_Value *msg);
 void unc0_makeexceptionvoroom(struct Unc_View *w, Unc_Value *out,
                                 Unc_Value *type, Unc_Value *msg);
-void unc0_errtoexcept(struct Unc_View *w, int e, Unc_Value *out);
-int unc0_throwexc(struct Unc_View *w, const char *type, const char *msg);
+void unc0_errtoexcept(struct Unc_View *w, Unc_RetVal e, Unc_Value *out);
+/* MOVES!!!!!!!!!! */
+Unc_RetVal unc0_throw(struct Unc_View *w, Unc_Value *exc);
+Unc_RetVal unc0_throwexc(struct Unc_View *w,
+                         const char *type, const char *msg);
+
+void unc0_reversevalues(Unc_Value *v, size_t n);
+
+Unc_RetVal unc0_verifyopaque(struct Unc_View *w, Unc_Value *v,
+                             Unc_Value *prototype,
+                             Unc_Size *n, void **p, const char *emsg);
+#define unc0_verifyopaque_arg(w, v, prototype, n, p, argn, typename)           \
+    unc0_verifyopaque(w, v, prototype, n, p,                                   \
+        "argument " UNCIL_STRINGIFY(argn) " is not a " typename)
 
 #ifdef UNCIL_DEFINES
 #include "uvali.h"
 #endif
+
+#define DEBUG_NO_SLEEPERS 0
 
 #endif /* UNCIL_UVAL_H */

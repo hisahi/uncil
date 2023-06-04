@@ -26,6 +26,7 @@ SOFTWARE.
 
 #define UNCIL_DEFINES
 
+#include "uarithm.h"
 #include "ublob.h"
 #include "uctype.h"
 #include "udef.h"
@@ -35,14 +36,14 @@ SOFTWARE.
 #include "utxt.h"
 #include "uutf.h"
 #include "uvali.h"
+#include "uvsio.h"
+#include "uxprintf.h"
+#include "uxscanf.h"
 
 #include <limits.h>
 #include <stddef.h>
 #if UNCIL_C99
 #include <stdint.h>
-#include <tgmath.h>
-#else
-#include <math.h>
 #endif
 
 #define FROMHEX_NEXT() (c = sn ? (--sn, *sb++) : -1)
@@ -57,16 +58,18 @@ static int tohex(int c) {
     return -1;
 }
 
-Unc_RetVal unc0_lib_convert_fromhex(
+Unc_RetVal uncl_convert_fromhex(
                         Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, c;
+    Unc_RetVal e;
+    int c;
     size_t sn;
     const char *sb;
-    Unc_Allocator *alloc = &w->world->alloc;
-    byte *buf = NULL;
-    size_t buf_n = 0, buf_c = 0;
+    struct unc0_strbuf buf;
+    Unc_Value v = UNC_BLANK;
+
     e = unc_getstring(w, &args.values[0], &sn, &sb);
     if (e) return e;
+    unc0_strbuf_init(&buf, &w->world->alloc, Unc_AllocBlob);
 
     for (;;) {
         int b = 0;
@@ -80,99 +83,73 @@ fromhex_skip:
             h = tohex(c);
             if (h >= 0) {
                 b = (b << 4) | h;
-                if ((e = unc0_strput(alloc, &buf, &buf_n, &buf_c, 6, b))) {
-                    unc0_mfree(alloc, buf, buf_c);
+                if ((e = unc0_strbuf_put1(&buf, b))) {
+                    unc0_strbuf_free(&buf);
                     return e;
                 }
             } else
                 goto fromhex_skip;
         } else {
-            unc0_mfree(alloc, buf, buf_c);
+            unc0_strbuf_free(&buf);
             return unc_throwexc(w, "value",
                     "unrecognized character in hex string");
         }
     }
 
-    {
-        Unc_Entity *en;
-        Unc_Value v;
-        en = unc0_wake(w, Unc_TBlob);
-        if (!en) {
-            unc0_mfree(alloc, buf, buf_c);
-            return UNCIL_ERR_MEM;
-        }
-        buf = unc0_mrealloc(alloc, 0, buf, buf_c, buf_n);
-        e = unc0_initblobmove(alloc, LEFTOVER(Unc_Blob, en), buf_n, buf);
-        if (e) {
-            unc0_mfree(alloc, buf, buf_c);
-            return UNCIL_ERR_MEM;
-        }
-        VINITENT(&v, Unc_TBlob, en);
-        return unc_push(w, 1, &v, NULL);
-    }
+    e = unc0_buftoblob(w, &v, &buf);
+    e = unc_returnlocal(w, e, &v);
+    unc0_strbuf_free(&buf);
+    return e;
 }
 
 static const char *hex_uc = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-Unc_RetVal unc0_lib_convert_tohex(
-                        Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_convert_tohex(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     size_t sn, i;
     byte *sb;
-    Unc_Allocator *alloc = &w->world->alloc;
-    byte *buf = NULL;
-    size_t buf_n = 0, buf_c = 0;
+    struct unc0_strbuf buf;
+    Unc_Value v = UNC_BLANK;
     byte hex[3], c;
     e = unc_lockblob(w, &args.values[0], &sn, &sb);
     if (e) return e;
+
+    unc0_strbuf_init(&buf, &w->world->alloc, Unc_AllocString);
 
     for (i = 0; i < sn; ++i) {
         c = sb[i];
         hex[0] = hex_uc[(c >> 4) & 15];
         hex[1] = hex_uc[c & 15];
         hex[2] = ((i + 1) & 15) ? ' ' : '\n';
-        if ((e = unc0_strputn(alloc, &buf, &buf_n, &buf_c,
-                              6, sizeof(hex), hex))) {
+        if ((e = unc0_strbuf_putn(&buf, sizeof(hex), hex))) {
             unc_unlock(w, &args.values[0]);
-            unc0_mfree(alloc, buf, buf_c);
+            unc0_strbuf_free(&buf);
             return e;
         }
     }
     unc_unlock(w, &args.values[0]);
 
     if (sn & 15)
-        if ((e = unc0_strput(alloc, &buf, &buf_n, &buf_c, 6, '\n'))) {
-            unc0_mfree(alloc, buf, buf_c);
+        if ((e = unc0_strbuf_put1(&buf, '\n'))) {
+            unc0_strbuf_free(&buf);
             return e;
         }
 
-    {
-        Unc_Entity *en;
-        Unc_Value v;
-        en = unc0_wake(w, Unc_TString);
-        if (!en) {
-            unc0_mfree(alloc, buf, buf_c);
-            return UNCIL_ERR_MEM;
-        }
-        buf = unc0_mrealloc(alloc, 0, buf, buf_c, buf_n);
-        e = unc0_initstringmove(alloc, LEFTOVER(Unc_String, en), buf_n, buf);
-        if (e) {
-            unc0_mfree(alloc, buf, buf_c);
-            return UNCIL_ERR_MEM;
-        }
-        VINITENT(&v, Unc_TString, en);
-        return unc_push(w, 1, &v, NULL);
-    }
+    e = unc0_buftostring(w, &v, &buf);
+    e = unc_returnlocal(w, e, &v);
+    unc0_strbuf_free(&buf);
+    return e;
 }
 
-Unc_RetVal unc0_lib_convert_fromintbase(
+Unc_RetVal uncl_convert_fromintbase(
                         Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, fp;
+    Unc_RetVal e;
+    int fp;
     Unc_Value v = UNC_BLANK;
     Unc_Int iint, ibase;
     Unc_Float ifloat;
-    Unc_Size sn = 0, sb = 0, ssign = 0;
-    byte *s = NULL;
+    Unc_Size ssign = 0;
+    struct unc0_strbuf buf;
     
     e = unc_getint(w, &args.values[0], &iint);
     if (e) {
@@ -190,11 +167,14 @@ Unc_RetVal unc0_lib_convert_fromintbase(
                 "second argument to fromintbase must be an integer");
     if (ibase < 2 || ibase > 36)
         return unc_throwexc(w, "value", "base must be between 2 and 36");
+        
+    unc0_strbuf_init(&buf, &w->world->alloc, Unc_AllocString);
+
     if (!fp) {
         Unc_UInt intu;
         if (iint < 0) {
-            if (unc0_strpush1(&w->world->alloc, &s, &sn, &sb, 6, '-')) {
-                unc0_mmfree(&w->world->alloc, s);
+            if (unc0_strbuf_put1(&buf, '-')) {
+                unc0_strbuf_free(&buf);
                 return UNCIL_ERR_MEM;
             }
             ++ssign;
@@ -202,16 +182,15 @@ Unc_RetVal unc0_lib_convert_fromintbase(
         } else
             intu = (Unc_UInt)iint;
         if (!intu) {
-            if (unc0_strpush1(&w->world->alloc, &s, &sn, &sb, 6, '0')) {
-                unc0_mmfree(&w->world->alloc, s);
+            if (unc0_strbuf_put1(&buf, '0')) {
+                unc0_strbuf_free(&buf);
                 return UNCIL_ERR_MEM;
             }
         } else {
             while (intu) {
                 int tmp = intu % ibase;
-                if (unc0_strpush1(&w->world->alloc, &s, &sn, &sb,
-                                  6, hex_uc[tmp])) {
-                    unc0_mmfree(&w->world->alloc, s);
+                if (unc0_strbuf_put1(&buf, hex_uc[tmp])) {
+                    unc0_strbuf_free(&buf);
                     return UNCIL_ERR_MEM;
                 }
                 intu /= ibase;
@@ -220,53 +199,47 @@ Unc_RetVal unc0_lib_convert_fromintbase(
     } else {
         Unc_Float fbase = ibase;
         if (ifloat < 0) {
-            if (unc0_strpush1(&w->world->alloc, &s, &sn, &sb, 6, '-')) {
-                unc0_mmfree(&w->world->alloc, s);
+            if (unc0_strbuf_put1(&buf, '-')) {
+                unc0_strbuf_free(&buf);
                 return UNCIL_ERR_MEM;
             }
             ++ssign;
             ifloat = -ifloat;
         }
         if (ifloat < 1) {
-            if (unc0_strpush1(&w->world->alloc, &s, &sn, &sb, 6, '0')) {
-                unc0_mmfree(&w->world->alloc, s);
+            if (unc0_strbuf_put1(&buf, '0')) {
+                unc0_strbuf_free(&buf);
                 return UNCIL_ERR_MEM;
             }
         } else {
             Unc_Float pfloat;
             while (ifloat >= 1) {
-                int tmp = (int)fmod(ifloat, fbase);
-                if (unc0_strpush1(&w->world->alloc, &s, &sn, &sb,
-                                  6, hex_uc[tmp])) {
-                    unc0_mmfree(&w->world->alloc, s);
+                int tmp = (int)unc0_fmod(ifloat, fbase);
+                if (unc0_strbuf_put1(&buf, hex_uc[tmp])) {
+                    unc0_strbuf_free(&buf);
                     return UNCIL_ERR_MEM;
                 }
                 pfloat = ifloat;
                 ifloat /= fbase;
                 if (ifloat >= pfloat) {
-                    unc0_mmfree(&w->world->alloc, s);
+                    unc0_strbuf_free(&buf);
                     return unc_throwexc(w, "value", "number not finite");
                 }
             }
         }
     }
-    { /* reverse */
-        Unc_Size i = ssign, j = sn - 1;
-        while (i < j) {
-            char c = s[i];
-            s[i++] = s[j];
-            s[j--] = c;
-        }
-    }
-    e = unc_newstringmove(w, &v, sn, (char *)s);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    else unc_mfree(w, s);
+
+    unc0_memrev(&buf.buffer[ssign], buf.length - ssign);
+    e = unc0_buftostring(w, &v, &buf);
+    e = unc_returnlocal(w, e, &v);
+    unc0_strbuf_free(&buf);
     return e;
 }
 
-Unc_RetVal unc0_lib_convert_tointbase(
+Unc_RetVal uncl_convert_tointbase(
                         Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, negative = 0, floated = 0;
+    Unc_RetVal e;
+    int negative = 0, floated = 0;
     Unc_Value v;
     Unc_Int ui, pui, base;
     Unc_Float uf;
@@ -339,7 +312,7 @@ Unc_RetVal unc0_lib_convert_tointbase(
         VINITFLT(&v, uf);
     else
         VINITINT(&v, ui);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 #if UNCIL_C11
@@ -396,6 +369,7 @@ static char double_must_be_ieee_compatible[sizeof(double) == 8 ? 1 : -1];
 #error "CHAR_BIT == 8 required"
 #endif
 
+#if 0
 #ifndef INTMAX_MAX
 #if UNCIL_C99
 typedef signed long long intmax_t;
@@ -409,6 +383,7 @@ typedef signed long intmax_t;
 typedef unsigned long long uintmax_t;
 #else
 typedef unsigned long uintmax_t;
+#endif
 #endif
 #endif
 
@@ -453,37 +428,36 @@ INLINE void encode_float_b64(byte *out, Unc_Float uf) {
     unc0_memcpy(out, &f, sizeof(double));
 }
 
-INLINE void encode_reverse(byte *buf, Unc_Size n) {
-    Unc_Size i = 0, j = n - 1;
-    while (i < j) {
-        byte b = buf[i];
-        buf[i++] = buf[j];
-        buf[j--] = b;
-    }
-}
-
-Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
 #define ENCODE_THROW(etype, emsg) do { e = unc_throwexc(w, etype, emsg);       \
-                                goto unc0_lib_convert_encode_fail; } while (0)
-    int e;
+                                goto uncl_convert_encode_fail; } while (0)
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     Unc_Allocator *alloc = &w->world->alloc;
     const char *s;
     int c, hassize = 0;
-    int native = 1, endian = 0, endianfloat = 0;
+    int endian = 0, endianfloat = 0;
+#if UNCIL_SANDBOXED
+    CONSTEXPR int native = 0;
+#else
+    int native = 1;
+#endif
     /* endian 0 for big-endian, 1 for little-endian */
     Unc_Size i = 1, z;
-    byte *b = NULL;
-    Unc_Size bn = 0, bc = 0;
+    struct unc0_strbuf b;
 
     e = unc_getstringc(w, &args.values[0], &s);
     if (e) return e;
 
     switch ((c = *s)) {
     case '@':
+#if !UNCIL_SANDBOXED
         native = 1;
         ++s;
         break;
+#else
+    case '=':
+#endif
     case '<':
         native = 0;
         endian = 1;
@@ -494,6 +468,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         endian = 0;
         ++s;
         break;
+#if !UNCIL_SANDBOXED
     case '=':
         native = 0;
         {
@@ -504,6 +479,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         }
         ++s;
         break;
+#endif
     }
 
     if (!native) {
@@ -517,6 +493,8 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         unc0_memcpy(buf, &f, sizeof(float));
         endianfloat = !buf[0] ^ endian;
     }
+
+    unc0_strbuf_init(&b, alloc, Unc_AllocBlob);
 
     while ((c = *s++)) {
         hassize = 0;
@@ -539,47 +517,32 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         switch (c) {
         case '*':
             if (!hassize) z = 1;
-            if (bn + z > bc) {
-                byte *nb = unc0_mmrealloc(alloc, Unc_AllocBlob, b, bn + z);
-                if (!nb) {
-                    e = UNCIL_ERR_MEM;
-                    goto unc0_lib_convert_encode_fail;
-                }
-                b = nb;
-                bc = bn + z;
-            }
-            unc0_memset(b + bn, 0, z);
-            bn += z;
+            e = unc0_strbuf_putfill(&b, z, 0);
+            if (e) goto uncl_convert_encode_fail;
             continue;
         case 'b':
             if (!hassize) z = 1;
-            if (bn + z > bc) {
-                byte *nb = unc0_mmrealloc(alloc, Unc_AllocBlob, b, bn + z);
-                if (!nb) {
-                    e = UNCIL_ERR_MEM;
-                    goto unc0_lib_convert_encode_fail;
-                }
-                b = nb;
-                bc = bn + z;
-            }
             if (i >= args.count)
                 ENCODE_THROW("value", "not enough values to encode "
                                     "(more specifiers than values)");
             {
+                byte *out = unc0_strbuf_reserve_next(&b, z);
                 Unc_Size bbn;
                 byte *bb;
+                
+                if (!out) {
+                    e = UNCIL_ERR_MEM;
+                    goto uncl_convert_encode_fail;
+                }
                 e = unc_lockblob(w, &args.values[i++], &bbn, &bb);
                 if (e) {
                     if (e == UNCIL_ERR_TYPE_NOTBLOB)
                         ENCODE_THROW("value", "b requires a blob");
                     return e;
                 }
-                if (bbn > z)
-                    bbn = z;
-                unc0_memcpy(b + bn, 0, bbn);
-                if (bbn < z)
-                    unc0_memset(b + bn + bbn, 0, z - bbn);
-                bn += z;
+                if (bbn > z) bbn = z;
+                unc0_memcpy(out, bb, bbn);
+                if (bbn < z) unc0_mbzero(out + bbn, z - bbn);
             }
             continue;
         }
@@ -605,8 +568,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     ENCODE_THROW("type", "value out of range for native c "
                                                 "(signed char)");
                 encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'C':
@@ -620,8 +582,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     ENCODE_THROW("type", "value out of range for native C "
                                                 "(unsigned char)");
                 encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'h':
@@ -638,8 +599,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_sint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'H':
@@ -656,8 +616,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_uint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'i':
@@ -674,8 +633,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_sint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'I':
@@ -692,8 +650,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_uint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'l':
@@ -710,8 +667,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_sint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'L':
@@ -728,8 +684,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_uint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'q':
@@ -746,8 +701,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_sint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'Q':
@@ -764,8 +718,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     encode_uint_le(tbuf, ui, sizeof(tbuf));
                 else
                     encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case '?':
@@ -773,10 +726,9 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                 byte tbuf[1];
                 e = unc_converttobool(w, &args.values[i++]);
                 if (UNCIL_IS_ERR(e))
-                    goto unc0_lib_convert_encode_fail;
+                    goto uncl_convert_encode_fail;
                 encode_uint_be(tbuf, e, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'f':
@@ -788,9 +740,8 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     ENCODE_THROW("type", "f requires a number");
                 encode_float_b32(tbuf, uf);
                 if (endianfloat)
-                    encode_reverse(tbuf, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                    unc0_memrev(tbuf, sizeof(tbuf));
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'd':
@@ -802,9 +753,8 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                     ENCODE_THROW("type", "d requires a number");
                 encode_float_b64(tbuf, uf);
                 if (endianfloat)
-                    encode_reverse(tbuf, sizeof(tbuf));
-                e = unc0_strpushb(alloc, &b, &bn, &bc, 6, sizeof(tbuf), tbuf);
-                if (e) goto unc0_lib_convert_encode_fail;
+                    unc0_memrev(tbuf, sizeof(tbuf));
+                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
                 break;
             }
             case 'Z':
@@ -816,39 +766,34 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
             case '>':
             case '=':
                 ENCODE_THROW("value", "mode specifier only allowed as the "
-                                    "first character in format");
+                                      "first character in format");
             default:
-                ENCODE_THROW("value", "unrecognized format specifier");
+                ENCODE_THROW("value", "unrecognized encode format specifier");
             }
+            if (e) goto uncl_convert_encode_fail;
             continue;
         }
 
         switch (c) {
 #define ENCODE_VAL(T, src)  do {                                               \
-                                byte tbuf[sizeof(T)];                          \
-                                T tval;                                        \
-                                tval = (T)src;                                 \
-                                unc0_memcpy(tbuf, &tval, sizeof(tbuf));        \
-                                e = unc0_strpushb(alloc, &b, &bn, &bc,         \
-                                                  6, sizeof(tbuf), tbuf);      \
-                                if (e) goto unc0_lib_convert_encode_fail;      \
+                                T tval = (T)src;                               \
+                                e = unc0_strbuf_putn(&b, sizeof(T),            \
+                                                (const byte *)&tval);          \
                             } while (0)
 #define ENCODE_PAD(type)    do {                                               \
                                 size_t pad = ((ALIGN_##type) -                 \
-                                    (bn % (ALIGN_##type))) % (ALIGN_##type);   \
+                                    (b.length % (ALIGN_##type)))               \
+                                                   % (ALIGN_##type);           \
                                 if (pad) {                                     \
-                                    byte buf[ALIGN_##type] = { 0 };            \
-                                    e = unc0_strpushb(alloc, &b, &bn, &bc,     \
-                                                  6, pad, buf);                \
-                                    if (e) goto unc0_lib_convert_encode_fail;  \
+                                    e = unc0_strbuf_putfill(&b, pad, 0);       \
+                                    if (e) goto uncl_convert_encode_fail;  \
                                 }                                              \
                             } while (0)
         case 'c':
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "c requires an integer");
+            if (e) ENCODE_THROW("type", "c requires an integer");
             if (ui < SCHAR_MIN || ui > SCHAR_MAX)
                 ENCODE_THROW("type", "value out of range for native c "
                                                "(signed char)");
@@ -859,8 +804,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "C requires an integer");
+            if (e) ENCODE_THROW("type", "C requires an integer");
             if (ui < 0 || ui > UCHAR_MAX)
                 ENCODE_THROW("type", "value out of range for native C "
                                                "(unsigned char)");
@@ -871,8 +815,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "h requires an integer");
+            if (e) ENCODE_THROW("type", "h requires an integer");
             if (ui < SHRT_MIN || ui > SHRT_MAX)
                 ENCODE_THROW("type", "value out of range for native h "
                                                "(signed short)");
@@ -884,8 +827,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "H requires an integer");
+            if (e) ENCODE_THROW("type", "H requires an integer");
             if (ui < 0 || ui > USHRT_MAX)
                 ENCODE_THROW("type", "value out of range for native H "
                                                "(unsigned short)");
@@ -897,8 +839,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "i requires an integer");
+            if (e) ENCODE_THROW("type", "i requires an integer");
             if (ui < INT_MIN || ui > INT_MAX)
                 ENCODE_THROW("type", "value out of range for native i "
                                                "(signed int)");
@@ -910,8 +851,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "I requires an integer");
+            if (e) ENCODE_THROW("type", "I requires an integer");
             if (ui < 0 || ui > UINT_MAX)
                 ENCODE_THROW("type", "value out of range for native I "
                                                "(unsigned int)");
@@ -923,8 +863,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "l requires an integer");
+            if (e) ENCODE_THROW("type", "l requires an integer");
             if (ui < LONG_MIN || ui > LONG_MAX)
                 ENCODE_THROW("type", "value out of range for native l "
                                                "(signed long)");
@@ -936,8 +875,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "L requires an integer");
+            if (e) ENCODE_THROW("type", "L requires an integer");
             if (ui < 0 || ui > ULONG_MAX)
                 ENCODE_THROW("type", "value out of range for native L "
                                                "(unsigned long)");
@@ -954,8 +892,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "q requires an integer");
+            if (e) ENCODE_THROW("type", "q requires an integer");
             if (ui < LLONG_MIN || ui > LLONG_MAX)
                 ENCODE_THROW("type", "value out of range for native q "
                                                "(signed long long)");
@@ -967,8 +904,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "Q requires an integer");
+            if (e) ENCODE_THROW("type", "Q requires an integer");
             if (ui < 0 || ui > ULLONG_MAX)
                 ENCODE_THROW("type", "value out of range for native Q "
                                                "(unsigned long long)");
@@ -981,8 +917,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Int ui;
             e = unc_getint(w, &args.values[i++], &ui);
-            if (e)
-                ENCODE_THROW("type", "Z requires an integer");
+            if (e) ENCODE_THROW("type", "Z requires an integer");
             if (ui < 0 || ui > SIZE_MAX)
                 ENCODE_THROW("type", "value out of range for native Z "
                                                "(size_t)");
@@ -994,7 +929,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             e = unc_converttobool(w, &args.values[i++]);
             if (UNCIL_IS_ERR(e))
-                goto unc0_lib_convert_encode_fail;
+                goto uncl_convert_encode_fail;
 #if UNCIL_C99
             ENCODE_VAL(_Bool, e);
 #else
@@ -1006,8 +941,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             void *p;
             e = unc_getopaqueptr(w, &args.values[i++], &p);
-            if (e)
-                ENCODE_THROW("type", "p requires a optr");
+            if (e) ENCODE_THROW("type", "p requires a optr");
             ENCODE_PAD(p);
             ENCODE_VAL(void *, p);
             break;
@@ -1016,8 +950,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Float uf;
             e = unc_getfloat(w, &args.values[i++], &uf);
-            if (e)
-                ENCODE_THROW("type", "f requires a number");
+            if (e) ENCODE_THROW("type", "f requires a number");
             ENCODE_PAD(f);
             ENCODE_VAL(float, uf);
             break;
@@ -1026,8 +959,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Float uf;
             e = unc_getfloat(w, &args.values[i++], &uf);
-            if (e)
-                ENCODE_THROW("type", "d requires a number");
+            if (e) ENCODE_THROW("type", "d requires a number");
             ENCODE_PAD(d);
             ENCODE_VAL(double, uf);
             break;
@@ -1036,8 +968,7 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Float uf;
             e = unc_getfloat(w, &args.values[i++], &uf);
-            if (e)
-                ENCODE_THROW("type", "d requires a number");
+            if (e) ENCODE_THROW("type", "d requires a number");
             ENCODE_PAD(D);
             ENCODE_VAL(long double, uf);
             break;
@@ -1049,25 +980,22 @@ Unc_RetVal unc0_lib_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
             ENCODE_THROW("value", "mode specifier only allowed as the first "
                                   "character in format");
         default:
-            ENCODE_THROW("value", "unrecognized format specifier");
+            ENCODE_THROW("value", "unrecognized encode format specifier");
         }
+        if (e) goto uncl_convert_encode_fail;
         continue;
-unc0_lib_convert_encode_fail:
+uncl_convert_encode_fail:
         unc0_mmfree(alloc, &b);
         return e;
     }
 
-    if (b) b = unc0_mmrealloc(alloc, Unc_AllocBlob, b, bn);
-    e = unc_newblobmove(w, &v, b);
-    if (e)
-        unc0_mmfree(alloc, &b);
-    else
-        e = unc_pushmove(w, &v, NULL);
+    e = unc0_buftoblob(w, &v, &b);
+    e = unc_returnlocal(w, e, &v);
+    unc0_strbuf_free(&b);
     return e;
 }
 
-
-INLINE int decode_uint_be(byte *b, Unc_Size n, Unc_UInt *out) {
+INLINE Unc_RetVal decode_uint_be(byte *b, Unc_Size n, Unc_UInt *out) {
     Unc_UInt q = 0, p = 0;
     while (n--) {
         q = (q << CHAR_BIT) | *b++;
@@ -1078,7 +1006,7 @@ INLINE int decode_uint_be(byte *b, Unc_Size n, Unc_UInt *out) {
     return 0;
 }
 
-INLINE int decode_uint_le(byte *b, Unc_Size n, Unc_UInt *out) {
+INLINE Unc_RetVal decode_uint_le(byte *b, Unc_Size n, Unc_UInt *out) {
     Unc_UInt q = 0, p = 0;
     while (n--) {
         q = (q << CHAR_BIT) | b[n];
@@ -1107,30 +1035,38 @@ INLINE Unc_Float decode_float_b64(byte *b, int reverse) {
     return f;
 }
 
-INLINE int setint_range_signed(Unc_View *w, Unc_Value *v, intmax_t i) {
+INLINE Unc_RetVal setint_range_signed(Unc_View *w, Unc_Value *v,
+                                      intmax_t i) {
     if (i < UNC_INT_MIN || i > UNC_INT_MAX)
         return UNCIL_ERR_ARG_INTOVERFLOW;
     unc_setint(w, v, (Unc_Int)i);
     return 0;
 }
 
-INLINE int setint_range_unsigned(Unc_View *w, Unc_Value *v, uintmax_t i) {
+INLINE Unc_RetVal setint_range_unsigned(Unc_View *w, Unc_Value *v,
+                                        uintmax_t i) {
     if (i > UNC_INT_MAX)
         return UNCIL_ERR_ARG_INTOVERFLOW;
     unc_setint(w, v, (Unc_Int)i);
     return 0;
 }
 
-Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
 #define DECODE_THROW(etype, emsg) do { e = unc_throwexc(w, etype, emsg);       \
-                                goto unc0_lib_convert_decode_fail; } while (0)
+                                goto uncl_convert_decode_fail; } while (0)
 #define DECODE_EOF() DECODE_THROW("value", "unexpected end of blob")
-    int e;
+#define DECODE_SHIFT(n) do { b += (n), bn -= (n); } while (0)
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     const char *s;
     byte *b;
     int c, hassize = 0;
-    int native = 1, endian = 0, endianfloat = 0;
+    int endian = 0, endianfloat = 0;
+#if UNCIL_SANDBOXED
+    CONSTEXPR int native = 0;
+#else
+    int native = 1;
+#endif
     /* endian 0 for big-endian, 1 for little-endian */
     Unc_Size z, bn, bno, depth = 0;
     Unc_Int offset = 0;
@@ -1147,8 +1083,7 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
 
     if (offset > 0) {
-        b += offset;
-        bn -= offset;
+        DECODE_SHIFT(offset);
     } else if (offset < 0) {
         b += bn + offset;
         bn = -offset;
@@ -1158,9 +1093,13 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
 
     switch ((c = *s)) {
     case '@':
+#if !UNCIL_SANDBOXED
         native = 1;
         ++s;
         break;
+#else
+    case '=':
+#endif
     case '<':
         native = 0;
         endian = 1;
@@ -1171,6 +1110,7 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
         endian = 0;
         ++s;
         break;
+#if !UNCIL_SANDBOXED
     case '=':
         native = 0;
         {
@@ -1181,6 +1121,7 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
         }
         ++s;
         break;
+#endif
     }
 
     if (!native) {
@@ -1213,24 +1154,23 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
         case '*':
             if (!hassize) z = 1;
             if (bn < z) DECODE_EOF();
-            b += z;
-            bn -= z;
+            DECODE_SHIFT(z);
             continue;
         case 'b':
             if (!hassize) z = 1;
             if (bn < z) DECODE_EOF();
             e = unc_newblobfrom(w, &v, z, b);
-            if (e) goto unc0_lib_convert_decode_fail;
-            b += z;
-            bn -= z;
-            e = unc_pushmove(w, &v, &depth);
-            if (e) goto unc0_lib_convert_decode_fail;
+            if (e) goto uncl_convert_decode_fail;
+            DECODE_SHIFT(z);
+            e = unc_pushmove(w, &v);
+            if (e) goto uncl_convert_decode_fail;
+            ++depth; 
             continue;
         }
 
         if (hassize)
-            DECODE_THROW("value", "size modifiers are only supported "
-                                "for b and *");
+            DECODE_THROW("value",
+                    "size modifiers are only supported for b and *");
 
         if (!native) {
             /* different logic */
@@ -1240,15 +1180,13 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 Unc_UInt ui;
                 if (bn < 1) DECODE_EOF();
                 e = decode_uint_be(b, 1, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 1;
-                bn -= 1;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(1);
                 if (ui > 0x7F)
                     unc_setint(w, &v, (Unc_Int)ui - 0x7F - 1);
                 else
                     unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'C':
@@ -1256,12 +1194,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 Unc_UInt ui;
                 if (bn < 1) DECODE_EOF();
                 e = decode_uint_be(b, 1, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 1;
-                bn -= 1;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(1);
                 unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'h':
@@ -1270,15 +1206,13 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 2) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 2, &ui)
                            : decode_uint_be(b, 2, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 2;
-                bn -= 2;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(2);
                 if (ui > 0x7FFF)
                     unc_setint(w, &v, (Unc_Int)ui - 0x7FFF - 1);
                 else
                     unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'H':
@@ -1287,12 +1221,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 2) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 2, &ui)
                            : decode_uint_be(b, 2, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 2;
-                bn -= 2;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(2);
                 unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'i':
@@ -1301,15 +1233,13 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 4) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 4, &ui)
                            : decode_uint_be(b, 4, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 4;
-                bn -= 4;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(4);
                 if (ui > 0x7FFFFFFFL)
                     unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFL - 1);
                 else
                     unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'I':
@@ -1318,12 +1248,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 4) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 4, &ui)
                            : decode_uint_be(b, 4, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 4;
-                bn -= 4;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(4);
                 unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'l':
@@ -1332,15 +1260,13 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 8) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 8, &ui)
                            : decode_uint_be(b, 8, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 8;
-                bn -= 8;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(8);
                 if (ui > 0x7FFFFFFFFFFFFFFFL)
                     unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFFFFFFFFFL - 1);
                 else
                     unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'L':
@@ -1349,12 +1275,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 8) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 8, &ui)
                            : decode_uint_be(b, 8, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 8;
-                bn -= 8;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(8);
                 unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'q':
@@ -1363,15 +1287,13 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 8) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 8, &ui)
                            : decode_uint_be(b, 8, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 8;
-                bn -= 8;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(8);
                 if (ui > 0x7FFFFFFFFFFFFFFFL)
                     unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFFFFFFFFFL - 1);
                 else
                     unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'Q':
@@ -1380,12 +1302,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (bn < 8) DECODE_EOF();
                 e = endian ? decode_uint_le(b, 8, &ui)
                            : decode_uint_be(b, 8, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 8;
-                bn -= 8;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(8);
                 unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case '?':
@@ -1393,12 +1313,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 Unc_UInt ui;
                 if (bn < 1) DECODE_EOF();
                 e = decode_uint_be(b, 1, &ui);
-                if (e) goto unc0_lib_convert_decode_fail;
-                b += 1;
-                bn -= 1;
+                if (e) goto uncl_convert_decode_fail;
+                DECODE_SHIFT(1);
                 unc_setbool(w, &v, ui != 0);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'f':
@@ -1406,11 +1324,9 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 Unc_Float uf;
                 if (bn < 4) DECODE_EOF();
                 uf = decode_float_b32(b, endianfloat);
-                b += 4;
-                bn -= 4;
+                DECODE_SHIFT(4);
                 unc_setfloat(w, &v, uf);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'd':
@@ -1418,11 +1334,9 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 Unc_Float uf;
                 if (bn < 8) DECODE_EOF();
                 uf = decode_float_b64(b, endianfloat);
-                b += 8;
-                bn -= 8;
+                DECODE_SHIFT(8);
                 unc_setfloat(w, &v, uf);
-                e = unc_pushmove(w, &v, &depth);
-                if (e) goto unc0_lib_convert_decode_fail;
+                e = unc_pushmove(w, &v);
                 break;
             }
             case 'Z':
@@ -1436,8 +1350,10 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 DECODE_THROW("value", "mode specifier only allowed as the "
                                     "first character in format");
             default:
-                DECODE_THROW("value", "unrecognized format specifier");
+                DECODE_THROW("value", "unrecognized encode format specifier");
             }
+            if (e) goto uncl_convert_decode_fail;
+            ++depth;
             continue;
         }
 
@@ -1446,9 +1362,8 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                                 T val;                                         \
                                 unc0_memcpy(&val, b, sizeof(val));             \
                                 e = CONV;                                      \
-                                if (e) goto unc0_lib_convert_decode_fail;      \
-                                e = unc_pushmove(w, &v, &depth);               \
-                                if (e) goto unc0_lib_convert_decode_fail;      \
+                                if (e) goto uncl_convert_decode_fail;          \
+                                e = unc_pushmove(w, &v);                       \
                             } while (0)
 #define DECODE_PAD(type)    do {                                               \
                                 size_t pad = ((ALIGN_##type) -                 \
@@ -1456,8 +1371,7 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                                         % (ALIGN_##type);                      \
                                 if (pad) {                                     \
                                     if (bn < pad) DECODE_EOF();                \
-                                    b += pad;                                  \
-                                    bn -= pad;                                 \
+                                    DECODE_SHIFT(pad);                         \
                                 }                                              \
                             } while (0)
         case 'c':
@@ -1534,16 +1448,18 @@ Unc_RetVal unc0_lib_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
             DECODE_THROW("value", "mode specifier only allowed as the first "
                                   "character in format");
         default:
-            DECODE_THROW("value", "unrecognized format specifier");
+            DECODE_THROW("value", "unrecognized encode format specifier");
         }
+        if (e) goto uncl_convert_decode_fail;
+        ++depth;
         continue;
     }
 
-unc0_lib_convert_decode_fail:
+uncl_convert_decode_fail:
     unc_unlock(w, &args.values[0]);
     if (!e) {
         unc_setint(w, &v, bno - bn);
-        e = unc_shove(w, depth, 1, &v, NULL);
+        e = unc_shove(w, depth, 1, &v);
     }
     return e;
 }
@@ -1574,12 +1490,12 @@ static int decodeb64digit(int b, const char *extra) {
         return -1;
 }
 
-Unc_RetVal unc0_lib_convert_encodeb64(Unc_View *w, Unc_Tuple args,
+Unc_RetVal uncl_convert_encodeb64(Unc_View *w, Unc_Tuple args,
                                       void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     byte *b;
-    Unc_Size bn, sn;
+    Unc_Size bn;
     char extra[2], *s, *sp;
 
     e = unc_getbool(w, &args.values[1], 0);
@@ -1594,8 +1510,7 @@ Unc_RetVal unc0_lib_convert_encodeb64(Unc_View *w, Unc_Tuple args,
     e = unc_lockblob(w, &args.values[0], &bn, &b);
     if (e) return e;
 
-    sn = 1 + ((bn + 2) / 3) * 4;
-    s = unc_malloc(w, sn);
+    s = unc_malloc(w, 1 + ((bn + 2) / 3) * 4);
     if (!s) {
         unc_unlock(w, &args.values[0]);
         return UNCIL_ERR_MEM;
@@ -1623,15 +1538,15 @@ Unc_RetVal unc0_lib_convert_encodeb64(Unc_View *w, Unc_Tuple args,
     }
 
     unc_unlock(w, &args.values[0]);
-    e = unc_newstringmove(w, &v, sn - 1, s);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    else unc_mfree(w, s);
-    return e;
+    e = unc_newstringmove(w, &v, sp - s, s);
+    if (e) unc_mfree(w, s);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_convert_decodeb64(Unc_View *w, Unc_Tuple args,
+Unc_RetVal uncl_convert_decodeb64(Unc_View *w, Unc_Tuple args,
                                       void *udata) {
-    int e, allowws, tmp, bits = 0;
+    Unc_RetVal e;
+    int allowws, tmp, bits = 0;
     Unc_Value v = UNC_BLANK;
     const byte *b;
     Unc_Size bn, sn;
@@ -1702,8 +1617,7 @@ invalid_padding:
     unc_unlock(w, &args.values[0]);
     s = unc_mrealloc(w, s, sp - s);
     e = unc_newblobmove(w, &v, s);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    return unc_returnlocal(w, e, &v);
 }
 
 struct uncconv_in_buffer {
@@ -1719,16 +1633,13 @@ static int uncconv_in_wrapper(void *data) {
 }
 
 struct uncconv_out_buffer {
-    Unc_Allocator *alloc;
-    byte *s;
-    Unc_Size n;
-    Unc_Size c;
-    int fail;
+    struct unc0_strbuf buffer;
+    Unc_RetVal fail;
 };
 
-static int uncconv_out_wrapperb(void *data, Unc_Size n, const byte *b) {
+static int uncconv_out_wrapper(void *data, Unc_Size n, const byte *b) {
     struct uncconv_out_buffer *buf = data;
-    int e = unc0_strpushb(buf->alloc, &buf->s, &buf->n, &buf->c, 6, n, b);
+    Unc_RetVal e = unc0_strbuf_putn(&buf->buffer, n, b);
     if (e) {
         buf->fail = e;
         return -1;
@@ -1736,19 +1647,9 @@ static int uncconv_out_wrapperb(void *data, Unc_Size n, const byte *b) {
     return 0;
 }
 
-static int uncconv_out_wrappers(void *data, Unc_Size n, const byte *b) {
-    struct uncconv_out_buffer *buf = data;
-    int e = unc0_strpush(buf->alloc, &buf->s, &buf->n, &buf->c, 6, n, b);
-    if (e) {
-        buf->fail = e;
-        return -1;
-    }
-    return 0;
-}
-
-Unc_RetVal unc0_lib_convert_encodetext(Unc_View *w, Unc_Tuple args,
+Unc_RetVal uncl_convert_encodetext(Unc_View *w, Unc_Tuple args,
                                        void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     Unc_Size sn;
     const char *s;
@@ -1770,26 +1671,22 @@ Unc_RetVal unc0_lib_convert_encodetext(Unc_View *w, Unc_Tuple args,
     if (e) return e;
     bin.n = sn;
     bin.s = (const byte *)s;
-    bout.alloc = &w->world->alloc;
-    bout.s = NULL;
-    bout.n = 0;
-    bout.c = 0;
+    unc0_strbuf_init(&bout.buffer, &w->world->alloc, Unc_AllocBlob);
     bout.fail = 0;
     if ((*enc)(&uncconv_in_wrapper, &bin,
-               &uncconv_out_wrapperb, &bout)) {
+               &uncconv_out_wrapper, &bout)) {
+        unc0_strbuf_free(&bout.buffer);
         return bout.fail ? UNCIL_ERR_MEM : unc_throwexc(w, "value",
             "cannot encode this string with this encoding");
     }
-    bout.s = unc0_mmrealloc(&w->world->alloc, Unc_AllocBlob,
-                            bout.s, bout.n);
-    e = unc_newblobmove(w, &v, bout.s);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    e = unc0_buftoblob(w, &v, &bout.buffer);
+    unc0_strbuf_free(&bout.buffer);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_convert_decodetext(Unc_View *w, Unc_Tuple args,
+Unc_RetVal uncl_convert_decodetext(Unc_View *w, Unc_Tuple args,
                                        void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     Unc_Size sn;
     byte *s;
@@ -1812,67 +1709,278 @@ Unc_RetVal unc0_lib_convert_decodetext(Unc_View *w, Unc_Tuple args,
     if (e) return e;
     bin.n = sn;
     bin.s = s;
-    bout.alloc = &w->world->alloc;
-    bout.s = NULL;
-    bout.n = 0;
-    bout.c = 0;
+    unc0_strbuf_init(&bout.buffer, &w->world->alloc, Unc_AllocString);
     bout.fail = 0;
     if ((*dec)(&uncconv_in_wrapper, &bin,
-               &uncconv_out_wrappers, &bout, UNC_SIZE_MAX)) {
+               &uncconv_out_wrapper, &bout, UNC_SIZE_MAX)) {
+        unc0_strbuf_free(&bout.buffer);
         unc_unlock(w, &args.values[0]);
         return bout.fail ? UNCIL_ERR_MEM : unc_throwexc(w, "value",
             "blob contains invalid data for this encoding");
     }
     unc_unlock(w, &args.values[0]);
-    e = unc_newstringmove(w, &v, bout.n, (char *)bout.s);
-    if (e) {
-        unc_mfree(w, bout.s);
-        return e;
-    }
-    return unc_pushmove(w, &v, NULL);
+    e = unc0_buftostring(w, &v, &bout.buffer);
+    unc0_strbuf_free(&bout.buffer);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal uncilmain_convert(struct Unc_View *w) {
+struct sacxprintf_buf {
+    struct unc0_strbuf *buffer;
+    Unc_Size fmtn;
+    const char *fmt;
+};
+
+static size_t unc0_fmt1_printf(struct sacxprintf_buf buf, ...) {
+    size_t r;
+    va_list va;
+    va_start(va, buf);
+    r = unc0_sacvxprintf(buf.buffer, UNC0_PRINTF_UTF8 | UNC0_PRINTF_SKIPPOS,
+                         buf.fmtn, buf.fmt, va);
+    va_end(va);
+    return r;
+}
+
+static Unc_Size unc0_fmt1_pos(const char *start, const char *end) {
+    Unc_Size r = 0;
+    unc0_snscanf(start, end - start, "%"PRIUnc_Size"u", &r);
+    return r;
+}
+
+static int unc0_fmt1(Unc_View *w, struct unc0_strbuf *buf,
+                     const char *fmt, const char *fmt_end,
+                     size_t spec_n, const unsigned *specs,
+                     Unc_Tuple args, Unc_Size *p_argpos) {
+    unsigned spec;
+    struct sacxprintf_buf sbuf;
+    Unc_Value *tmp;
+    size_t r;
+
+    if (spec_n != 1)
+        return UNCIL_ERR_INTERNAL;
+    
+    ASSERT(*fmt == '%');
+    if (unc0_isdigit(fmt[1])) {
+        const char *pos_start = fmt + 1, *pos_end = fmt + 1;
+        while (unc0_isdigit(*pos_end))
+            ++pos_end;
+        if (*pos_end == '$') {
+            Unc_Size argpos_read = unc0_fmt1_pos(pos_start, pos_end);
+            if (!argpos_read || argpos_read >= args.count)
+                return unc_throwexc(w, "value",
+                    "convert positional argument position out of range");
+            *p_argpos = argpos_read + 1;
+            tmp = &args.values[argpos_read];
+            goto startspec;
+        }
+    }
+
+    if (*p_argpos >= args.count) {
+        return unc_throwexc(w, "value",
+            "not enough values to format (e.g. more specifiers than values)");
+    }
+    tmp = &args.values[*p_argpos++];
+startspec:
+    spec = specs[0];
+    
+    sbuf.buffer = buf;
+    sbuf.fmtn = fmt_end - fmt;
+    sbuf.fmt = fmt;
+
+    switch (spec) {
+    case UNC_PRINTFSPEC_C:     /* int */
+    case UNC_PRINTFSPEC_I:     /* signed int */
+    case UNC_PRINTFSPEC_LI:    /* signed long */
+    case UNC_PRINTFSPEC_LLI:   /* signed long long */
+    case UNC_PRINTFSPEC_JI:    /* intmax_t */
+    case UNC_PRINTFSPEC_U:     /* unsigned int */
+    case UNC_PRINTFSPEC_LU:    /* unsigned long */
+    case UNC_PRINTFSPEC_LLU:   /* unsigned long long */
+    case UNC_PRINTFSPEC_JU:    /* uintmax_t */
+    case UNC_PRINTFSPEC_TI:    /* ptrdiff_t */
+    case UNC_PRINTFSPEC_ZI:    /* size_t */
+    case UNC_PRINTFSPEC_TU:    /* ptrdiff_t */
+    case UNC_PRINTFSPEC_ZU:    /* size_t */
+    {
+        Unc_Int i;
+        Unc_RetVal e = unc_getint(w, tmp, &i);
+        if (e) return unc_throwexc(w, "type", "expected integer for %i/%u/%c");
+    
+        switch (spec) {
+        case UNC_PRINTFSPEC_C:     /* int */
+        case UNC_PRINTFSPEC_I:     /* signed int */
+            r = unc0_fmt1_printf(sbuf, (signed int)i); break;
+        case UNC_PRINTFSPEC_LLI:   /* signed long long */
+#if UNCIL_C99
+            r = unc0_fmt1_printf(sbuf, (signed long long)i); break;
+#endif
+        case UNC_PRINTFSPEC_LI:    /* signed long */
+            r = unc0_fmt1_printf(sbuf, (signed long)i); break;
+        case UNC_PRINTFSPEC_JI:    /* intmax_t */
+            r = unc0_fmt1_printf(sbuf, (intmax_t)i); break;
+        case UNC_PRINTFSPEC_U:     /* unsigned int */
+            r = unc0_fmt1_printf(sbuf, (unsigned int)i); break;
+        case UNC_PRINTFSPEC_LLU:   /* unsigned long long */
+#if UNCIL_C99
+            r = unc0_fmt1_printf(sbuf, (unsigned long long)i); break;
+#endif
+        case UNC_PRINTFSPEC_LU:    /* unsigned long */
+            r = unc0_fmt1_printf(sbuf, (unsigned long)i); break;
+        case UNC_PRINTFSPEC_JU:    /* uintmax_t */
+            r = unc0_fmt1_printf(sbuf, (uintmax_t)i); break;
+        case UNC_PRINTFSPEC_TI:    /* ptrdiff_t */
+        case UNC_PRINTFSPEC_TU:    /* ptrdiff_t */
+            r = unc0_fmt1_printf(sbuf, (ptrdiff_t)i); break;
+        case UNC_PRINTFSPEC_ZI:    /* size_t */
+        case UNC_PRINTFSPEC_ZU:    /* size_t */
+            r = unc0_fmt1_printf(sbuf, (size_t)i); break;
+        }
+        break;
+    }
+
+    case UNC_PRINTFSPEC_LF:    /* double */
+    case UNC_PRINTFSPEC_LLF:   /* long double */
+    {
+        Unc_Float f;
+        Unc_RetVal e = unc_getfloat(w, tmp, &f);
+        if (e) return unc_throwexc(w, "type", "expected float for %f");
+        switch (spec) {
+        case UNC_PRINTFSPEC_LF:    /* double */
+            r = unc0_fmt1_printf(sbuf, (double)f); break;
+        case UNC_PRINTFSPEC_LLF:   /* long double */
+            r = unc0_fmt1_printf(sbuf, (long double)f); break;
+        }
+        break;
+    }
+
+    case UNC_PRINTFSPEC_S:     /* const char* */
+    {
+        char *string;
+        int alloc = 0;
+        Unc_RetVal e = unc_getstringc(w, tmp, (const char **)&string);
+        if (e == UNCIL_ERR_TYPE_NOTSTR) {
+            Unc_Size string_n;
+            alloc = 1;
+            e = unc_valuetostringn(w, tmp, &string_n, &string);
+        }
+        if (e) return e;
+        r = unc0_fmt1_printf(sbuf, (const char *)string);
+        if (alloc) unc_mfree(w, string);
+        break;
+    }
+    
+    case UNC_PRINTFSPEC_P:
+        return unc_throwexc(w, "value", "%p not allowed");
+    case UNC_PRINTFSPEC_N:
+        return unc_throwexc(w, "value", "%n not allowed");
+    default:
+        return UNCIL_ERR_INTERNAL;
+    }
+    
+    return r == UNC_PRINTF_EOF ? UNCIL_ERR_MEM : 0;
+}
+
+Unc_RetVal uncl_convert_format(Unc_View *w, Unc_Tuple args, void *udata) {
+#define ENCODE_THROW(etype, emsg) do { e = unc_throwexc(w, etype, emsg);       \
+                                goto uncl_convert_encode_fail; } while (0)
     Unc_RetVal e;
-    e = unc_exportcfunction(w, "encode", &unc0_lib_convert_encode,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
+    int c;
+    Unc_Value v = UNC_BLANK;
+    const char *fmt;
+    Unc_Size argpos = 1;
+    struct unc0_strbuf buffer;
+    const char *copy_from;
+
+    e = unc_getstringc(w, &args.values[0], &fmt);
     if (e) return e;
-    e = unc_exportcfunction(w, "decode", &unc0_lib_convert_decode,
-                            UNC_CFUNC_CONCURRENT,
-                            2, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "encodeb64", &unc0_lib_convert_encodeb64,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "decodeb64", &unc0_lib_convert_decodeb64,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "encodetext", &unc0_lib_convert_encodetext,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "decodetext", &unc0_lib_convert_decodetext,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "fromhex", &unc0_lib_convert_fromhex,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "fromintbase", &unc0_lib_convert_fromintbase,
-                            UNC_CFUNC_CONCURRENT,
-                            2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "tohex", &unc0_lib_convert_tohex,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "tointbase", &unc0_lib_convert_tointbase,
-                            UNC_CFUNC_CONCURRENT,
-                            2, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    return 0;
+
+    copy_from = fmt;
+    unc0_strbuf_init(&buffer, &w->world->alloc, Unc_AllocString);
+
+    while ((c = *fmt)) {
+        if (c != '%') {
+            ++fmt;
+            continue;
+        }
+
+        if (copy_from < fmt) {
+            if (unc0_strbuf_putn(&buffer,
+                                 (Unc_Size)(fmt - copy_from),
+                                 (const Unc_Byte *)copy_from)) {
+                e = UNCIL_ERR_MEM;
+                goto uncl_convert_encode_fail;
+            }
+        }
+
+        c = *++fmt;
+        if (!c) {
+            break;
+        } else if (c == '%') {
+            if (unc0_strbuf_put1(&buffer, '%')) {
+                e = UNCIL_ERR_MEM;
+                goto uncl_convert_encode_fail;
+            }
+            ++fmt;
+        } else {
+            unsigned specs[UNC_PRINTFSPEC_MAX];
+            const char *fmt_end = fmt;
+            size_t spec_n = unc0_printf_specparse(specs, &fmt_end,
+                                                  UNC0_PRINTF_SKIPPOS);
+
+            if (!spec_n) {
+                e = unc_throwexc(w, "value",
+                        "unrecognized or invalid printf format specifier");
+                goto uncl_convert_encode_fail;
+            }
+
+            if (specs[spec_n] == UNC_PRINTFSPEC_STAR || spec_n > 1) {
+                e = unc_throwexc(w, "value",
+                        "* not allowed in format width or precision");
+                goto uncl_convert_encode_fail;
+            }
+
+            if ((e = unc0_fmt1(w, &buffer, fmt - 1, fmt_end,
+                               spec_n, specs, args, &argpos))) {
+                goto uncl_convert_encode_fail;
+            }
+            fmt = fmt_end;
+        }
+        
+        copy_from = fmt;
+        continue;
+uncl_convert_encode_fail:
+        unc0_strbuf_free(&buffer);
+        return e;
+    }
+
+    if (copy_from < fmt) {
+        if (unc0_strbuf_putn(&buffer,
+                             (Unc_Size)(fmt - copy_from),
+                             (const Unc_Byte *)copy_from)) {
+            unc0_strbuf_free(&buffer);
+            return UNCIL_ERR_MEM;
+        }
+    }
+
+    e = unc0_buftostring(w, &v, &buffer);
+    unc0_strbuf_free(&buffer);
+    return unc_returnlocal(w, e, &v);
+}
+
+#define FN(x) &uncl_convert_##x, #x
+static const Unc_ModuleCFunc lib[] = {
+    { FN(encode),      1, 0, 1, UNC_CFUNC_CONCURRENT },
+    { FN(decode),      2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { FN(encodeb64),   1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { FN(decodeb64),   1, 2, 0, UNC_CFUNC_CONCURRENT },
+    { FN(encodetext),  1, 2, 0, UNC_CFUNC_CONCURRENT },
+    { FN(decodetext),  1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { FN(format),      1, 0, 1, UNC_CFUNC_CONCURRENT },
+    { FN(tohex),       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(tointbase),   2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(fromhex),     1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(fromintbase), 2, 0, 0, UNC_CFUNC_CONCURRENT },
+};
+
+Unc_RetVal uncilmain_convert(struct Unc_View *w) {
+    return unc_exportcfunctions(w, PASSARRAY(lib), 0, NULL, NULL);
 }

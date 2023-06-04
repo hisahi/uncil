@@ -7,7 +7,8 @@ internal details in the Uncil interpreter.
 This module can usually be accessed with `require("sys")`.
 
 This module is disabled by default when Uncil is used as a library, but
-available on the standalone interpreter; see `mmask` in `API.md`.
+available on the standalone interpreter; see `mmask` in `API.md`. This module
+is not available if Uncil is compiled in sandboxed mode.
 
 ## sys.arch
 `sys.arch`
@@ -17,14 +18,18 @@ Possible values are:
 * `"x86"` (32-bit Intel x86 or compatible)
 * `"amd64"` (AMD64/x86_64 or compatible)
 * `"arm"` (ARM)
-* `"arm64"` (ARM64/AArch64)
+* `"aarch64"` (ARM64/AArch64)
+* `"riscv"` (RISC-V)
 * `"ppc"` (32-bit PowerPC)
 * `"ppc64"` (64-bit PowerPC)
 * `"ia64"` (Intel Itanium)
 * `"mips"` (MIPS)
+* `"mipsel"` (MIPSel)
+* `"s390"` (IBM S/390)
+* `"sh4"` (Hitachi Super-H, SH-4)
 * `"sparc"` (SPARC)
+* `"sparc64"` (SPARC64)
 * `"alpha"` (DEC Alpha)
-* `"riscv"` (RISC-V)
 * `"m68k"` (Motorola 68000)
 * `"8086"` (16-bit 8086 real mode)
 * `"other"` (also used if the actual architecture could not be recognized)
@@ -92,10 +97,17 @@ Possible values are:
 * `"macos"` (Apple macOS)
 * `"linux"` (Linux)
 * `"bsd"` (BSD)
+* `"openbsd"` (OpenBSD)
+* `"freebsd"` (FreeBSD)
+* `"netbsd"` (NetBSD)
+* `"dragonflybsd"` (Dragonfly BSD)
 * `"ios"` (Apple iOS)
 * `"android"` (Android)
+* `"sunos"` (SunOS)
+* `"aix"` (IBM AIX)
 * `"unix"` (some other Unix-compatible system)
 * `"posix"` (some other POSIX-compatible system)
+* `"msdos"` (MS-DOS)
 * `"other"` (also used if the actual platform could not be recognized)
 
 ## sys.threader
@@ -109,6 +121,7 @@ them were compiled in.
 
 A function that returns three integers that represent the version of the Uncil
 interpreter; the major version, minor version and the patch version.
+Same as `getversion`.
 
 ## sys.versiontext
 `sys.versiontext`

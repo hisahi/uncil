@@ -24,8 +24,6 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <string.h>
-
 #define UNCIL_DEFINES
 
 #include "udef.h"
@@ -36,11 +34,12 @@ SOFTWARE.
 #include "uopaque.h"
 #include "uvali.h"
 
-int unc0_initopaque(Unc_View *w, Unc_Opaque *o, size_t n, void **data,
-                    Unc_Value *prototype, Unc_OpaqueDestructor destructor,
-                    Unc_Size refcount, Unc_Value *initvalues,
-                    Unc_Size refcopycount, Unc_Size *refcopies) {
-    int e;
+Unc_RetVal unc0_initopaque(Unc_View *w, Unc_Opaque *o, size_t n, void **data,
+                           Unc_Value *prototype,
+                           Unc_OpaqueDestructor destructor,
+                           Unc_Size refcount, Unc_Value *initvalues,
+                           Unc_Size refcopycount, Unc_Size *refcopies) {
+    Unc_RetVal e;
     Unc_Allocator *alloc = &w->world->alloc;
     o->data = unc0_malloc(alloc, Unc_AllocOpaque, n);
     if (!o->data)
@@ -76,7 +75,7 @@ int unc0_initopaque(Unc_View *w, Unc_Opaque *o, size_t n, void **data,
         if (!e)
             for (i = 0; i < refcopycount; ++i) {
                 if (refcopies[i] >= bc) {
-                    e = UNCIL_ERR_ARG_REFCOPYOUTOFBOUNDS;
+                    e = UNCIL_ERR_ARG_BADREFCOPYINDEX;
                     break;
                 }
             }
@@ -104,8 +103,8 @@ int unc0_initopaque(Unc_View *w, Unc_Opaque *o, size_t n, void **data,
     return e;
 }
 
-int unc0_oqgetattrv(Unc_View *w, Unc_Opaque *o,
-                   Unc_Value *attr, int *found, Unc_Value *out) {
+Unc_RetVal unc0_oqgetattrv(Unc_View *w, Unc_Opaque *o,
+                           Unc_Value *attr, int *found, Unc_Value *out) {
     for (;;) {
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
@@ -126,8 +125,9 @@ int unc0_oqgetattrv(Unc_View *w, Unc_Opaque *o,
     }
 }
 
-int unc0_oqgetattrs(Unc_View *w, Unc_Opaque *o,
-                   Unc_Size n, const byte *b, int *found, Unc_Value *out) {
+Unc_RetVal unc0_oqgetattrs(Unc_View *w, Unc_Opaque *o,
+                           Unc_Size n, const byte *b,
+                           int *found, Unc_Value *out) {
     for (;;) {
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
@@ -148,9 +148,9 @@ int unc0_oqgetattrs(Unc_View *w, Unc_Opaque *o,
     }
 }
 
-int unc0_oqgetattrc(Unc_View *w, Unc_Opaque *o,
-                   const byte *s, int *found, Unc_Value *out) {
-    return unc0_oqgetattrs(w, o, strlen((const char *)s), s, found, out);
+Unc_RetVal unc0_oqgetattrc(Unc_View *w, Unc_Opaque *o,
+                           const byte *s, int *found, Unc_Value *out) {
+    return unc0_oqgetattrs(w, o, unc0_strlen((const char *)s), s, found, out);
 }
 
 /* call destructor if specified */

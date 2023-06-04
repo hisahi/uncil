@@ -53,8 +53,9 @@ int unc0_cconv_passthru(Unc_CConv_In in, void *in_data,
     return n ? (*out)(out_data, n, buf) : 0;
 }
 
-INLINE int unc0_addencoding(Unc_View *w, Unc_EncodingTable *table, size_t ctr,
-                            Unc_Size enc_n, const byte *enc) {
+INLINE Unc_RetVal unc0_addencoding(Unc_View *w, Unc_EncodingTable *table,
+                                   size_t ctr,
+                                   Unc_Size enc_n, const byte *enc) {
     Unc_Value *out;
     int e = unc0_puthtbls(w, &table->names, enc_n, enc, &out);
     if (!e) VINITINT(out, ctr);
@@ -391,44 +392,31 @@ int unc0_cconv_latin1_enc(Unc_CConv_In in, void *in_data,
     }
 }
 
-int unc0_adddefaultencs(Unc_View *w, Unc_EncodingTable *t) {
-    int e = 0;
+#define ADD_ENC(name, fnenc, fndec)                                            \
+    t->data[ctr].enc = &fnenc;                                                 \
+    t->data[ctr].dec = &fndec;                                                 \
+    t->data[ctr].name_n = sizeof(name) - 1;                                    \
+    t->data[ctr].name = name;                                                  \
+    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL(name)))) return e
+
+Unc_RetVal unc0_adddefaultencs(Unc_View *w, Unc_EncodingTable *t) {
+    Unc_RetVal e = 0;
     size_t ctr = 0;
     if (t->entries < 16) {
-        Unc_EncodingEntry *d = TMREALLOC(Unc_EncodingEntry, &w->world->alloc, 0,
-                                         t->data, t->entries, 16);
+        Unc_EncodingEntry *d = TMREALLOC(Unc_EncodingEntry, &w->world->alloc,
+                                         0, t->data, t->entries, 16);
         if (!d) return UNCIL_ERR_MEM;
         t->data = d;
         t->entries = 16;
     }
 
-    t->data[ctr].enc = &unc0_cconv_passthru;
-    t->data[ctr].dec = &unc0_cconv_utf8ts;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf8")))) return e;
-
-    t->data[ctr].enc = &unc0_cconv_utf16le_enc;
-    t->data[ctr].dec = &unc0_cconv_utf16le_dec;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf16le")))) return e;
-
-    t->data[ctr].enc = &unc0_cconv_utf16be_enc;
-    t->data[ctr].dec = &unc0_cconv_utf16be_dec;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf16be")))) return e;
-
-    t->data[ctr].enc = &unc0_cconv_utf32le_enc;
-    t->data[ctr].dec = &unc0_cconv_utf32le_dec;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf32le")))) return e;
-
-    t->data[ctr].enc = &unc0_cconv_utf32be_enc;
-    t->data[ctr].dec = &unc0_cconv_utf32be_dec;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("utf32be")))) return e;
-
-    t->data[ctr].enc = &unc0_cconv_ascii_enc;
-    t->data[ctr].dec = &unc0_cconv_ascii_dec;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("ascii")))) return e;
-
-    t->data[ctr].enc = &unc0_cconv_latin1_enc;
-    t->data[ctr].dec = &unc0_cconv_latin1_dec;
-    if ((e = unc0_addencoding(w, t, ctr++, PASSSTRL("latin1")))) return e;
+    ADD_ENC("utf8", unc0_cconv_passthru, unc0_cconv_utf8ts);
+    ADD_ENC("utf16le", unc0_cconv_utf16le_enc, unc0_cconv_utf16le_dec);
+    ADD_ENC("utf16be", unc0_cconv_utf16be_enc, unc0_cconv_utf16be_dec);
+    ADD_ENC("utf32le", unc0_cconv_utf32le_enc, unc0_cconv_utf32le_dec);
+    ADD_ENC("utf32be", unc0_cconv_utf32be_enc, unc0_cconv_utf32be_dec);
+    ADD_ENC("ascii", unc0_cconv_ascii_enc, unc0_cconv_ascii_dec);
+    ADD_ENC("latin1", unc0_cconv_latin1_enc, unc0_cconv_latin1_dec);
 
     return e;
 }

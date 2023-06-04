@@ -36,6 +36,7 @@ SOFTWARE.
 #include "uarithm.h"
 #include "udef.h"
 #include "ulibio.h"
+#include "umem.h"
 #include "uncil.h"
 #include "uosdef.h"
 #include "uvsio.h"
@@ -52,9 +53,15 @@ SOFTWARE.
 
 #include <stdio.h>
 
-static int unc0_proc_makeerr(Unc_View *w, const char *prefix, int err) {
+static Unc_RetVal unc0_proc_makeerr(Unc_View *w, const char *prefix, int err) {
     return unc0_std_makeerr(w, "system", prefix, err);
 }
+
+#if UNCIL_IS_POSIX
+typedef pid_t Unc_ProcessId;
+#else
+typedef int Unc_ProcessId;
+#endif
 
 enum pipe_type {
     PIPE_INHERIT,
@@ -74,7 +81,7 @@ union pipe_data {
 };
 
 struct unc0_proc_job {
-    pid_t pid;
+    Unc_ProcessId pid;
     int finished;
     int exitcode;
 };
@@ -93,6 +100,46 @@ static void unc0_posix_disown(pid_t pid) {
     /* no other option, otherwise we might end up with a zombie */
     kill(pid, SIGTERM);
     waitpid(pid, NULL, 0);
+}
+
+#define DEV_NULL "/dev/null"
+static int unc0_proc_popen_pipe(int file, enum pipe_type mode,
+                                union pipe_data *pipe_data, unc_fd_t *fds,
+                                int *accountable) {
+    switch (mode) {
+    case PIPE_INHERIT:
+        break;
+    case PIPE_CLOSED:
+        if (unc0_posix_pipe(fds)) return 1;
+        close(fds[!file]);
+        *accountable = 1;
+        break;
+    case PIPE_PIPE:
+    case PIPE_PIPENB:
+        if (unc0_posix_pipe(fds)) return 1;
+        pipe_data->fd = fds[!file];
+        if (mode == PIPE_PIPENB
+                && fcntl(pipe_data->fd, F_SETFL,
+                   fcntl(pipe_data->fd, F_GETFL) | O_NONBLOCK))
+            return 1;
+        *accountable = 1;
+        break;
+    case PIPE_NULL:
+        if ((fds[!!file] = open(DEV_NULL, file ? O_WRONLY : O_WRONLY)) == -1)
+            return 1;
+        *accountable = 1;
+        break;
+    case PIPE_FILE:
+        if ((fds[!!file] = fileno((FILE *)pipe_data->ptr)) == -1)
+            return 1;
+        break;
+    case PIPE_ALIAS:
+        if (file == 2)
+            fds[1] = 1;
+        else
+            return 1;
+    }
+    return 0;
 }
 #endif
 
@@ -114,7 +161,7 @@ static void unc0_proc_pcheck(struct unc0_proc_job *job) {
     }
 }
 
-static int unc0_proc_popen(Unc_View *w, const char *cmd,
+static Unc_RetVal unc0_proc_popen(Unc_View *w, const char *cmd,
                       Unc_Size argc, Unc_Value *argv,
                       const char *cwd, Unc_Value *envt,
                       enum pipe_type stdin, union pipe_data *stdin_data,
@@ -122,11 +169,9 @@ static int unc0_proc_popen(Unc_View *w, const char *cmd,
                       enum pipe_type stderr, union pipe_data *stderr_data,
                       struct unc0_proc_job *job) {
 #if UNCIL_IS_POSIX
-    int e;
-    unc_fd_t r_stat[2];
-    unc_fd_t r_in[2] = { -1, -1 },
-             r_out[2] = { -1, -1 },
-             r_err[2] = { -1, -1 };
+    Unc_RetVal e;
+    unc_fd_t r_stat[2],
+         r_in[2] = { -1, -1 }, r_out[2] = { -1, -1 }, r_err[2] = { -1, -1 };
     pid_t pid;
     int accountable[3] = { 0 };
     const char **arg;
@@ -229,100 +274,12 @@ static int unc0_proc_popen(Unc_View *w, const char *cmd,
     if (fcntl(r_stat[1], F_SETFD, fcntl(r_stat[1], F_GETFD) | FD_CLOEXEC))
         goto unc0_proc_popen_fail;
     
-    switch (stdin) {
-    case PIPE_INHERIT:
-        break;
-    case PIPE_CLOSED:
-        if (unc0_posix_pipe(r_in)) goto unc0_proc_popen_fail;
-        close(r_in[1]);
-        accountable[0] = 1;
-        break;
-    case PIPE_PIPE:
-    case PIPE_PIPENB:
-        if (unc0_posix_pipe(r_in)) goto unc0_proc_popen_fail;
-        stdin_data->fd = r_in[1];
-        if (stdin == PIPE_PIPENB
-                && fcntl(stdin_data->fd, F_SETFL,
-                   fcntl(stdin_data->fd, F_GETFL) | O_NONBLOCK))
-            goto unc0_proc_popen_fail;
-        accountable[0] = 1;
-        break;
-    case PIPE_NULL:
-        if ((r_in[0] = open("/dev/null", O_RDONLY)) == -1)
-            goto unc0_proc_popen_fail;
-        accountable[0] = 1;
-        break;
-    case PIPE_FILE:
-        if ((r_in[0] = fileno((FILE *)stdin_data->ptr)) == -1)
-            goto unc0_proc_popen_fail;
-        break;
-    case PIPE_ALIAS:
-        ASSERT(0);
-        return UNCIL_ERR_INTERNAL;
-    }
-    
-    switch (stdout) {
-    case PIPE_INHERIT:
-        break;
-    case PIPE_CLOSED:
-        if (unc0_posix_pipe(r_out)) goto unc0_proc_popen_fail;
-        close(r_out[0]);
-        accountable[1] = 1;
-        break;
-    case PIPE_PIPE:
-    case PIPE_PIPENB:
-        if (unc0_posix_pipe(r_out)) goto unc0_proc_popen_fail;
-        stdout_data->fd = r_out[0];
-        if (stdout == PIPE_PIPENB
-                && fcntl(stdout_data->fd, F_SETFL,
-                   fcntl(stdout_data->fd, F_GETFL) | O_NONBLOCK))
-            goto unc0_proc_popen_fail;
-        accountable[1] = 1;
-        break;
-    case PIPE_NULL:
-        if ((r_out[1] = open("/dev/null", O_WRONLY)) == -1)
-            goto unc0_proc_popen_fail;
-        accountable[1] = 1;
-        break;
-    case PIPE_FILE:
-        if ((r_out[1] = fileno((FILE *)stdout_data->ptr)) == -1)
-            goto unc0_proc_popen_fail;
-        break;
-    case PIPE_ALIAS:
-        ASSERT(0);
-        return UNCIL_ERR_INTERNAL;
-    }
-    
-    switch (stderr) {
-    case PIPE_INHERIT:
-        break;
-    case PIPE_CLOSED:
-        if (unc0_posix_pipe(r_err)) goto unc0_proc_popen_fail;
-        close(r_err[0]);
-        accountable[2] = 1;
-        break;
-    case PIPE_PIPE:
-    case PIPE_PIPENB:
-        if (unc0_posix_pipe(r_err)) goto unc0_proc_popen_fail;
-        stderr_data->fd = r_err[0];
-        if (stderr == PIPE_PIPENB
-                && fcntl(stderr_data->fd, F_SETFL,
-                   fcntl(stderr_data->fd, F_GETFL) | O_NONBLOCK))
-            goto unc0_proc_popen_fail;
-        accountable[2] = 1;
-        break;
-    case PIPE_NULL:
-        if ((r_err[1] = open("/dev/null", O_WRONLY)) == -1)
-            goto unc0_proc_popen_fail;
-        accountable[2] = 1;
-        break;
-    case PIPE_FILE:
-        if ((r_err[1] = fileno((FILE *)stderr_data->ptr)) == -1)
-            goto unc0_proc_popen_fail;
-        break;
-    case PIPE_ALIAS:
-        r_err[1] = 1;
-    }
+    if (unc0_proc_popen_pipe(0, stdin, stdin_data, r_in, &accountable[0]))
+        goto unc0_proc_popen_fail;
+    if (unc0_proc_popen_pipe(1, stdout, stdout_data, r_out, &accountable[1]))
+        goto unc0_proc_popen_fail;
+    if (unc0_proc_popen_pipe(2, stderr, stderr_data, r_err, &accountable[2]))
+        goto unc0_proc_popen_fail;
 
     switch ((pid = fork())) {
     case 0:
@@ -387,25 +344,22 @@ unc0_proc_popen_fail:
         errno = old_errno;
     }
     return UNCIL_ERR_IO_UNDERLYING;
-#else
+#else /* UNCIL_IS_POSIX */
     return UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #endif
 }
 
-static int unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
+static Unc_RetVal unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
                       Unc_Size sin_n, const byte *sin,
-                      Unc_Pipe stdin,
-                      Unc_Pipe stdout,
-                      Unc_Pipe stderr,
+                      Unc_Pipe stdin, Unc_Pipe stdout, Unc_Pipe stderr,
                       struct unc0_proc_job *job) {
 #if UNCIL_IS_POSIX
-    int e;
-    byte *sout = NULL, *serr = NULL;
+    Unc_RetVal e;
     byte buf[BUFSIZ];
     Unc_Allocator *alloc = &w->world->alloc;
     Unc_Size sin_i = 0;
-    Unc_Size sout_n = 0, sout_c = 0;
-    Unc_Size serr_n = 0, serr_c = 0;
+    struct unc0_strbuf sout;
+    struct unc0_strbuf serr;
     Unc_Pipe nfds = stdin;
     if (nfds < stdout) nfds = stdout;
     if (nfds < stderr) nfds = stderr;
@@ -414,6 +368,9 @@ static int unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
         close(stdin);
         stdin = -1;
     }
+
+    unc0_strbuf_init(&sout, alloc, Unc_AllocLibrary);
+    unc0_strbuf_init(&serr, alloc, Unc_AllocLibrary);
     while (!job->finished) {
         fd_set rfds, wfds;
         struct timeval tv;
@@ -459,9 +416,7 @@ static int unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
                 for (;;) {
                     ssize_t z = read(stdout, buf, sizeof(buf));
                     if (!z) break;
-                    e = unc0_strpush(alloc,
-                                     &sout, &sout_n, &sout_c,
-                                     10, z, buf);
+                    e = unc0_strbuf_putn(&sout, z, buf);
                     if (e) goto unc0_proc_pmunge_fail;
                     if (z < sizeof(buf)) break;
                 }
@@ -471,9 +426,7 @@ static int unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
                 for (;;) {
                     ssize_t z = read(stderr, buf, sizeof(buf));
                     if (!z) break;
-                    e = unc0_strpush(alloc,
-                                     &serr, &serr_n, &serr_c,
-                                     10, z, buf);
+                    e = unc0_strbuf_putn(&serr, z, buf);
                     if (e) goto unc0_proc_pmunge_fail;
                     if (z < sizeof(buf)) break;
                 }
@@ -481,26 +434,20 @@ static int unc0_proc_pmunge(Unc_View *w, Unc_Value *out3,
         }
         unc0_proc_pcheck(job);
     }
-    sout = unc0_mmrealloc(alloc, Unc_AllocLibrary, sout, sout_n);
-    serr = unc0_mmrealloc(alloc, Unc_AllocLibrary, serr, serr_n);
-    e = unc_newblobmove(w, &out3[1], sout);
-    if (e) {
-        unc0_mmfree(alloc, sout);
-        unc0_mmfree(alloc, serr);
-        return e;
-    }
-    e = unc_newblobmove(w, &out3[2], serr);
-    if (e) {
-        unc0_mmfree(alloc, serr);
-        return e;
-    }
+    e = unc0_buftoblob(w, &out3[1], &sout);
+    if (e) goto unc0_proc_pmunge_fail_end;
+    e = unc0_buftoblob(w, &out3[2], &serr);
+    if (e) goto unc0_proc_pmunge_fail_end;
     unc_setint(w, &out3[0], job->exitcode);
-    return 0;
+unc0_proc_pmunge_fail_end:
+    unc0_strbuf_free(&serr);
+    unc0_strbuf_free(&sout);
+    return e;
 unc0_proc_pmunge_fail:
 {
     int old_errno = errno;
-    unc0_mmfree(alloc, sout);
-    unc0_mmfree(alloc, serr);
+    unc0_strbuf_free(&sout);
+    unc0_strbuf_free(&serr);
     if (stdin != -1) close(stdin);
     close(stdout);
     close(stderr);
@@ -508,7 +455,7 @@ unc0_proc_pmunge_fail:
     errno = old_errno;
     return e;
 }
-#else
+#else /* UNCIL_IS_POSIX */
     return UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #endif
 }
@@ -527,7 +474,7 @@ static void unc0_proc_fd_close(int fd) {
 #endif
 }
 
-static int unc0_proc_pipe_parse(Unc_View *w, Unc_Value *v,
+static Unc_RetVal unc0_proc_pipe_parse(Unc_View *w, Unc_Value *v,
                         enum pipe_type *t, union pipe_data *p,
                         int stderr) {
     switch (unc_gettype(w, v)) {
@@ -543,12 +490,12 @@ static int unc0_proc_pipe_parse(Unc_View *w, Unc_Value *v,
     case Unc_TString:
     {
         const char *cs;
-        int e = unc_getstringc(w, v, &cs);
+        Unc_RetVal e = unc_getstringc(w, v, &cs);
         if (e) return e;
-        if (!strcmp(cs, "null")) {
+        if (!unc0_strcmp(cs, "null")) {
             *t = PIPE_NULL;
             return 0;
-        } else if (!strcmp(cs, "stdout")) {
+        } else if (!unc0_strcmp(cs, "stdout")) {
             if (stderr)
                 *t = PIPE_ALIAS;
             else
@@ -562,11 +509,11 @@ static int unc0_proc_pipe_parse(Unc_View *w, Unc_Value *v,
     }
     case Unc_TOpaque:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value proto = UNC_BLANK;
         unc_getprototype(w, v, &proto);
         e = !unc_issame(w, &proto, &w->world->io_file);
-        unc_clear(w, &proto);
+        VCLEAR(w, &proto);
         if (e) return unc_throwexc(w, "type", "invalid stream mode value");
         *t = PIPE_FILE;
         p->ptr = v;
@@ -577,13 +524,13 @@ static int unc0_proc_pipe_parse(Unc_View *w, Unc_Value *v,
     }
 }
 
-static int unc0_proc_pipe_copy(Unc_View *w, Unc_Value *v, int k,
+static Unc_RetVal unc0_proc_pipe_copy(Unc_View *w, Unc_Value *v, int k,
                         enum pipe_type t, union pipe_data *p) {
     switch (t) {
     case PIPE_PIPE:
     case PIPE_PIPENB:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value fv = UNC_BLANK;
         FILE *ff = unc0_proc_fd_open(p->fd, k == 0);
         if (!ff)
@@ -596,7 +543,7 @@ static int unc0_proc_pipe_copy(Unc_View *w, Unc_Value *v, int k,
             }
         }
         if (!e) unc_copy(w, unc_opaqueboundvalue(w, v, k), &fv);
-        unc_clear(w, &fv);
+        VCLEAR(w, &fv);
         return e;
     }
     case PIPE_FILE:
@@ -630,7 +577,7 @@ static void unc0_proc_pipe_close(Unc_View *w, enum pipe_type t,
     }
 }
 
-static int unc0_proc_wait(Unc_View *w, struct unc0_proc_job *job) {
+static Unc_RetVal unc0_proc_wait(Unc_View *w, struct unc0_proc_job *job) {
     unc0_proc_pcheck(job);
     if (!job->finished) {
 #if UNCIL_IS_POSIX
@@ -652,15 +599,15 @@ static int unc0_proc_wait(Unc_View *w, struct unc0_proc_job *job) {
         } else {
             job->exitcode = -1;
         }
-#else
+#else /* UNCIL_IS_POSIX */
         return UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #endif
     }
     return 0;
 }
 
-static int unc0_proc_waittimed(Unc_View *w, struct unc0_proc_job *job,
-                               Unc_Float seconds) {
+static Unc_RetVal unc0_proc_waittimed(Unc_View *w, struct unc0_proc_job *job,
+                                      Unc_Float seconds) {
     unc0_proc_pcheck(job);
     if (!job->finished) {
 #if UNCIL_IS_POSIX && _POSIX_VERSION >= 200809L || \
@@ -729,7 +676,8 @@ unc0_proc_waittimed_clk:
 #elif UNCIL_IS_POSIX
         struct timespec ts;
         struct timeval t;
-        int status, e;
+        int status;
+        Unc_RetVal e;
         clockid_t clk;
 #ifdef CLOCK_MONOTONIC_RAW
         clk = CLOCK_MONOTONIC_RAW;
@@ -780,9 +728,10 @@ unc0_proc_waittimed_retry2:
         } else {
             return UNCIL_ERR_IO_UNDERLYING;
         }
-#else
+#else /* UNCIL_IS_POSIX && _POSIX_VERSION >= 200809L || \
+    (defined(_POSIX_REALTIME_SIGNALS) && defined(SIGRTMIN)) */
         return UNCIL_ERR_LOGIC_NOTSUPPORTED;
-#endif
+#endif /* platform */
     }
     return 0;
 }
@@ -796,7 +745,8 @@ static void unc0_proc_halt(struct unc0_proc_job *job) {
     }
 }
 
-static int unc0_proc_signal(Unc_View *w, struct unc0_proc_job *job, int sig) {
+static Unc_RetVal unc0_proc_signal(Unc_View *w, struct unc0_proc_job *job,
+                                   int sig) {
     unc0_proc_pcheck(job);
     if (job->finished) return 0;
 #if UNCIL_IS_POSIX
@@ -816,8 +766,9 @@ static Unc_RetVal unc0_proc_job_destr(Unc_View *w, size_t n, void *data) {
     return 0;
 }
 
-Unc_RetVal unc0_lib_process_open(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, locked = 0;
+Unc_RetVal uncl_process_open(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
+    int locked = 0;
     Unc_Value v = UNC_BLANK;
     const char *cmd, *cwd = NULL;
     Unc_Size an = 0;
@@ -887,13 +838,11 @@ Unc_RetVal unc0_lib_process_open(Unc_View *w, Unc_Tuple args, void *udata) {
             e = unc0_proc_makeerr(w, "process.open()", errno);
     }
     if (locked) unc_unlock(w, &args.values[1]);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    else unc_clear(w, &v);
-    return e;
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_process_munge(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_process_munge(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value res[3] = UNC_BLANKS;
     const char *cmd, *cwd = NULL;
     Unc_Size an, bn;
@@ -955,211 +904,174 @@ Unc_RetVal unc0_lib_process_munge(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     unc_unlock(w, &args.values[2]);
     unc_unlock(w, &args.values[1]);
-    if (!e) e = unc_push(w, 3, res, NULL);
-    unc_clearmany(w, 3, res);
-    return e;
+    return unc_returnlocalarray(w, e, 3, res);
 }
 
-Unc_RetVal unc0_lib_proc_job_exitcode(Unc_View *w,
-                                      Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_exitcode(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     unc0_proc_pcheck(job);
     if (job->finished)
         unc_setint(w, &tmp, job->exitcode);
     unc_unlock(w, &args.values[0]);
     if (e) return unc0_proc_makeerr(w, "process.job.exitcode()", errno);
-    return unc_push(w, 1, &tmp, NULL);
+    return unc_returnlocal(w, 0, &tmp);
 }
 
-Unc_RetVal unc0_lib_proc_job_halt(Unc_View *w,
-                                  Unc_Tuple args, void *udata) {
-    int e;
-    Unc_Value tmp = UNC_BLANK;
+Unc_RetVal uncl_proc_job_halt(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     unc0_proc_halt(job);
     unc_unlock(w, &args.values[0]);
     return 0;
 }
 
-Unc_RetVal unc0_lib_proc_job_signal(Unc_View *w,
-                                    Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_signal(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Int sig;
-    Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
-    }
-    unc_clear(w, &tmp);
     e = unc_getint(w, &args.values[1], &sig);
     if (!e && (sig > INT_MAX || sig < INT_MIN))
         e = unc_throwexc(w, "value", "invalid signal value");
     if (e) return e;
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;;
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
+    }
     e = unc0_proc_signal(w, job, (int)sig);
     if (e && UNCIL_ERR_KIND(e) == UNCIL_ERR_KIND_IO)
         e = unc0_proc_makeerr(w, "process.job.signal()", errno);
     return e;
 }
 
-Unc_RetVal unc0_lib_proc_job_running(Unc_View *w,
-                                     Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_running(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     unc0_proc_pcheck(job);
     unc_setbool(w, &tmp, !job->finished);
     unc_unlock(w, &args.values[0]);
     if (e) return unc0_proc_makeerr(w, "process.job.exitcode()", errno);
-    return unc_push(w, 1, &tmp, NULL);
+    return unc_returnlocal(w, 0, &tmp);
 }
 
-Unc_RetVal unc0_lib_proc_job_stdin(Unc_View *w,
-                                     Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_stdin(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     unc0_proc_pcheck(job);
     unc_copy(w, &tmp, unc_opaqueboundvalue(w, &args.values[0], 0));
     unc_unlock(w, &args.values[0]);
-    return unc_pushmove(w, &tmp, NULL);
+    return unc_returnlocal(w, 0, &tmp);
 }
 
-Unc_RetVal unc0_lib_proc_job_stdout(Unc_View *w,
-                                     Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_stdout(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     unc0_proc_pcheck(job);
     unc_copy(w, &tmp, unc_opaqueboundvalue(w, &args.values[0], 1));
     unc_unlock(w, &args.values[0]);
-    return unc_pushmove(w, &tmp, NULL);
+    return unc_returnlocal(w, 0, &tmp);
 }
 
-Unc_RetVal unc0_lib_proc_job_stderr(Unc_View *w,
-                                     Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_stderr(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     unc0_proc_pcheck(job);
     unc_copy(w, &tmp, unc_opaqueboundvalue(w, &args.values[0], 2));
     unc_unlock(w, &args.values[0]);
-    return unc_pushmove(w, &tmp, NULL);
+    return unc_returnlocal(w, 0, &tmp);
 }
 
-Unc_RetVal unc0_lib_proc_job_wait(Unc_View *w,
-                                  Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_wait(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
     }
-    unc_clear(w, &tmp);
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
     e = unc0_proc_wait(w, job);
     if (!e) {
         ASSERT(job->finished);
         unc_setint(w, &tmp, job->exitcode);
-        e = unc_pushmove(w, &tmp, NULL);
+        e = unc_pushmove(w, &tmp);
     }
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
-Unc_RetVal unc0_lib_proc_job_waittimed(Unc_View *w,
-                                       Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_proc_job_waittimed(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value tmp = UNC_BLANK;
     struct unc0_proc_job *job;
     Unc_Float seconds;
-    unc_getprototype(w, &args.values[0], &tmp);
-    if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
-            || !unc_issame(w, &tmp, unc_boundvalue(w, 0))) {
-        unc_clear(w, &tmp);
-        return unc_throwexc(w, "type", "argument is not a process.job");
-    }
-    unc_clear(w, &tmp);
     e = unc_getfloat(w, &args.values[1], &seconds);
     if (e) return e;
     if (seconds < 0)
         return unc_throwexc(w, "value", "timeout cannot be negative");
     if (!unc0_fisfinite(seconds))
         return unc_throwexc(w, "value", "timeout must be finite");
-    e = unc_lockopaque(w, &args.values[0], NULL, (void **)&job);
-    if (e) return e;
+    if ((e = unc0_verifyopaque_arg(w, &args.values[0], unc_boundvalue(w, 0),
+                                   NULL, (void **)&job, 1, "process.job"))) {
+        return e;
+    }
     e = unc0_proc_waittimed(w, job, seconds);
     if (!e && job->finished) {
         unc_setint(w, &tmp, job->exitcode);
-        e = unc_pushmove(w, &tmp, NULL);
+        e = unc_pushmove(w, &tmp);
     }
     unc_unlock(w, &args.values[0]);
     return e;
 }
+
+#define FNj(x) &uncl_proc_job_##x, #x
+static const Unc_ModuleCFunc lib_job[] = {
+    { FNj(exitcode),    1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(halt),        1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(running),     1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(signal),      2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(stderr),      1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(stdin),       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(stdout),      1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(wait),        1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNj(waittimed),   2, 0, 0, UNC_CFUNC_CONCURRENT },
+};
+
+#if UNCIL_IS_POSIX
+INLINE Unc_RetVal setint_(struct Unc_View *w, const char *s, int m) {
+    Unc_Value v = UNC_BLANK;
+    unc_setint(w, &v, m);
+    return unc_setpublicc(w, s, &v);
+}
+#endif
 
 Unc_RetVal uncilmain_process(struct Unc_View *w) {
     Unc_RetVal e;
@@ -1171,138 +1083,52 @@ Unc_RetVal uncilmain_process(struct Unc_View *w) {
     e = unc_newobject(w, &proc_job, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "open", &unc0_lib_process_open,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 6, NULL, 1, &proc_job, 0, NULL, NULL);
+    e = unc_exportcfunction(w, "open", &uncl_process_open,
+                            1, 6, 0, UNC_CFUNC_DEFAULT, NULL,
+                            1, &proc_job, 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "munge", &unc0_lib_process_munge,
-                            UNC_CFUNC_DEFAULT,
-                            3, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunction(w, "munge", &uncl_process_munge,
+                            3, 2, 0, UNC_CFUNC_DEFAULT, NULL,
+                            0, NULL, 0, NULL, NULL);
     if (e) return e;
+
+    e = unc_attrcfunctions(w, &proc_job, PASSARRAY(lib_job),
+                           1, &proc_job, NULL);
+    if (e) return e;
+
+#if UNCIL_IS_POSIX
+    if ((e = setint_(w, "SIGHUP", SIGHUP))) return e;
+    if ((e = setint_(w, "SIGINT", SIGINT))) return e;
+    if ((e = setint_(w, "SIGQUIT", SIGQUIT))) return e;
+    if ((e = setint_(w, "SIGILL", SIGILL))) return e;
+    if ((e = setint_(w, "SIGABRT", SIGABRT))) return e;
+    if ((e = setint_(w, "SIGFPE", SIGFPE))) return e;
+    if ((e = setint_(w, "SIGKILL", SIGKILL))) return e;
+    if ((e = setint_(w, "SIGSEGV", SIGSEGV))) return e;
+    if ((e = setint_(w, "SIGPIPE", SIGPIPE))) return e;
+    if ((e = setint_(w, "SIGALRM", SIGALRM))) return e;
+    if ((e = setint_(w, "SIGTERM", SIGTERM))) return e;
+    if ((e = setint_(w, "SIGUSR1", SIGUSR1))) return e;
+    if ((e = setint_(w, "SIGUSR2", SIGUSR2))) return e;
+    if ((e = setint_(w, "SIGCHLD", SIGCHLD))) return e;
+    if ((e = setint_(w, "SIGCONT", SIGCONT))) return e;
+    if ((e = setint_(w, "SIGSTOP", SIGSTOP))) return e;
+    if ((e = setint_(w, "SIGTSTP", SIGTSTP))) return e;
+#endif
 
     {
         Unc_Value tmp = UNC_BLANK;
-
-#if UNCIL_IS_POSIX
-        unc_setint(w, &tmp, SIGHUP);
-        if ((e = unc_setpublicc(w, "SIGHUP", &tmp))) return e;
-        unc_setint(w, &tmp, SIGINT);
-        if ((e = unc_setpublicc(w, "SIGINT", &tmp))) return e;
-        unc_setint(w, &tmp, SIGQUIT);
-        if ((e = unc_setpublicc(w, "SIGQUIT", &tmp))) return e;
-        unc_setint(w, &tmp, SIGILL);
-        if ((e = unc_setpublicc(w, "SIGILL", &tmp))) return e;
-        unc_setint(w, &tmp, SIGABRT);
-        if ((e = unc_setpublicc(w, "SIGABRT", &tmp))) return e;
-        unc_setint(w, &tmp, SIGFPE);
-        if ((e = unc_setpublicc(w, "SIGFPE", &tmp))) return e;
-        unc_setint(w, &tmp, SIGKILL);
-        if ((e = unc_setpublicc(w, "SIGKILL", &tmp))) return e;
-        unc_setint(w, &tmp, SIGSEGV);
-        if ((e = unc_setpublicc(w, "SIGSEGV", &tmp))) return e;
-        unc_setint(w, &tmp, SIGPIPE);
-        if ((e = unc_setpublicc(w, "SIGPIPE", &tmp))) return e;
-        unc_setint(w, &tmp, SIGALRM);
-        if ((e = unc_setpublicc(w, "SIGALRM", &tmp))) return e;
-        unc_setint(w, &tmp, SIGTERM);
-        if ((e = unc_setpublicc(w, "SIGTERM", &tmp))) return e;
-        unc_setint(w, &tmp, SIGUSR1);
-        if ((e = unc_setpublicc(w, "SIGUSR1", &tmp))) return e;
-        unc_setint(w, &tmp, SIGUSR2);
-        if ((e = unc_setpublicc(w, "SIGUSR2", &tmp))) return e;
-        unc_setint(w, &tmp, SIGCHLD);
-        if ((e = unc_setpublicc(w, "SIGCHLD", &tmp))) return e;
-        unc_setint(w, &tmp, SIGCONT);
-        if ((e = unc_setpublicc(w, "SIGCONT", &tmp))) return e;
-        unc_setint(w, &tmp, SIGSTOP);
-        if ((e = unc_setpublicc(w, "SIGSTOP", &tmp))) return e;
-        unc_setint(w, &tmp, SIGTSTP);
-        if ((e = unc_setpublicc(w, "SIGTSTP", &tmp))) return e;
-#endif
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_exitcode,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "exitcode", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "exitcode", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_halt,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "halt", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "halt", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_running,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "running", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "running", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_signal,
-                             UNC_CFUNC_CONCURRENT,
-                             2, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "signal", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "signal", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_stderr,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "stderr", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "stderr", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_stdin,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "stdin", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "stdin", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_stdout,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "stdout", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "stdout", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_wait,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "wait", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "wait", &tmp);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &tmp, &unc0_lib_proc_job_waittimed,
-                             UNC_CFUNC_CONCURRENT,
-                             2, 0, 0, NULL,
-                             1, &proc_job, 0, NULL, "waittimed", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &proc_job, "waittimed", &tmp);
-        if (e) return e;
-
         e = unc_newstringc(w, &tmp, "process.job");
         if (e) return e;
         e = unc_setattrc(w, &proc_job, "__name", &tmp);
         if (e) return e;
-        unc_clear(w, &tmp);
+        VCLEAR(w, &tmp);
     }
 
     e = unc_setpublicc(w, "job", &proc_job);
     if (e) return e;
 
-    unc_clear(w, &proc_job);
+    VCLEAR(w, &proc_job);
     return 0;
 }

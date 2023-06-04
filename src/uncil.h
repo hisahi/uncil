@@ -155,10 +155,14 @@ Unc_RetVal unc_setattrc(Unc_View *w, Unc_Value *v, const char *as,
                         Unc_Value *in);
 
 Unc_RetVal unc_lockblob(Unc_View *w, Unc_Value *v, Unc_Size *n, Unc_Byte **p);
-Unc_RetVal unc_lockarray(Unc_View *w, Unc_Value *v, Unc_Size *n, Unc_Value **p);
+Unc_RetVal unc_lockarray(Unc_View *w, Unc_Value *v,
+                         Unc_Size *n, Unc_Value **p);
 Unc_RetVal unc_lockopaque(Unc_View *w, Unc_Value *v, Unc_Size *n, void **p);
 Unc_RetVal unc_trylockopaque(Unc_View *w, Unc_Value *v, Unc_Size *n, void **p);
 void unc_unlock(Unc_View *w, Unc_Value *v);
+
+Unc_RetVal unc_verifyopaque(Unc_View *w, Unc_Value *v, Unc_Value *prototype,
+                            Unc_Size *n, void **p);
 
 void unc_lockthisfunc(Unc_View *w);
 void unc_unlockthisfunc(Unc_View *w);
@@ -192,31 +196,52 @@ Unc_RetVal unc_newopaque(Unc_View *w, Unc_Value *v, Unc_Value *prototype,
                     Unc_Size refcount, Unc_Value *initvalues,
                     Unc_Size refcopycount, Unc_Size *refcopies);
 Unc_RetVal unc_newcfunction(Unc_View *w, Unc_Value *v, Unc_CFunc func,
-                    int cflags, Unc_Size argcount, int ellipsis,
-                    Unc_Size optcount, Unc_Value *defaults,
+                    Unc_Size argcount, Unc_Size optcount, int ellipsis,
+                    int cflags, Unc_Value *defaults,
                     Unc_Size refcount, Unc_Value *initvalues,
                     Unc_Size refcopycount, Unc_Size *refcopies,
                     const char *fname, void *udata);
 Unc_RetVal unc_exportcfunction(Unc_View *w, const char *name, Unc_CFunc func,
-                    int cflags, Unc_Size argcount, int ellipsis,
-                    Unc_Size optcount, Unc_Value *defaults,
+                    Unc_Size argcount, Unc_Size optcount, int ellipsis,
+                    int cflags, Unc_Value *defaults,
                     Unc_Size refcount, Unc_Value *initvalues,
                     Unc_Size refcopycount, Unc_Size *refcopies, void *udata);
 void unc_setopaqueptr(Unc_View *w, Unc_Value *v, void *data);
 Unc_RetVal unc_freezeobject(Unc_View *w, Unc_Value *v);
 
-int unc_yield(Unc_View *w);
-int unc_yieldfull(Unc_View *w);
+typedef struct Unc_ModuleCFunc {
+    Unc_CFunc func;
+    const char *name;
+    unsigned char argcount;
+    unsigned char optcount;
+    unsigned char ellipsis;
+    int cflags;
+} Unc_ModuleCFunc;
+
+Unc_RetVal unc_exportcfunctions(Unc_View *w, Unc_Size functioncount,
+                                const Unc_ModuleCFunc* functions,
+                                Unc_Size refcount, Unc_Value *initvalues,
+                                void *udata);
+Unc_RetVal unc_attrcfunctions(Unc_View *w, Unc_Value *v,
+                              Unc_Size functioncount,
+                              const Unc_ModuleCFunc* functions,
+                              Unc_Size refcount, Unc_Value *initvalues,
+                              void *udata);
+
+Unc_RetVal unc_yield(Unc_View *w);
+Unc_RetVal unc_yieldfull(Unc_View *w);
 /* DANGEROUS! */ void unc_vmpause(Unc_View *w);
-/* DANGEROUS! */ int unc_vmresume(Unc_View *w);
+/* DANGEROUS! */ Unc_RetVal unc_vmresume(Unc_View *w);
 
 Unc_RetVal unc_reserve(Unc_View *w, Unc_Size n);
-Unc_RetVal unc_push(Unc_View *w, Unc_Size n, Unc_Value *v, Unc_Size *counter);
-Unc_RetVal unc_pushmove(Unc_View *w, Unc_Value *v, Unc_Size *counter);
-void unc_pop(Unc_View *w, Unc_Size n, Unc_Size *counter);
-Unc_RetVal unc_shove(Unc_View *w, Unc_Size d, Unc_Size n,
-                     Unc_Value *v, Unc_Size *counter);
-void unc_yank(Unc_View *w, Unc_Size d, Unc_Size n, Unc_Size *counter);
+Unc_RetVal unc_push(Unc_View *w, Unc_Size n, Unc_Value *v);
+Unc_RetVal unc_pushmove(Unc_View *w, Unc_Value *v);
+Unc_RetVal unc_returnlocal(Unc_View *w, Unc_RetVal e, Unc_Value *v);
+Unc_RetVal unc_returnlocalarray(Unc_View *w, Unc_RetVal e,
+                                Unc_Size n, Unc_Value *v);
+void unc_pop(Unc_View *w, Unc_Size n);
+Unc_RetVal unc_shove(Unc_View *w, Unc_Size d, Unc_Size n, Unc_Value *v);
+void unc_yank(Unc_View *w, Unc_Size d, Unc_Size n);
 /* a C function may not call any Uncil API functions after calling unc_throw*
    you should probably just return unc_throw(...); */
 Unc_RetVal unc_throw(Unc_View *w, Unc_Value *v);
@@ -238,7 +263,7 @@ Unc_RetVal unc_call(Unc_View *w, Unc_Value *func, Unc_Size argn,
 Unc_RetVal unc_callex(Unc_View *w, Unc_Value *func, Unc_Size argn,
                                                     Unc_Pile *ret);
 void unc_getexception(Unc_View *w, Unc_Value *out);
-void unc_getexceptionfromcode(Unc_View *w, Unc_Value *out, int e);
+void unc_getexceptionfromcode(Unc_View *w, Unc_Value *out, Unc_RetVal e);
 Unc_RetVal unc_valuetostring(Unc_View *w, Unc_Value *v,
                              Unc_Size *n, char *c);
 Unc_RetVal unc_valuetostringn(Unc_View *w, Unc_Value *v,

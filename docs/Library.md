@@ -36,7 +36,7 @@ is expected to take the object itself as a parameter and return a boolean.
 ## exit
 `exit([exitcode])`
 
-_Only available in the standard Uncil interpreter._
+_Only available in the standalone Uncil interpreter._
 
 Exits the interpreter. By default, or if `exitcode` is `true` or `null`, uses
 the successful exit code (0 on most platforms). If `exitcode` is `false`,
@@ -69,6 +69,12 @@ If the given value is an object or opaque object, returns a reference to its
 prototype which is either `null`, a table, another object or another
 opaque object.
 
+## getversion
+`getversion()`
+
+A function that returns three integers that represent the version of the Uncil
+language; the major version, minor version and the patch version.
+
 ## input
 `input([prompt])`
 
@@ -79,6 +85,8 @@ a string; it will then be displayed to the user in some form, usually before
 the line the user will type in.
 
 In case of EOF, `input` returns `null`.
+
+This function is not available if Uncil is compiled in sandboxed mode.
 
 ## int
 `int(value)`
@@ -115,10 +123,12 @@ value by a tab character, and finally ends the line with a newline character.
 `print` is mostly useful for debugging and testing purposes, but can also be
 used, alongside `input`, to implement a rudimentary user interface.
 
+This function is not available if Uncil is compiled in sandboxed mode.
+
 ## quit
 `quit()`
 
-_Only available in the standard Uncil interpreter._
+_Only available in the standalone Uncil interpreter._
 
 In interactive mode, exits the REPL. In non-interactive mode, equivalent to
 `exit()`.
@@ -182,6 +192,8 @@ In any case, even if called incorrectly, `throw` will always result in an
 error, and thus any code after it within the same scope (up to a function call
 or `try` block) will not be executed (except for possible `__close` calls to
 values in terminated `with` blocks).
+
+See the Types document for more information on error types.
 
 ## type
 `type(value)`

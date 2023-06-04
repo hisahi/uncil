@@ -27,8 +27,6 @@ SOFTWARE.
 #ifndef UNCIL_UDEBUG_H
 #define UNCIL_UDEBUG_H
 
-#include <assert.h>
-
 #include "uerr.h"
 
 #ifndef NDEBUG
@@ -60,8 +58,15 @@ SOFTWARE.
 void unc0_dbghexdump(const unsigned char *data, size_t n);
 #endif
 
-#define ASSERT assert
+#if NDEBUG
+#define ASSERT(cond)
+#define NEVER_()
+#define NEVER() return UNCIL_ERR_INTERNAL;
+#else
+#include <assert.h>
+#define ASSERT(cond) assert(cond)
 #define NEVER_() ASSERT(0)
 #define NEVER() do { NEVER_(); return UNCIL_ERR_INTERNAL; } while (0)
+#endif
 
 #endif /* UNCIL_UDEBUG_H */

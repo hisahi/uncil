@@ -43,7 +43,7 @@ struct Unc_Allocator;
 struct Unc_Value;
 struct Unc_View;
 
-int unc0_io_init(struct Unc_View *w);
+Unc_RetVal unc0_io_init(struct Unc_View *w);
 
 int unc0_io_feof(struct ulib_io_file *file);
 int unc0_io_ferror(struct ulib_io_file *file);
@@ -54,7 +54,8 @@ int unc0_io_fwrite(struct ulib_io_file *file, const Unc_Byte *b, Unc_Size n);
 int unc0_io_fflush(struct ulib_io_file *file);
 int unc0_io_fclose(struct Unc_Allocator *alloc, struct ulib_io_file *file);
 */
-int unc0_io_makeerr(struct Unc_View *w, const char *prefix, int err);
+Unc_RetVal unc0_io_makeerr(struct Unc_View *w, const char *prefix, int err);
+Unc_RetVal unc0_io_makeerr_errno(struct Unc_View *w, const char *prefix);
 
 int unc0_io_fread_p(struct Unc_View *w, struct ulib_io_file *file, Unc_Byte *b,
                   Unc_Size o, Unc_Size n);
@@ -70,9 +71,10 @@ int unc0_io_fgetc_text(struct Unc_View *w, struct ulib_io_file *file,
 int unc0_io_fwrite_text(struct Unc_View *w, struct ulib_io_file *file,
                         const Unc_Byte *b, Unc_Size n);
 
-int unc0_io_fwrap(struct Unc_View *w, struct Unc_Value *v, FILE *file, int wr);
-int unc0_io_lockfile(struct Unc_View *w, struct Unc_Value *v,
-                     struct ulib_io_file **file, int ignoreerr);
+Unc_RetVal unc0_io_fwrap(struct Unc_View *w, struct Unc_Value *v,
+                         FILE *file, int wr);
+Unc_RetVal unc0_io_lockfile(struct Unc_View *w, struct Unc_Value *v,
+                            struct ulib_io_file **file, int ignoreerr);
 void unc0_io_unlockfile(struct Unc_View *w, struct Unc_Value *v);
 
 int unc0_io_fgetc(struct ulib_io_file *file);

@@ -31,6 +31,7 @@ SOFTWARE.
 #include "uctype.h"
 #include "uncil.h"
 #include "uosdef.h"
+#include "uxprintf.h"
 
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
@@ -69,7 +70,7 @@ INLINE int rangecheck(Unc_Int x, Unc_Int a, Unc_Int b) {
     return x < a || x > b;
 }
 
-static Unc_RetVal unc0_lib_time_tm_fromobj(Unc_View *w, Unc_Value *o,
+static Unc_RetVal uncl_time_tm_fromobj(Unc_View *w, Unc_Value *o,
                                            struct unc_tm *tm) {
     Unc_Value v = UNC_BLANK;
     Unc_Int ui;
@@ -159,40 +160,49 @@ static Unc_RetVal unc0_lib_time_tm_fromobj(Unc_View *w, Unc_Value *o,
     tm->tm_usec = (long)ui;
 
 fromobj_fail:
-    unc_clear(w, &v);
+    VCLEAR(w, &v);
     return e;
 }
 
-static Unc_RetVal unc0_lib_time_tm_toobj(Unc_View *w, Unc_Value *o,
-                                         Unc_Value *p, struct unc_tm *tm) {
+static Unc_RetVal uncl_time_tm_toobj(Unc_View *w, Unc_Value *o,
+                                     Unc_Value *p, struct unc_tm *tm) {
     Unc_Value v = UNC_BLANK;
     int e;
     e = unc_newobject(w, o, p);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_sec);
     e = unc_setattrc(w, o, "second", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_min);
     e = unc_setattrc(w, o, "minute", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_hour);
     e = unc_setattrc(w, o, "hour", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_mday);
     e = unc_setattrc(w, o, "day", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_mon + 1);
     e = unc_setattrc(w, o, "month", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_year + 1900L);
     e = unc_setattrc(w, o, "year", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_wday ? tm->tm_wday : 7);
     e = unc_setattrc(w, o, "weekday", &v);
     if (e) goto toobj_fail;
+
     unc_setint(w, &v, tm->tm_yday + 1);
     e = unc_setattrc(w, o, "yearday", &v);
     if (e) goto toobj_fail;
+
     if (tm->tm_isdst < 0)
         unc_setnull(w, &v);
     else
@@ -203,7 +213,7 @@ static Unc_RetVal unc0_lib_time_tm_toobj(Unc_View *w, Unc_Value *o,
     e = unc_setattrc(w, o, "us", &v);
     if (e) goto toobj_fail;
 toobj_fail:
-    unc_clear(w, &v);
+    VCLEAR(w, &v);
     return e;
 }
 
@@ -245,7 +255,7 @@ typedef struct Unc_Timezone {
     int nalloc;
 } Unc_Timezone;
 
-int unc0_lib_time_tz_free(Unc_View *w, size_t n, void *data) {
+int uncl_time_tz_free(Unc_View *w, size_t n, void *data) {
     Unc_Timezone *tz = data;
     if (tz->nalloc) {
         unc_mfree(w, tz->name);
@@ -254,23 +264,23 @@ int unc0_lib_time_tz_free(Unc_View *w, size_t n, void *data) {
     return 0;
 }
 
-static Unc_RetVal unc0_lib_time_maketz(Unc_View *w, Unc_Value *v,
+static Unc_RetVal uncl_time_maketz(Unc_View *w, Unc_Value *v,
                                 Unc_Value *pr, Unc_Timezone **tz) {
     return unc_newopaque(w, v, pr, sizeof(Unc_Timezone), (void **)tz,
-                        &unc0_lib_time_tz_free, 0, NULL, 0, NULL);
+                        &uncl_time_tz_free, 0, NULL, 0, NULL);
 }
 
-Unc_RetVal unc0_lib_time_tz_utc(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_utc(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     Unc_Timezone *tz;
-    int e = unc0_lib_time_maketz(w, &v, unc_boundvalue(w, 0), &tz);
+    int e = uncl_time_maketz(w, &v, unc_boundvalue(w, 0), &tz);
     if (e) return e;
     tz->type = UNCIL_TZ_UTC;
     tz->offsetdst = tz->offset = 0;
     tz->namedst = tz->name = "UTC";
     tz->nalloc = 0;
     unc_unlock(w, &v);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 static const int m2d[] =
@@ -336,13 +346,14 @@ static time_t unc0_mkgmtime(struct tm *time) {
     time->tm_mon = month;
     time->tm_mday = m2d[month] + time->tm_mday - 1;
     time->tm_wday = (day - 4) % 7;
-    return ((day * 24 + time->tm_hour) * 60 + time->tm_min) * 60 + time->tm_sec;
+    return 60 * (60 * (24 * day + time->tm_hour)
+                                + time->tm_min)
+                                + time->tm_sec;
 }
 #endif
 
 #if UNCIL_MT_OK
-UNC_LOCKSTATICF(loctime)
-UNC_LOCKSTATICFINIT0(loctime)
+UNC_LOCKSTATICL(loctime)
 #endif
 
 static time_t unc0_timegm_fallback(struct tm *time, int y);
@@ -351,18 +362,18 @@ static time_t unc0_timegm(struct tm *time) {
     time_t t;
     time->tm_isdst = 0;
 #if UNCIL_IS_WINDOWS
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     t = _mkgmtime(time);
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
 #elif UNCIL_IS_POSIX
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     t = timegm(time);
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
 #elif UNIXTIME
 #define UNCIL_MKGMTIME 1
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     t = unc0_mkgmtime(time);
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
 #else
     t = unc0_timegm_fallback(time, time->tm_year);
 #endif
@@ -374,14 +385,14 @@ struct tm *unc0_gmtime(const time_t *timer, struct tm *buf) {
     return gmtime_r(timer, buf);
 #else
     struct tm *ret;
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     if (buf) {
         ret = gmtime(timer);
         if (ret) *buf = *ret, ret = buf;
     } else {
         ret = gmtime(timer);
     }
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
     return ret;
 #endif
 }
@@ -391,14 +402,14 @@ struct tm *unc0_localtime(const time_t *timer, struct tm *buf) {
     return localtime_r(timer, buf);
 #else
     struct tm *ret;
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     if (buf) {
         ret = localtime(timer);
         if (ret) *buf = *ret, ret = buf;
     } else {
         ret = localtime(timer);
     }
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
     return ret;
 #endif
 }
@@ -522,9 +533,9 @@ static int unc0_tzlocalinfo(long *offset, long *offsetdst) {
         for (i = 1; i <= 12; ++i) {
             ++tm.tm_mon;
             tm.tm_isdst = -1;
-            UNC_LOCKF(loctime);
+            UNC_LOCKL(loctime);
             t = mktime(&tm);
-            UNC_UNLOCKF(loctime);
+            UNC_UNLOCKL(loctime);
             if (t == (time_t)(-1)) return 1;
             if (!!tm.tm_isdst != isdst) {
                 if (!unc0_gmtimex(t, &utm)) return 1;
@@ -644,9 +655,9 @@ static time_t unc0_timegm_fallback(struct tm *time, int y) {
     gtm.tm_isdst = 0;
     do {
         ++gtm.tm_mon;
-        UNC_LOCKF(loctime);
+        UNC_LOCKL(loctime);
         t = mktime(&gtm);
-        UNC_UNLOCKF(loctime);
+        UNC_UNLOCKL(loctime);
         if (!unc0_gmtimex(t, &gtm)) return (time_t)-1;
         if (!unc0_localtimex(t, &ltm)) return (time_t)-1;
         /* loop until DST not in effect */
@@ -662,9 +673,9 @@ static time_t unc0_timegm_fallback(struct tm *time, int y) {
     rtm.tm_mon  = rtm.tm_mon  + ltm.tm_mon  - gtm.tm_mon;
     rtm.tm_year = rtm.tm_year + ltm.tm_year - gtm.tm_year;
     rtm.tm_isdst = 0;
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     t = mktime(&rtm);
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
     /* better to fail than to give the wrong result */
     if (!unc0_gmtimex(t, &gtm)) return (time_t)-1;
     ltm = *time;
@@ -676,29 +687,30 @@ static time_t unc0_timegm_fallback(struct tm *time, int y) {
 }
 #endif
 
-Unc_RetVal unc0_lib_time_tz_local(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_local(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     Unc_Timezone *ptz, tz;
-    int e;
+    Unc_RetVal e;
     if (!unc0_tzlocalinfo(&tz.offset, &tz.offsetdst)) {
         tz.type = UNCIL_TZ_LOCAL;
         tz.name = "Local";
         tz.namedst = tz.offsetdst == tz.offset ? tz.name : "Local (DST)";
         tz.nalloc = 0;
 
-        e = unc0_lib_time_maketz(w, &v, unc_boundvalue(w, 0), &ptz);
+        e = uncl_time_maketz(w, &v, unc_boundvalue(w, 0), &ptz);
         if (e) return e;
         *ptz = tz;
         unc_unlock(w, &v);
     }
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_time_tz_get(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_get(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     Unc_Size sn;
     const char *sb;
-    int e, local;
+    Unc_RetVal e;
+    int local;
     if (unc_gettype(w, &args.values[0])) {
         e = unc_getstring(w, &args.values[0], &sn, &sb);
         if (e) return e;
@@ -707,26 +719,26 @@ Unc_RetVal unc0_lib_time_tz_get(Unc_View *w, Unc_Tuple args, void *udata) {
         local = 1;
     }
 #if 0
-    {
+    { /* TODO implement timezone support */
         Unc_Timezone *tz;
     }
 #else
     (void)local;
 #endif
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_time_tz_dst(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_dst(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
-    int e;
+    Unc_RetVal e;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 0))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     switch (tz->type) {
@@ -740,22 +752,22 @@ Unc_RetVal unc0_lib_time_tz_dst(Unc_View *w, Unc_Tuple args, void *udata) {
     default:
         unc_setbool(w, &p, tz->offset != tz->offsetdst);
     }
-    e = unc_pushmove(w, &p, NULL);
+    e = unc_returnlocal(w, 0, &p);
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
-Unc_RetVal unc0_lib_time_tz_offset(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_offset(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
-    int e;
+    Unc_RetVal e;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 0))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     switch (tz->type) {
@@ -775,23 +787,23 @@ Unc_RetVal unc0_lib_time_tz_offset(Unc_View *w, Unc_Tuple args, void *udata) {
     default:
         unc_setint(w, &p, tz->offset);
     }
-    e = unc_pushmove(w, &p, NULL);
+    e = unc_returnlocal(w, 0, &p);
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
-Unc_RetVal unc0_lib_time_tz_offsetdst(Unc_View *w,
+Unc_RetVal uncl_time_tz_offsetdst(Unc_View *w,
                                       Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
-    int e;
+    Unc_RetVal e;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 0))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     switch (tz->type) {
@@ -811,7 +823,7 @@ Unc_RetVal unc0_lib_time_tz_offsetdst(Unc_View *w,
     default:
         unc_setint(w, &p, tz->offsetdst);
     }
-    e = unc_pushmove(w, &p, NULL);
+    e = unc_returnlocal(w, 0, &p);
     unc_unlock(w, &args.values[0]);
     return e;
 }
@@ -852,9 +864,9 @@ Unc_RetVal unc0_totime(struct unc_tm *putm,
         *result = t;
         return 0;
     case UNCIL_TZ_LOCAL:
-        UNC_LOCKF(loctime);
+        UNC_LOCKL(loctime);
         t = mktime(&tm);
-        UNC_UNLOCKF(loctime);
+        UNC_UNLOCKL(loctime);
         if (t == (time_t)-1)
             return 1;
         *result = t;
@@ -880,70 +892,70 @@ Unc_RetVal unc0_totime(struct unc_tm *putm,
     }
 }
 
-Unc_RetVal unc0_lib_time_tz_islocal(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_islocal(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
-    int e;
+    Unc_RetVal e;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 0))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     unc_setbool(w, &p, tz->type == UNCIL_TZ_LOCAL);
-    e = unc_pushmove(w, &p, NULL);
+    e = unc_returnlocal(w, 0, &p);
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
-Unc_RetVal unc0_lib_time_tz_name(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_name(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
-    int e;
+    Unc_RetVal e;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 0))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     e = unc_newstringc(w, &p, tz->name);
-    if (!e) e = unc_pushmove(w, &p, NULL);
+    e = unc_returnlocal(w, e, &p);
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
-Unc_RetVal unc0_lib_time_tz_namedst(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_namedst(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
-    int e;
+    Unc_RetVal e;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 0))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     e = unc_newstringc(w, &p, tz->namedst);
-    if (!e) e = unc_pushmove(w, &p, NULL);
+    e = unc_returnlocal(w, e, &p);
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
-Unc_RetVal unc0_lib_time_clock(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_clock(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     unc_setfloat(w, &v, clock());
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_time_time(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_time(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     long usec;
     time_t t = unc0_time(&usec);
@@ -955,29 +967,29 @@ Unc_RetVal unc0_lib_time_time(Unc_View *w, Unc_Tuple args, void *udata) {
 #else
         unc_setfloat(w, &v, t);
 #endif
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_time_timefrac(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_time_timefrac(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     long usec;
     time_t t = unc0_time(&usec);
     if (t == (time_t)-1) {
         unc_setnull(w, &v);
-        e = unc_pushmove(w, &v, NULL);
-        if (!e) e = unc_pushmove(w, &v, NULL);
+        e = unc_returnlocal(w, 0, &v);
+        e = unc_returnlocal(w, e, &v);
         return e;
     }
     unc_setint(w, &v, (Unc_Int)t);
-    e = unc_pushmove(w, &v, NULL);
+    e = unc_returnlocal(w, 0, &v);
     if (e) return e;
     unc_setfloat(w, &v, usec / (Unc_Float)1000000.0);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_time_gmtime(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_time_dt_gmtime(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct tm tm;
     struct unc_tm utm;
@@ -987,13 +999,12 @@ Unc_RetVal unc0_lib_time_gmtime(Unc_View *w, Unc_Tuple args, void *udata) {
     if (!unc0_gmtimex(t, &tm))
         return unc_throwexc(w, "internal", "failed to get time");
     unc0_tm2utm(&tm, &utm, utm.tm_usec);
-    e = unc0_lib_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    e = uncl_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_time_localtime(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_time_dt_localtime(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct tm tm;
     struct unc_tm utm;
@@ -1003,13 +1014,12 @@ Unc_RetVal unc0_lib_time_localtime(Unc_View *w, Unc_Tuple args, void *udata) {
     if (!unc0_localtimex(t, &tm))
         return unc_throwexc(w, "internal", "failed to get time");
     unc0_tm2utm(&tm, &utm, utm.tm_usec);
-    e = unc0_lib_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    e = uncl_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_time_mktime(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_time_dt_mktime(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     time_t t;
     struct tm tm;
@@ -1018,26 +1028,26 @@ Unc_RetVal unc0_lib_time_mktime(Unc_View *w, Unc_Tuple args, void *udata) {
     unc_getprototype(w, &args.values[0], &v);
     if (unc_gettype(w, &args.values[0]) != Unc_TObject
             || !unc_issame(w, &v, unc_boundvalue(w, 0))) {
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
         return unc_throwexc(w, "type", "argument 1 is not a datetime");
     }
-    unc_clear(w, &v);
-    e = unc0_lib_time_tm_fromobj(w, &args.values[0], &utm);
+    VCLEAR(w, &v);
+    e = uncl_time_tm_fromobj(w, &args.values[0], &utm);
     if (e) return e;
 
     unc0_utm2tm(&tm, &utm);
-    UNC_LOCKF(loctime);
+    UNC_LOCKL(loctime);
     t = mktime(&tm);
-    UNC_UNLOCKF(loctime);
+    UNC_UNLOCKL(loctime);
     if (t == (time_t)-1)
         return unc_throwexc(w, "value", "cannot represent this datetime");
 
     unc_setfloat(w, &v, t);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_time_fromtime(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_time_dt_fromtime(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct unc_tm utm;
     Unc_Int ui;
@@ -1059,11 +1069,11 @@ Unc_RetVal unc0_lib_time_fromtime(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_getprototype(w, &args.values[1], &v);
         if (unc_gettype(w, &args.values[1]) != Unc_TOpaque
                 || !unc_issame(w, &v, unc_boundvalue(w, 1))) {
-            unc_clear(w, &v);
+            VCLEAR(w, &v);
             return unc_throwexc(w, "type", "argument 2 is not a timezone");
         }
         if ((e = unc_lockopaque(w, &args.values[1], NULL, (void **)&ptz))) {
-            unc_clear(w, &v);
+            VCLEAR(w, &v);
             return e;
         }
         utz = *ptz;
@@ -1074,37 +1084,35 @@ Unc_RetVal unc0_lib_time_fromtime(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc0_fromtime(&utm, &utz, t, usec);
     if (e)
         return unc_throwexc(w, "value", "cannot represent as datetime");
-    e = unc0_lib_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    e = uncl_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_time_tz_now(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_tz_now(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value p = UNC_BLANK;
     Unc_Timezone *tz;
     struct unc_tm utm;
-    int e;
+    Unc_RetVal e;
     long usec;
     time_t t;
     unc_getprototype(w, &args.values[0], &p);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &p, unc_boundvalue(w, 1))) {
-        unc_clear(w, &p);
+        VCLEAR(w, &p);
         return unc_throwexc(w, "type", "argument is not a time zone");
     }
     t = unc0_time(&usec);
     if (t == (time_t)-1)
         return unc_throwexc(w, "system", "failed to get the current time");
-    unc_clear(w, &p);
+    VCLEAR(w, &p);
     e = unc_lockopaque(w, &args.values[0], NULL, (void **)&tz);
     if (e) return e;
     e = unc0_fromtime(&utm, tz, t, usec);
     if (e)
         return unc_throwexc(w, "value", "cannot represent as datetime");
-    e = unc0_lib_time_tm_toobj(w, &p, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &p, NULL);
+    e = uncl_time_tm_toobj(w, &p, unc_boundvalue(w, 0), &utm);
     unc_unlock(w, &args.values[0]);
-    return e;
+    return unc_returnlocal(w, e, &p);
 }
 
 static int readidig(const char **pc, int d, int *out) {
@@ -1121,8 +1129,9 @@ static int readidig(const char **pc, int d, int *out) {
     return 0;
 }
 
-Unc_RetVal unc0_lib_time_fromiso(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, c;
+Unc_RetVal uncl_time_dt_fromiso(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
+    int c;
     Unc_Value v = UNC_BLANK;
     struct unc_tm utm;
     int hastz;
@@ -1133,25 +1142,25 @@ Unc_RetVal unc0_lib_time_fromiso(Unc_View *w, Unc_Tuple args, void *udata) {
 
     if ((e = unc_getstring(w, &args.values[0], &bn, &bb)))
         return e;
-    if (readidig(&bb, 4, &year)) goto unc0_lib_time_fromiso_fail;
+    if (readidig(&bb, 4, &year)) goto uncl_time_dt_fromiso_fail;
     if (*bb == '-') ++bb;
-    if (readidig(&bb, 2, &utm.tm_mon)) goto unc0_lib_time_fromiso_fail;
+    if (readidig(&bb, 2, &utm.tm_mon)) goto uncl_time_dt_fromiso_fail;
     else --utm.tm_mon;
     if (*bb == '-') ++bb;
-    if (readidig(&bb, 2, &utm.tm_mday)) goto unc0_lib_time_fromiso_fail;
-    if (*bb++ != 'T') goto unc0_lib_time_fromiso_fail;
-    if (readidig(&bb, 2, &utm.tm_hour)) goto unc0_lib_time_fromiso_fail;
+    if (readidig(&bb, 2, &utm.tm_mday)) goto uncl_time_dt_fromiso_fail;
+    if (*bb++ != 'T') goto uncl_time_dt_fromiso_fail;
+    if (readidig(&bb, 2, &utm.tm_hour)) goto uncl_time_dt_fromiso_fail;
     if (*bb == ':') ++bb;
-    if (readidig(&bb, 2, &utm.tm_min)) goto unc0_lib_time_fromiso_fail;;
+    if (readidig(&bb, 2, &utm.tm_min)) goto uncl_time_dt_fromiso_fail;
     if (*bb == ':') ++bb;
-    if (readidig(&bb, 2, &utm.tm_sec)) goto unc0_lib_time_fromiso_fail;
+    if (readidig(&bb, 2, &utm.tm_sec)) goto uncl_time_dt_fromiso_fail;
     if (year < 1583
             || utm.tm_mon < 0 || utm.tm_mon > 11
             || utm.tm_mday < 1 || utm.tm_mday > dayspermonth(utm.tm_mon, year)
             || utm.tm_hour < 0 || utm.tm_hour > 23
             || utm.tm_min < 0 || utm.tm_min > 59
             || utm.tm_sec < 0 || utm.tm_sec > 60)
-        goto unc0_lib_time_fromiso_fail;
+        goto uncl_time_dt_fromiso_fail;
     utm.tm_year = year - 1900;
     utm.tm_isdst = -1;
     utm.tm_usec = 0;
@@ -1176,35 +1185,36 @@ Unc_RetVal unc0_lib_time_fromiso(Unc_View *w, Unc_Tuple args, void *udata) {
             neg = 1;
             goto fromiso_tz;
         fromiso_tz:
-            if (readidig(&bb, 2, &tmh)) goto unc0_lib_time_fromiso_fail;
+            if (readidig(&bb, 2, &tmh)) goto uncl_time_dt_fromiso_fail;
             if (*bb == ':') ++bb;
-            if (readidig(&bb, 2, &tmm)) goto unc0_lib_time_fromiso_fail;
+            if (readidig(&bb, 2, &tmm)) goto uncl_time_dt_fromiso_fail;
             if (tmh < 0 || tmh > 24 || tmm < 0 || tmm > 59) e = 1;
             else offset = (neg ? -1 : 1) * (tmh * 60 + tmm) * 60;
         }
     }
     if (e) {
-unc0_lib_time_fromiso_fail:
+uncl_time_dt_fromiso_fail:
         return unc_throwexc(w, "value",
             "invalid or unsupported ISO 8601 timestamp");
     }
 
-    e = unc0_lib_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &v, NULL);
+    e = uncl_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
+    e = unc_returnlocal(w, e, &v);
     if (!e) {
         if (hastz)
             unc_setint(w, &v, offset);
         else
             unc_setnull(w, &v);
-        e = unc_push(w, 1, &v, NULL);
+        e = unc_returnlocal(w, e, &v);
     }
     return e;
 }
 
-Unc_RetVal unc0_lib_time_datetime_new(Unc_View *w,
+Unc_RetVal uncl_time_dt_new(Unc_View *w,
                                       Unc_Tuple args, void *udata) {
-    int i, e;
-    Unc_Value v;
+    int i;
+    Unc_RetVal e;
+    Unc_Value v = UNC_BLANK;
     Unc_Int values[6];
     struct unc_tm utm;
 
@@ -1240,14 +1250,13 @@ Unc_RetVal unc0_lib_time_datetime_new(Unc_View *w,
         getweekinfo(values[0], utm.tm_yday, &week, &utm.tm_wday);
     }
     
-    e = unc0_lib_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    e = uncl_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
+    return unc_returnlocal(w, e, &v);
 }
 
-static Unc_RetVal unc0_lib_time_totime_i(
+static Unc_RetVal uncl_time_dt_totime_i(
             Unc_View *w, Unc_Tuple args, time_t *result, struct unc_tm *putm) {
-    int e;
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct unc_tm utm;
     Unc_Timezone utz, *ptz;
@@ -1255,18 +1264,18 @@ static Unc_RetVal unc0_lib_time_totime_i(
     unc_getprototype(w, &args.values[0], &v);
     if (unc_gettype(w, &args.values[0]) != Unc_TObject
             || !unc_issame(w, &v, unc_boundvalue(w, 0))) {
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
         return unc_throwexc(w, "type", "argument 1 is not a datetime");
     }
     if (unc_gettype(w, &args.values[1])) {
         unc_getprototype(w, &args.values[1], &v);
         if (unc_gettype(w, &args.values[1]) != Unc_TOpaque
                 || !unc_issame(w, &v, unc_boundvalue(w, 1))) {
-            unc_clear(w, &v);
+            VCLEAR(w, &v);
             return unc_throwexc(w, "type", "argument 2 is not a timezone");
         }
         if ((e = unc_lockopaque(w, &args.values[1], NULL, (void **)&ptz))) {
-            unc_clear(w, &v);
+            VCLEAR(w, &v);
             return e;
         }
         utz = *ptz;
@@ -1274,8 +1283,8 @@ static Unc_RetVal unc0_lib_time_totime_i(
     } else {
         utz.type = UNCIL_TZ_UTC;
     }
-    unc_clear(w, &v);
-    e = unc0_lib_time_tm_fromobj(w, &args.values[0], &utm);
+    VCLEAR(w, &v);
+    e = uncl_time_tm_fromobj(w, &args.values[0], &utm);
     if (e) return e;
     *putm = utm;
     return unc0_totime(putm, &utz, result)
@@ -1283,27 +1292,27 @@ static Unc_RetVal unc0_lib_time_totime_i(
         : 0;
 }
 
-Unc_RetVal unc0_lib_time_totime(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_dt_totime(Unc_View *w, Unc_Tuple args, void *udata) {
     struct unc_tm utm;
     time_t t;
     Unc_Value v = UNC_BLANK;
-    int e = unc0_lib_time_totime_i(w, args, &t, &utm);
+    Unc_RetVal e = uncl_time_dt_totime_i(w, args, &t, &utm);
     if (e) return e;
 #if UNIXTIME
     t += (time_t)(utm.tm_usec / 1000000.0);
 #endif
     unc_setfloat(w, &v, t);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_time_totimefrac(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_dt_totimefrac(Unc_View *w, Unc_Tuple args, void *udata) {
     struct unc_tm utm;
     time_t t;
     Unc_Value v = UNC_BLANK;
-    int e = unc0_lib_time_totime_i(w, args, &t, &utm);
+    Unc_RetVal e = uncl_time_dt_totime_i(w, args, &t, &utm);
     if (e) return e;
     unc_setfloat(w, &v, t);
-    e = unc_pushmove(w, &v, NULL);
+    e = unc_returnlocal(w, 0, &v);
     if (!e) {
         Unc_Float f;
 #if UNIXTIME
@@ -1312,17 +1321,17 @@ Unc_RetVal unc0_lib_time_totimefrac(Unc_View *w, Unc_Tuple args, void *udata) {
         f = 0;
 #endif
         unc_setfloat(w, &v, f);
-        e = unc_pushmove(w, &v, NULL);
+        e = unc_returnlocal(w, 0, &v);
     }
     return e;
 }
 
-Unc_RetVal unc0_lib_time_convert(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_time_dt_convert(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     struct unc_tm utm;
     Unc_Timezone utz, *ptz;
     time_t t;
-    int e = unc0_lib_time_totime_i(w, args, &t, &utm);
+    Unc_RetVal e = uncl_time_dt_totime_i(w, args, &t, &utm);
     if (e) return e;
 #if UNIXTIME
     t += (time_t)(utm.tm_usec / 1000000.0);
@@ -1331,11 +1340,11 @@ Unc_RetVal unc0_lib_time_convert(Unc_View *w, Unc_Tuple args, void *udata) {
     unc_getprototype(w, &args.values[2], &v);
     if (unc_gettype(w, &args.values[2]) != Unc_TOpaque
             || !unc_issame(w, &v, unc_boundvalue(w, 1))) {
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
         return unc_throwexc(w, "type", "argument 3 is not a timezone");
     }
     if ((e = unc_lockopaque(w, &args.values[2], NULL, (void **)&ptz))) {
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
         return e;
     }
     utz = *ptz;
@@ -1343,13 +1352,12 @@ Unc_RetVal unc0_lib_time_convert(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc0_fromtime(&utm, &utz, t, utm.tm_usec);
     if (e)
         return unc_throwexc(w, "value", "cannot represent as datetime");
-    e = unc0_lib_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    e = uncl_time_tm_toobj(w, &v, unc_boundvalue(w, 0), &utm);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_time_toiso(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_time_dt_toiso(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct unc_tm utm;
     int hastz = 0;
@@ -1360,28 +1368,29 @@ Unc_RetVal unc0_lib_time_toiso(Unc_View *w, Unc_Tuple args, void *udata) {
     unc_getprototype(w, &args.values[0], &v);
     if (unc_gettype(w, &args.values[0]) != Unc_TObject
             || !unc_issame(w, &v, unc_boundvalue(w, 0))) {
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
         return unc_throwexc(w, "type", "argument 1 is not a datetime");
     }
     if (unc_gettype(w, &args.values[1])) {
         unc_getprototype(w, &args.values[1], &v);
         if (unc_gettype(w, &args.values[1]) != Unc_TOpaque
                 || !unc_issame(w, &v, unc_boundvalue(w, 1))) {
-            unc_clear(w, &v);
+            VCLEAR(w, &v);
             return unc_throwexc(w, "type", "argument 2 is not a timezone");
         }
         if ((e = unc_lockopaque(w, &args.values[1], NULL, (void **)&ptz))) {
-            unc_clear(w, &v);
+            VCLEAR(w, &v);
             return e;
         }
         utz = *ptz;
         unc_unlock(w, &args.values[1]);
         hastz = 1;
     }
-    unc_clear(w, &v);
-    e = unc0_lib_time_tm_fromobj(w, &args.values[0], &utm);
+    VCLEAR(w, &v);
+    e = uncl_time_tm_fromobj(w, &args.values[0], &utm);
     if (e) return e;
-    obuf += sprintf(obuf, "%.4d-%.2d-%.2dT%.2d:%.2d:%.2d",
+    obuf += unc0_xsnprintf(obuf, sizeof(buf), 0,
+            "%.4d-%.2d-%.2dT%.2d:%.2d:%.2d",
             utm.tm_year + 1900, utm.tm_mon + 1, utm.tm_mday,
             utm.tm_hour, utm.tm_min, utm.tm_sec);
     if (hastz) {
@@ -1406,16 +1415,56 @@ Unc_RetVal unc0_lib_time_toiso(Unc_View *w, Unc_Tuple args, void *udata) {
         if (neg) offset = -offset;
         offset /= 60;
         if (offset) {
-            sprintf(obuf, "%c%02d:%02d", neg ? '-' : '+',
-                                    (int)(offset / 60), (int)(offset % 60));
+            unc0_xsnprintf(obuf, sizeof(buf) - (obuf - buf), 0, "%c%02d:%02d",
+                    neg ? '-' : '+', (int)(offset / 60), (int)(offset % 60));
         } else {
             *obuf += 'Z';
         }
     }
     e = unc_newstringc(w, &v, buf);
-    if (!e) e = unc_pushmove(w, &v, NULL);
-    return e;
+    return unc_returnlocal(w, e, &v);
 }
+
+#define FN(x) &uncl_time_##x, #x
+static const Unc_ModuleCFunc lib[] = {
+    { FN(clock),        0, 0, 0, UNC_CFUNC_DEFAULT    },
+    { FN(time),         0, 0, 0, UNC_CFUNC_DEFAULT    },
+    { FN(timefrac),     0, 0, 0, UNC_CFUNC_DEFAULT    },
+};
+
+#define FNdt(x) &uncl_time_dt_##x, #x
+static const Unc_ModuleCFunc lib_datetime[] = {
+    { FNdt(gmtime),     0, 1, 0, UNC_CFUNC_DEFAULT    },
+    { FNdt(localtime),  0, 1, 0, UNC_CFUNC_DEFAULT    },
+    { FNdt(fromiso),    1, 0, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_datetime_protos[] = {
+    { FNdt(mktime),     1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNdt(toiso),      1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { FNdt(totime),     1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { FNdt(totimefrac), 1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { FNdt(convert),    3, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNdt(new),        7, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNdt(fromtime),   1, 1, 0, UNC_CFUNC_CONCURRENT },
+};
+
+#define FNtz(x) &uncl_time_tz_##x, #x
+static const Unc_ModuleCFunc lib_timezone[] = {
+    { FNtz(dst),        1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(islocal),    1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(name),       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(namedst),    1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(offset),     1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(offsetdst),  1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(get),        1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(local),      0, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FNtz(utc),        0, 0, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_timezone_protos[] = {
+    { FNtz(now),        1, 0, 0, UNC_CFUNC_CONCURRENT },
+};
 
 #define time_datetime protos[0]
 #define time_timezone protos[1]
@@ -1424,7 +1473,8 @@ Unc_RetVal uncilmain_time(Unc_View *w) {
     Unc_Value protos[2] = UNC_BLANKS;
 
 #if UNCIL_MT_OK
-    UNC_LOCKSTATICFINIT1(loctime);
+    e = UNC_LOCKINITL(loctime);
+    if (e) return e;
 #endif
 
     e = unc_newobject(w, &time_datetime, NULL);
@@ -1433,104 +1483,24 @@ Unc_RetVal uncilmain_time(Unc_View *w) {
     e = unc_newobject(w, &time_timezone, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "clock", &unc0_lib_time_clock,
-                            UNC_CFUNC_DEFAULT,
-                            0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunctions(w, PASSARRAY(lib), 0, 0, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "time", &unc0_lib_time_time,
-                            UNC_CFUNC_DEFAULT,
-                            0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_attrcfunctions(w, &time_datetime, PASSARRAY(lib_datetime),
+                           1, &time_datetime, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "timefrac", &unc0_lib_time_timefrac,
-                            UNC_CFUNC_DEFAULT,
-                            0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_attrcfunctions(w, &time_timezone, PASSARRAY(lib_timezone),
+                           1, &time_timezone, NULL);
     if (e) return e;
 
-    {
-        Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_mktime,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             2, protos, 0, NULL, "mktime", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "mktime", &fn);
-        if (e) return e;
+    e = unc_attrcfunctions(w, &time_datetime, PASSARRAY(lib_datetime_protos),
+                           2, protos, NULL);
+    if (e) return e;
 
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_toiso,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 1, NULL,
-                             2, protos, 0, NULL, "toiso", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "toiso", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_totime,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 1, NULL,
-                             2, protos, 0, NULL, "totime", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "totime", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_totimefrac,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 1, NULL,
-                             2, protos, 0, NULL, "totimefrac", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "totimefrac", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_convert,
-                             UNC_CFUNC_CONCURRENT,
-                             3, 0, 0, NULL,
-                             2, protos, 0, NULL, "convert", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "convert", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_datetime_new,
-                             UNC_CFUNC_CONCURRENT,
-                             7, 0, 0, NULL,
-                             2, protos, 0, NULL, "new", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "new", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_gmtime,
-                             UNC_CFUNC_DEFAULT,
-                             0, 0, 1, NULL,
-                             1, &time_datetime, 0, NULL, "gmtime", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "gmtime", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_localtime,
-                             UNC_CFUNC_DEFAULT,
-                             0, 0, 1, NULL,
-                             1, &time_datetime, 0, NULL, "localtime", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "localtime", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_fromtime,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 1, NULL,
-                             2, protos, 0, NULL, "fromtime", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "fromtime", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_fromiso,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_datetime, 0, NULL, "fromiso", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_datetime, "fromiso", &fn);
-        if (e) return e;
-        unc_clear(w, &fn);
-    }
+    e = unc_attrcfunctions(w, &time_timezone, PASSARRAY(lib_timezone_protos),
+                           2, protos, NULL);
+    if (e) return e;
 
     {
         Unc_Value v = UNC_BLANK;
@@ -1544,98 +1514,12 @@ Unc_RetVal uncilmain_time(Unc_View *w) {
     }
 
     {
-        Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_dst,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "dst", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "dst", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_islocal,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "islocal", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "islocal", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_name,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "name", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "name", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_namedst,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "namedst", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "namedst", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_now,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             2, protos, 0, NULL, "now", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "now", &fn);
-        if (e) return e;
-        unc_clear(w, &fn);
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_offset,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "offset", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "offset", &fn);
-        if (e) return e;
-        unc_clear(w, &fn);
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_offsetdst,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "offsetdst", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "offsetdst", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_get,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "get", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "get", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_local,
-                             UNC_CFUNC_CONCURRENT,
-                             0, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "local", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "local", &fn);
-        if (e) return e;
-
-        e = unc_newcfunction(w, &fn, &unc0_lib_time_tz_utc,
-                             UNC_CFUNC_CONCURRENT,
-                             0, 0, 0, NULL,
-                             1, &time_timezone, 0, NULL, "utc", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &time_timezone, "utc", &fn);
-        if (e) return e;
-        unc_clear(w, &fn);
-    }
-
-    {
         Unc_Value ns = UNC_BLANK;
         e = unc_newstringc(w, &ns, "time.datetime");
         if (e) return e;
         e = unc_setattrc(w, &time_datetime, "__name", &ns);
         if (e) return e;
-        unc_clear(w, &ns);
+        VCLEAR(w, &ns);
     }
 
     {
@@ -1644,7 +1528,7 @@ Unc_RetVal uncilmain_time(Unc_View *w) {
         if (e) return e;
         e = unc_setattrc(w, &time_timezone, "__name", &ns);
         if (e) return e;
-        unc_clear(w, &ns);
+        VCLEAR(w, &ns);
     }
 
     e = unc_setpublicc(w, "datetime", &time_datetime);
@@ -1653,7 +1537,7 @@ Unc_RetVal uncilmain_time(Unc_View *w) {
     e = unc_setpublicc(w, "timezone", &time_timezone);
     if (e) return e;
 
-    unc_clear(w, &time_datetime);
-    unc_clear(w, &time_timezone);
+    VCLEAR(w, &time_datetime);
+    VCLEAR(w, &time_timezone);
     return 0;
 }

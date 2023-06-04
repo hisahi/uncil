@@ -34,38 +34,41 @@ int unc0_vvclt(Unc_View *w, Unc_Value *a, Unc_Value *b);
 int unc0_vvcmp(Unc_View *w, Unc_Value *a, Unc_Value *b);
 int unc0_vvcmpe(Unc_View *w, Unc_Value *a, Unc_Value *b, int e);
 
-int unc0_vcvt2int(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
-int unc0_vcvt2flt(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
+Unc_RetVal unc0_vcvt2int(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
+Unc_RetVal unc0_vcvt2flt(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
 
 struct Unc_View;
 
-int unc0_vgetattr(struct Unc_View *w, Unc_Value *a,
+Unc_RetVal unc0_vgetattr(struct Unc_View *w, Unc_Value *a,
                                 Unc_Size sl, const byte *sb,
                                 int q, Unc_Value *v);
-int unc0_vgetattrf(struct Unc_View *w, Unc_Value *a,
+Unc_RetVal unc0_vgetattrf(struct Unc_View *w, Unc_Value *a,
                                 Unc_Size sl, const byte *sb,
                                 int q, Unc_Value *v);
-int unc0_vsetattr(struct Unc_View *w, Unc_Value *a,
+Unc_RetVal unc0_vsetattr(struct Unc_View *w, Unc_Value *a,
                                 Unc_Size sl, const byte *sb,
                                 Unc_Value *v);
-int unc0_vdelattr(struct Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb);
-int unc0_vgetattrv(struct Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
+Unc_RetVal unc0_vdelattr(struct Unc_View *w, Unc_Value *a,
+                                Unc_Size sl, const byte *sb);
+Unc_RetVal unc0_vgetattrv(struct Unc_View *w, Unc_Value *a, Unc_Value *i,
+                                int q, Unc_Value *v);
+Unc_RetVal unc0_vsetattrv(struct Unc_View *w, Unc_Value *a, Unc_Value *i,
                                        Unc_Value *v);
-int unc0_vsetattrv(struct Unc_View *w, Unc_Value *a, Unc_Value *i, Unc_Value *v);
-int unc0_vdelattrv(struct Unc_View *w, Unc_Value *a, Unc_Value *i);
-int unc0_vgetindx(struct Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
+Unc_RetVal unc0_vdelattrv(struct Unc_View *w, Unc_Value *a, Unc_Value *i);
+Unc_RetVal unc0_vgetindx(struct Unc_View *w, Unc_Value *a, Unc_Value *i,
+                                int q, Unc_Value *v);
+Unc_RetVal unc0_vsetindx(struct Unc_View *w, Unc_Value *a, Unc_Value *i,
                                        Unc_Value *v);
-int unc0_vsetindx(struct Unc_View *w, Unc_Value *a, Unc_Value *i, Unc_Value *v);
-int unc0_vdelindx(struct Unc_View *w, Unc_Value *a, Unc_Value *i);
+Unc_RetVal unc0_vdelindx(struct Unc_View *w, Unc_Value *a, Unc_Value *i);
 
-int unc0_vgetiter(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
+Unc_RetVal unc0_vgetiter(struct Unc_View *w, Unc_Value *out, Unc_Value *in);
 
 /* these return a value with refs=1 */
 int unc0_vovlunary(struct Unc_View *w, Unc_Value *in,
-                        Unc_Value *out, Unc_Size bn, const byte *bb);
+                   Unc_Value *out, Unc_Size bn, const byte *bb);
 int unc0_vovlbinary(struct Unc_View *w, Unc_Value *a, Unc_Value *b,
-                        Unc_Value *out, Unc_Size bn, const byte *bb,
-                                        Unc_Size b2n, const byte *b2b);
+                   Unc_Value *out, Unc_Size bn, const byte *bb,
+                                   Unc_Size b2n, const byte *b2b);
 
 int unc0_vdowith(struct Unc_View *w, Unc_Value *v);
 void unc0_vdowout(struct Unc_View *w, Unc_Value *v);

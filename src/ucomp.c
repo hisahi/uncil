@@ -36,7 +36,7 @@ SOFTWARE.
 #include "uprog.h"
 #include "uvlq.h"
 
-#define MUST(val) do { int _e; if ((_e = (val))) return _e; } while (0)
+#define MUST(val) do { Unc_RetVal _e; if ((_e = (val))) return _e; } while (0)
 #define PREBUFFER 2
 
 typedef struct Unc_CompileContext {
@@ -58,55 +58,95 @@ typedef struct Unc_CompileContext {
     int forreal, jumpw;
 } Unc_CompileContext;
 
-INLINE int pushb(Unc_CompileContext *c, byte b) {
-    return unc0_strput(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
-                                    7, b);   
+static Unc_RetVal outputn(Unc_Allocator *alloc, byte **o, Unc_Size *n,
+                          Unc_Size *c, Unc_Size inc_log2, Unc_Size qn,
+                          const byte *qq) {
+    if (*n + qn > *c) {
+        Unc_Size inc = 1 << inc_log2;
+        Unc_Size oc = *c, nc = oc + (inc > qn ? inc : qn);
+        byte *oo = *o, *on;
+        nc = (nc + inc - 1) & ~(inc - 1);
+        on = unc0_mrealloc(alloc, 0, oo, oc, nc);
+        if (!on)
+            return UNCIL_ERR_MEM;
+        *c = nc, *o = on;
+    }
+    *n += unc0_memcpy(*o + *n, qq, qn);
+    return 0;
 }
 
-INLINE int pushz(Unc_CompileContext *c, Unc_Size z) {
+INLINE Unc_RetVal outputn_code(Unc_CompileContext *c, Unc_Size s,
+                                                      const byte *b) {
+    return outputn(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
+                                                                7, s, b);
+}
+
+INLINE Unc_RetVal outputn_data(Unc_CompileContext *c, Unc_Size s,
+                                                      const byte *b) {
+    return outputn(c->alloc, &c->out.data, &c->out.data_sz, &c->data_c,
+                                                                6, s, b);
+}
+
+INLINE Unc_RetVal outputn_dbug(Unc_CompileContext *c, Unc_Size s,
+                                                      const byte *b) {
+    return outputn(c->alloc, &c->dbug, &c->dbug_n, &c->dbug_c, 6, s, b);
+}
+
+INLINE Unc_RetVal output1_code(Unc_CompileContext *c, byte b) {
+    return outputn_code(c, 1, &b);
+}
+
+INLINE Unc_RetVal output1_data(Unc_CompileContext *c, byte b) {
+    return outputn_data(c, 1, &b);
+}
+
+INLINE Unc_RetVal output1_dbug(Unc_CompileContext *c, byte b) {
+    return outputn_dbug(c, 1, &b);
+}
+
+INLINE Unc_RetVal pushb(Unc_CompileContext *c, byte b) {
+    return output1_code(c, b);
+}
+
+INLINE Unc_RetVal pushz(Unc_CompileContext *c, Unc_Size z) {
     byte b[UNC_VLQ_SIZE_MAXLEN];
-    Unc_Size s = unc0_vlqencz(z, sizeof(b), b);;
-    return unc0_strputn(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
-                                    7, s, b);   
+    Unc_Size s = unc0_vlqencz(z, sizeof(b), b);
+    return outputn_code(c, s, b);   
 }
 
-INLINE int pushcz(Unc_CompileContext *c, Unc_Size z, Unc_Size w) {
+INLINE Unc_RetVal pushcz(Unc_CompileContext *c, Unc_Size z, Unc_Size w) {
     byte b[UNC_CLQ_MAXLEN];
     ASSERT(w <= UNC_CLQ_MAXLEN);
     unc0_clqencz(z, w, b);
-    return unc0_strputn(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
-                                    7, w, b);   
+    return outputn_code(c, w, b);   
 }
 
-INLINE int pushregn(Unc_CompileContext *c, Unc_Size z) {
+INLINE Unc_RetVal pushregn(Unc_CompileContext *c, Unc_Size z) {
     if (z >= (1UL << (CHAR_BIT * UNCIL_REGW)))
         return UNCIL_ERR_TOODEEP;
     return pushcz(c, z, UNCIL_REGW);
 }
 
-INLINE int pushi(Unc_CompileContext *c, Unc_Int i) {
+INLINE Unc_RetVal pushi(Unc_CompileContext *c, Unc_Int i) {
     byte b[UNC_VLQ_UINT_MAXLEN];
     Unc_Size s = unc0_vlqenci(i, sizeof(b), b);
-    return unc0_strputn(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
-                                    7, s, b);   
+    return outputn_code(c, s, b);
 }
 
-INLINE int pushil(Unc_CompileContext *c, Unc_Int i) {
+INLINE Unc_RetVal pushil(Unc_CompileContext *c, Unc_Int i) {
     byte b[2];
     b[0] = (i & 0xFF);
     b[1] = ((i >> 8) & 0x7F) | (i < 0 ? 0x80 : 0x00);
-    return unc0_strputn(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
-                                    7, 2, b);   
+    return outputn_code(c, 2, b);
 }
 
-INLINE int pushf(Unc_CompileContext *c, Unc_Float f) {
+INLINE Unc_RetVal pushf(Unc_CompileContext *c, Unc_Float f) {
     byte b[sizeof(Unc_Float)];
     unc0_memcpy(b, &f, sizeof(Unc_Float));
-    return unc0_strputn(c->alloc, &c->out.code, &c->out.code_sz, &c->code_c,
-                                    7, sizeof(b), b);   
+    return outputn_code(c, sizeof(b), b);
 }
 
-static int pushregr(Unc_CompileContext *c, byte t, Unc_Dst d) {
+static Unc_RetVal pushregr(Unc_CompileContext *c, byte t, Unc_Dst d) {
     switch (t) {
     case UNC_QOPER_TYPE_TMP:
         return pushregn(c, c->tmpoff + d);
@@ -117,11 +157,12 @@ static int pushregr(Unc_CompileContext *c, byte t, Unc_Dst d) {
     }
 }
 
-INLINE int pushreg(Unc_CompileContext *c, byte t, union Unc_QInstr_Data d) {
+INLINE Unc_RetVal pushreg(Unc_CompileContext *c, byte t,
+                          union Unc_QInstr_Data d) {
     return pushregr(c, t, d.o);
 }
 
-INLINE int pushdst0(Unc_CompileContext *c, Unc_QInstr *q) {
+INLINE Unc_RetVal pushdst0(Unc_CompileContext *c, Unc_QInstr *q) {
     return pushregr(c, q->o0type, q->o0data);
 }
 
@@ -131,7 +172,8 @@ INLINE Unc_Size offsetdata(Unc_CompileContext *c, Unc_Size s) {
 
 #define INSTROP(q, d) q->o##d##type, q->o##d##data
 
-static int pushrlop(Unc_CompileContext *c, byte t, union Unc_QInstr_Data d) {
+static Unc_RetVal pushrlop(Unc_CompileContext *c, byte t,
+                           union Unc_QInstr_Data d) {
     switch (t) {
     case UNC_QOPER_TYPE_TMP:
     case UNC_QOPER_TYPE_EXHALE:
@@ -145,7 +187,7 @@ static int pushrlop(Unc_CompileContext *c, byte t, union Unc_QInstr_Data d) {
     }
 }
 
-static int pushjump(Unc_CompileContext *c, Unc_Size j) {
+static Unc_RetVal pushjump(Unc_CompileContext *c, Unc_Size j) {
     if (!c->forreal)
         return pushcz(c, 0, c->jumpw);
     if (j < c->labels_i) {
@@ -165,7 +207,7 @@ static int pushjump(Unc_CompileContext *c, Unc_Size j) {
     return pushcz(c, j, c->jumpw);
 }
 
-int compilemov(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilemov(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->o1type) {
     case UNC_QOPER_TYPE_TMP:
     case UNC_QOPER_TYPE_LOCAL:
@@ -224,7 +266,7 @@ int compilemov(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compileuinstr(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compileuinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     int v = 0;
     switch (q->op) {
     case UNC_QINSTR_OP_LNOT:
@@ -251,7 +293,7 @@ int compileuinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilebinstr(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilebinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     int v = 0;
     switch (q->op) {
     case UNC_QINSTR_OP_ADD:
@@ -310,7 +352,7 @@ int compilebinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilejump(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilejump(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->op) {
     case UNC_QINSTR_OP_JMP:
         MUST(pushb(c, UNC_I_JMP));
@@ -334,21 +376,21 @@ int compilejump(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilepush(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilepush(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_STSTK));
     ASSERT(q->o0type == UNC_QOPER_TYPE_STACK);
     MUST(pushreg(c, INSTROP(q, 1)));
     return 0;
 }
 
-int compilewpush(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilewpush(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_STWITH));
     ASSERT(q->o0type == UNC_QOPER_TYPE_WSTACK);
     MUST(pushreg(c, INSTROP(q, 1)));
     return 0;
 }
 
-int compilexattr(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilexattr(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->op) {
     case UNC_QINSTR_OP_GATTR:
         MUST(pushb(c, UNC_I_LDATTR));
@@ -375,7 +417,7 @@ int compilexattr(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilexindx(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilexindx(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->op) {
     case UNC_QINSTR_OP_GINDX:
         MUST(pushb(c, UNC_I_LDINDX));
@@ -398,7 +440,7 @@ int compilexindx(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilexpub(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilexpub(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->op) {
     case UNC_QINSTR_OP_GPUB:
         MUST(pushb(c, UNC_I_LDPUB));
@@ -418,7 +460,7 @@ int compilexpub(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilexbind(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilexbind(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->op) {
     case UNC_QINSTR_OP_GBIND:
         MUST(pushb(c, UNC_I_LDBIND));
@@ -443,7 +485,7 @@ int compilexbind(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilefcall(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilefcall(Unc_CompileContext *c, Unc_QInstr *q) {
     if (q->o0type == UNC_QOPER_TYPE_STACK) {
         MUST(pushb(c, UNC_I_FCALLS));
         MUST(pushreg(c, INSTROP(q, 1)));
@@ -455,7 +497,7 @@ int compilefcall(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compiledcall(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compiledcall(Unc_CompileContext *c, Unc_QInstr *q) {
     if (q->o0type == UNC_QOPER_TYPE_STACK) {
         MUST(pushb(c, UNC_I_DCALLS));
         MUST(pushb(c, q->o2data.o));
@@ -469,14 +511,14 @@ int compiledcall(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compileftail(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compileftail(Unc_CompileContext *c, Unc_QInstr *q) {
     ASSERT(q->o0type == UNC_QOPER_TYPE_STACK);
     MUST(pushb(c, UNC_I_FTAIL));
     MUST(pushreg(c, INSTROP(q, 1)));
     return 0;
 }
 
-int compiledtail(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compiledtail(Unc_CompileContext *c, Unc_QInstr *q) {
     ASSERT(q->o0type == UNC_QOPER_TYPE_STACK);
     MUST(pushb(c, UNC_I_DTAIL));
     MUST(pushb(c, q->o2data.o));
@@ -484,7 +526,7 @@ int compiledtail(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilespread(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilespread(Unc_CompileContext *c, Unc_QInstr *q) {
     if (q->o0type == UNC_QOPER_TYPE_STACK) {
         MUST(pushb(c, UNC_I_LSPRS));
         MUST(pushreg(c, INSTROP(q, 1)));
@@ -496,14 +538,14 @@ int compilespread(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compileiiter(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compileiiter(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_IITER));
     MUST(pushdst0(c, q));
     MUST(pushreg(c, INSTROP(q, 1)));
     return 0;
 }
 
-int compileinext(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compileinext(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_INEXT));
     MUST(pushdst0(c, q));
     MUST(pushreg(c, INSTROP(q, 1)));
@@ -512,7 +554,7 @@ int compileinext(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compileinexts(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compileinexts(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_INEXTS));
     MUST(pushreg(c, INSTROP(q, 1)));
     ASSERT(q->o2type == UNC_QOPER_TYPE_JUMP);
@@ -520,7 +562,7 @@ int compileinexts(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilefmake(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilefmake(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_FMAKE));
     MUST(pushdst0(c, q));
     ASSERT(q->o1type == UNC_QOPER_TYPE_FUNCTION);
@@ -528,20 +570,20 @@ int compilefmake(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compile1reg(Unc_CompileContext *c, Unc_QInstr *q, byte b) {
+Unc_RetVal compile1reg(Unc_CompileContext *c, Unc_QInstr *q, byte b) {
     MUST(pushb(c, b));
     MUST(pushdst0(c, q));
     return 0;
 }
 
-int compile1us(Unc_CompileContext *c, Unc_QInstr *q, byte b) {
+Unc_RetVal compile1us(Unc_CompileContext *c, Unc_QInstr *q, byte b) {
     MUST(pushb(c, b));
     ASSERT(q->o1type == UNC_QOPER_TYPE_UNSIGN);
     MUST(pushz(c, q->o1data.o));
     return 0;
 }
 
-int compilemlistp(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilemlistp(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_MLISTP));
     MUST(pushdst0(c, q));
     ASSERT(q->o1type == UNC_QOPER_TYPE_UNSIGN);
@@ -551,7 +593,7 @@ int compilemlistp(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compilefbind(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compilefbind(Unc_CompileContext *c, Unc_QInstr *q) {
     MUST(pushb(c, UNC_I_FBIND));
     MUST(pushdst0(c, q));
     MUST(pushreg(c, INSTROP(q, 1)));
@@ -559,7 +601,7 @@ int compilefbind(Unc_CompileContext *c, Unc_QInstr *q) {
     return 0;
 }
 
-int compileinstr(Unc_CompileContext *c, Unc_QInstr *q) {
+Unc_RetVal compileinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     switch (q->op) {
     case UNC_QINSTR_OP_DELETE:
         return 0;
@@ -666,7 +708,7 @@ int compileinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     }
 }
 
-int compilefunc_i(Unc_CompileContext *c, Unc_QFunc *f, Unc_Size base) {
+Unc_RetVal compilefunc_i(Unc_CompileContext *c, Unc_QFunc *f, Unc_Size base) {
     Unc_Size i, n = f->cd_sz, cn = base;
     Unc_QInstr *q = f->cd;
     Unc_Size lineno = f->lineno;
@@ -681,8 +723,7 @@ int compilefunc_i(Unc_CompileContext *c, Unc_QFunc *f, Unc_Size base) {
         Unc_Size o;
         byte b[UNC_VLQ_SIZE_MAXLEN];
         o = unc0_vlqencz(lineno, sizeof(b), b);
-        MUST(unc0_strputn(c->alloc,
-                        &c->dbug, &c->dbug_n, &c->dbug_c, 6, o, b));
+        MUST(outputn_dbug(c, o, b));
     }
 
     /* compile, backward jumps are immediately set up,
@@ -700,14 +741,12 @@ int compilefunc_i(Unc_CompileContext *c, Unc_QFunc *f, Unc_Size base) {
                 {
                     byte b[UNC_VLQ_SIZE_MAXLEN];
                     o = unc0_vlqencz(off, sizeof(b), b);
-                    MUST(unc0_strputn(c->alloc,
-                                    &c->dbug, &c->dbug_n, &c->dbug_c, 6, o, b));
+                    MUST(outputn_dbug(c, o, b));
                 }
                 {
                     byte b[UNC_VLQ_UINT_MAXLEN];
                     o = unc0_vlqenci(l, sizeof(b), b);
-                    MUST(unc0_strputn(c->alloc,
-                                    &c->dbug, &c->dbug_n, &c->dbug_c, 6, o, b));
+                    MUST(outputn_dbug(c, o, b));
                 }
                 cn = c->out.code_sz;
             }
@@ -720,8 +759,7 @@ int compilefunc_i(Unc_CompileContext *c, Unc_QFunc *f, Unc_Size base) {
         Unc_Size o;
         byte b[UNC_VLQ_SIZE_MAXLEN];
         o = unc0_vlqencz(39, sizeof(b), b);
-        MUST(unc0_strputn(c->alloc,
-                        &c->dbug, &c->dbug_n, &c->dbug_c, 6, o, b));
+        MUST(outputn_dbug(c, o, b));
     }
     return 0;
 }
@@ -743,7 +781,7 @@ static int lblbsearch(Unc_CompileContext *c, Unc_Size s, Unc_Size *out) {
     return 0;
 }
 
-int compilefunc(Unc_CompileContext *c, Unc_QFunc *f) {
+Unc_RetVal compilefunc(Unc_CompileContext *c, Unc_QFunc *f) {
     Unc_Size i, n = f->cd_sz, base = c->out.code_sz, size;
     Unc_QInstr *q = f->cd;
     c->fjumps_n = 0;
@@ -788,7 +826,7 @@ labelexists:;
     /* replace all jumps */
     for (i = 0; i < n; ++i) {
         union Unc_QInstr_Data u;
-        int e;
+        Unc_RetVal e;
         switch (unc0_qcode_getjumpd(q[i].op)) {
         case 1:
             e = lblbsearch(c, q[i].o1data.o, &u.o);
@@ -803,6 +841,7 @@ labelexists:;
         default:
             continue;
         }
+        (void)e;
     }
 
     c->forreal = 0;
@@ -840,7 +879,20 @@ INLINE Unc_Size dec_ca(const byte *b) {
     return unc0_clqdeczd(UNC_BYTES_IN_FCODEADDR, b);
 }
 
-int pushfunc(Unc_CompileContext *c, Unc_QFunc *f, int main) {
+INLINE Unc_RetVal outputn_data_vlq(Unc_CompileContext *c, Unc_Size s) {
+    byte b[UNC_VLQ_SIZE_MAXLEN];
+    return outputn_data(c, unc0_vlqencz(s, sizeof(b), b), b);
+}
+
+Unc_RetVal pushfunc(Unc_CompileContext *c, Unc_QFunc *f, int main) {
+    byte b[UNC_VLQ_SIZE_MAXLEN];
+    Unc_Size s, i;
+    c->tmpoff = 0;
+    c->locoff = c->tmpoff + f->cnt_tmp;
+    c->inhoff = f->cnt_exh;
+
+    ASSERT(!main || !f->cnt_inh);
+
     /* function format:
         unsigned LE 64-bit CLQ (NOT VLQ!!) of code offset
         unsigned LE 64-bit CLQ (NOT VLQ!!) of debug data offset
@@ -857,40 +909,20 @@ int pushfunc(Unc_CompileContext *c, Unc_QFunc *f, int main) {
             unsigned VLQ of inhaled register
         unsigned VLQ of name offset
     */
-    Unc_Allocator *alc = c->alloc;
-    byte b[UNC_VLQ_SIZE_MAXLEN];
-    Unc_Size s, i;
-    c->tmpoff = 0;
-    c->locoff = c->tmpoff + f->cnt_tmp;
-    c->inhoff = f->cnt_exh;
-
-    ASSERT(!main || !f->cnt_inh);
-
     {
         byte b2[UNC_BYTES_IN_FCODEADDR] = { 0 };
-        MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6,
-                                                        sizeof(b2), b2));
-        MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6,
-                                                        sizeof(b2), b2));
-        MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6,
-                                                        1, b2));
+        MUST(outputn_data(c, sizeof(b2), b2));
+        MUST(outputn_data(c, sizeof(b2), b2));
+        MUST(outputn_data(c, 1, b2));
     }
-    s = unc0_vlqencz(f->flags | (main ? UNC_FUNCTION_FLAG_MAIN : 0),
-                     sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
-    s = unc0_vlqencz(c->locoff + f->cnt_loc, sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
-    s = unc0_vlqencz(c->locoff, sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
-    s = unc0_vlqencz(f->cnt_exh, sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
-    s = unc0_vlqencz(f->cnt_arg - f->cnt_opt
-            - !!(f->flags & UNC_FUNCTION_FLAG_ELLIPSIS), sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
-    s = unc0_vlqencz(f->cnt_opt, sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
-    s = unc0_vlqencz(f->cnt_inh, sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
+    MUST(outputn_data_vlq(c, f->flags | (main ? UNC_FUNCTION_FLAG_MAIN : 0)));
+    MUST(outputn_data_vlq(c, c->locoff + f->cnt_loc));
+    MUST(outputn_data_vlq(c, c->locoff));
+    MUST(outputn_data_vlq(c, f->cnt_exh));
+    MUST(outputn_data_vlq(c, f->cnt_arg - f->cnt_opt -
+                !!(f->flags & UNC_FUNCTION_FLAG_ELLIPSIS)));
+    MUST(outputn_data_vlq(c, f->cnt_opt));
+    MUST(outputn_data_vlq(c, f->cnt_inh));
 
     if (!main) {
         Unc_QFunc *pf = &c->fns[f->parent];
@@ -900,13 +932,11 @@ int pushfunc(Unc_CompileContext *c, Unc_QFunc *f, int main) {
             switch (po->type) {
             case UNC_QOPER_TYPE_EXHALE:
                 s = unc0_vlqencz(po->data.o, sizeof(b), b);
-                MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz,
-                                       &c->data_c, 6, s, b));
+                MUST(outputn_data(c, s, b));
                 break;
             case UNC_QOPER_TYPE_INHALE:
                 s = unc0_vlqencz(parentinhoff + po->data.o, sizeof(b), b);
-                MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz,
-                                       &c->data_c, 6, s, b));
+                MUST(outputn_data(c, s, b));
                 break;
             default:
                 ASSERT(0);
@@ -915,20 +945,20 @@ int pushfunc(Unc_CompileContext *c, Unc_QFunc *f, int main) {
     }
 
     /*s = unc0_vlqencz(f->lineno, sizeof(b), b); now in debug data
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b)); */
+    MUST(outputn_data(c, s, b)); */
     if (f->flags & UNC_FUNCTION_FLAG_NAMED)
         s = unc0_vlqencz(offsetdata(c, f->name), sizeof(b), b);
     else
         s = unc0_vlqencz(0, sizeof(b), b);
-    MUST(unc0_strputn(alc, &c->out.data, &c->out.data_sz, &c->data_c, 6, s, b));
+    MUST(outputn_data(c, s, b));
 
     return 0;
 }
 
-int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
+Unc_RetVal unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
     Unc_Allocator *alloc = cxt->alloc;
     Unc_CompileContext c;
-    int e;
+    Unc_RetVal e;
     Unc_Size fn = qc->fn_sz;
 
     c.cxt = cxt;
@@ -956,8 +986,7 @@ int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
     c.out.data_sz = c.cxt->main_off;
     c.maindata_off = c.data_off = c.out.data_sz;
     
-    if ((e = unc0_strputn(alloc, &c.out.data, &c.out.data_sz, &c.data_c,
-                            6, cxt->main_dta, qc->st)))
+    if ((e = outputn_data(&c, cxt->main_dta, qc->st)))
         goto failure2;
 
     c.dbug_c = 0;
@@ -993,7 +1022,7 @@ int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
                 byte b[UNC_BYTES_IN_FCODEADDR];
                 enc_ca(b, c.code_off);
                 unc0_memcpy(c.out.data + c.fda[n], b, sizeof(b));
-                *(c.out.data + c.fda[n] + UNC_BYTES_IN_FCODEADDR * 2) = c.jumpw;
+                c.out.data[c.fda[n] + UNC_BYTES_IN_FCODEADDR * 2] = c.jumpw;
             }
         }
         
@@ -1007,8 +1036,8 @@ int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
             f->inhales = NULL;
         }
         c.maindata_off = c.out.data_sz - cxt->main_dta;
-        if ((e = unc0_strputn(alloc, &c.out.data, &c.out.data_sz, &c.data_c,
-                        6, qc->st_sz - cxt->main_dta, qc->st + cxt->main_dta)))
+        if ((e = outputn_data(&c, qc->st_sz - cxt->main_dta,
+                                  qc->st + cxt->main_dta)))
             goto failure2;
         unc0_mfree(alloc, qc->st, qc->st_sz);
         {
@@ -1027,7 +1056,7 @@ int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
                 byte b[UNC_BYTES_IN_FCODEADDR];
                 enc_ca(b, c.code_off);
                 unc0_memcpy(c.out.data + c.fda[0], b, sizeof(b));
-                *(c.out.data + c.fda[0] + UNC_BYTES_IN_FCODEADDR * 2) = c.jumpw;
+                c.out.data[c.fda[0] + UNC_BYTES_IN_FCODEADDR * 2] = c.jumpw;
             }
         }
     
@@ -1043,8 +1072,7 @@ int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc) {
         }
 
         if (c.dbug) {
-            if ((e = unc0_strputn(alloc, &c.out.data, &c.out.data_sz, &c.data_c,
-                        6, c.dbug_n, c.dbug)))
+            if ((e = outputn_data(&c, c.dbug_n, c.dbug)))
                 goto failure1;
         }
     }

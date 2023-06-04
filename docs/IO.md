@@ -7,7 +7,8 @@ from and write output to files.
 This module can usually be accessed with `require("io")`.
 
 This module is disabled by default when Uncil is used as a library, but
-available on the standalone interpreter; see `mmask` in `API.md`.
+available on the standalone interpreter; see `mmask` in `API.md`. This module
+is not available if Uncil is compiled in sandboxed mode.
 
 ## io.newline
 `io.newline`

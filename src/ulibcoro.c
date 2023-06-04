@@ -49,24 +49,24 @@ struct unc_coroutine {
 
 Unc_RetVal unc_coroutine_destr(Unc_View *w, size_t n, void *data) {
     struct unc_coroutine *p = data;
-    /* unc_clear(w, p->task);
+    /* VSETNULL(w, p->task);
       not needed, bound value */
     unc_destroy(p->view);
     return 0;
 }
 
-Unc_RetVal unc0_lib_coro_c_canresume(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_coro_c_canresume(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine *coro;
 
     unc_getprototype(w, &args.values[0], &v);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &v, unc_boundvalue(w, 0))) {
-        unc_clear(w, &v);
-        return unc_throwexc(w, "type", "argument is not a coroutine");
+        VCLEAR(w, &v);
+        return unc_throwexc(w, "type", "argument 1 is not a coroutine");
     }
 
-    if (unc_lockopaque(w, &args.values[0], NULL, (void **)&coro)) {
+    if (unc_trylockopaque(w, &args.values[0], NULL, (void **)&coro)) {
         unc_setbool(w, &v, 0);
     } else {
         switch ((int)coro->status) {
@@ -80,14 +80,14 @@ Unc_RetVal unc0_lib_coro_c_canresume(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_unlock(w, &args.values[0]);
     }
     
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_coro_current(Unc_View *w, Unc_Tuple args, void *udata) {
-    return unc_push(w, 1, &w->coroutine, NULL);
+Unc_RetVal uncl_coro_current(Unc_View *w, Unc_Tuple args, void *udata) {
+    return unc_push(w, 1, &w->coroutine);
 }
 
-Unc_RetVal unc0_lib_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
+Unc_RetVal uncl_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
                                        void *udata) {
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine *coro;
@@ -95,11 +95,11 @@ Unc_RetVal unc0_lib_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
     unc_getprototype(w, &args.values[0], &v);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &v, unc_boundvalue(w, 0))) {
-        unc_clear(w, &v);
-        return unc_throwexc(w, "type", "argument is not a coroutine");
+        VCLEAR(w, &v);
+        return unc_throwexc(w, "type", "argument 1 is not a coroutine");
     }
 
-    if (unc_lockopaque(w, &args.values[0], NULL, (void **)&coro)) {
+    if (unc_trylockopaque(w, &args.values[0], NULL, (void **)&coro)) {
         unc_setbool(w, &v, 0);
     } else {
         switch ((int)coro->status) {
@@ -114,11 +114,11 @@ Unc_RetVal unc0_lib_coro_c_hasfinished(Unc_View *w, Unc_Tuple args,
         unc_unlock(w, &args.values[0]);
     }
     
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_coro_new(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_coro_new(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine coro, *pcoro;
 
@@ -142,11 +142,11 @@ Unc_RetVal unc0_lib_coro_new(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         unc_coroutine_destr(w, sizeof(coro), &coro);
     
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct unc_coroutine *coro;
     int init;
@@ -155,12 +155,12 @@ Unc_RetVal unc0_lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
     unc_getprototype(w, &args.values[0], &v);
     if (unc_gettype(w, &args.values[0]) != Unc_TOpaque
             || !unc_issame(w, &v, unc_boundvalue(w, 0))) {
-        unc_clear(w, &v);
-        return unc_throwexc(w, "type", "argument is not a coroutine");
+        VCLEAR(w, &v);
+        return unc_throwexc(w, "type", "argument 1 is not a coroutine");
     }
-    unc_clear(w, &v);
+    VCLEAR(w, &v);
 
-    if (unc_lockopaque(w, &args.values[0], NULL, (void **)&coro))
+    if (unc_trylockopaque(w, &args.values[0], NULL, (void **)&coro))
         return unc_throwexc(w, "value", "cannot resume this coroutine");
     
     e = 0;
@@ -202,15 +202,13 @@ Unc_RetVal unc0_lib_coro_c_resume(Unc_View *w, Unc_Tuple args, void *udata) {
     coro->returnto = w;
     w->trampoline = cw;
     unc_unlock(w, &args.values[0]);
-#if DEBUGPRINT_CORO
-    printf("resuming %p => %p\n", (void *)w, (void *)cw);
-#endif
+    DEBUGPRINT(CORO, ("resuming %p => %p\n", (void *)w, (void *)cw));
     return UNCIL_ERR_TRAMPOLINE;
 }
 
-static Unc_View *unc0_coroyield(Unc_View *w, int *e,
+static Unc_View *unc0_coroyield(Unc_View *w, Unc_RetVal *e,
                                 int finish, Unc_Tuple retval) {
-    int er = *e;
+    Unc_RetVal er = *e;
     Unc_View *cw;
     Unc_Opaque *s = LEFTOVER(Unc_Opaque, VGETENT(&w->coroutine));
     struct unc_coroutine *coro;
@@ -219,29 +217,28 @@ static Unc_View *unc0_coroyield(Unc_View *w, int *e,
     cw = coro->returnto;
     ASSERT(cw);
     if (!er) {
-        int ex = unc0_stackpush(cw, &cw->sval, retval.count, retval.values);
+        Unc_RetVal ex = unc0_stackpush(cw, &cw->sval,
+                                       retval.count, retval.values);
         if (ex) *e = ex;
     } else
         unc0_errinfocopyfrom(cw, w);
     coro->status = er ? UNC_CORO_ST_ERROR 
                 : (finish ? UNC_CORO_ST_DONE : UNC_CORO_ST_YIELD);
     UNC_UNLOCKL(s->lock);
-#if DEBUGPRINT_CORO
-    printf("yielding %p => %p (f=%d, e=%d)\n", (void *)w, (void *)cw,
-                                                finish, er);
-#endif
+    DEBUGPRINT(CORO, ("yielding %p => %p (f=%d, e=%d)\n",
+                        (void *)w, (void *)cw, finish, er));
     return cw;
 }
 
-Unc_View *unc0_corofinish(Unc_View *w, int *e) {
+Unc_View *unc0_corofinish(Unc_View *w, Unc_RetVal *e) {
     Unc_Tuple rv;
     rv.count = unc0_stackdepth(&w->sval);
     rv.values = w->sval.base;
     return unc0_coroyield(w, e, 1, rv);
 }
 
-Unc_RetVal unc0_lib_coro_yield(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_coro_yield(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     if (!VGETTYPE(&w->coroutine))
         return unc_throwexc(w, "usage", "cannot yield from main routine");
     e = 0;
@@ -249,11 +246,28 @@ Unc_RetVal unc0_lib_coro_yield(Unc_View *w, Unc_Tuple args, void *udata) {
     return e ? e : UNCIL_ERR_TRAMPOLINE;
 }
 
-Unc_RetVal unc0_lib_coro_canyield(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_coro_canyield(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
     unc_setbool(w, &v, VGETTYPE(&w->coroutine));
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
+
+#define FN(x) &uncl_coro_##x, #x
+static const Unc_ModuleCFunc lib[] = {
+    { FN(canyield),    0, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(current),     0, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(yield),       0, 0, 1, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_coro[] = {
+    { FN(new),         1, 1, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_c[] = {
+    { &uncl_coro_c_canresume,   "canresume",   1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &uncl_coro_c_hasfinished, "hasfinished", 1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &uncl_coro_c_resume,      "resume",      1, 0, 1, UNC_CFUNC_CONCURRENT },
+};
 
 Unc_RetVal uncilmain_coroutine(Unc_View *w) {
     Unc_RetVal e;
@@ -262,24 +276,10 @@ Unc_RetVal uncilmain_coroutine(Unc_View *w) {
     e = unc_newobject(w, &coro, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "canyield", &unc0_lib_coro_canyield,
-                            UNC_CFUNC_CONCURRENT,
-                            0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunctions(w, PASSARRAY(lib), 0, NULL, NULL);
     if (e) return e;
 
-    e = unc_exportcfunction(w, "current", &unc0_lib_coro_current,
-                            UNC_CFUNC_CONCURRENT,
-                            0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "new", &unc0_lib_coro_new,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 1, NULL, 1, &coro, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "yield", &unc0_lib_coro_yield,
-                            UNC_CFUNC_CONCURRENT,
-                            0, 1, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunctions(w, PASSARRAY(lib_coro), 1, &coro, NULL);
     if (e) return e;
 
     {
@@ -288,40 +288,15 @@ Unc_RetVal uncilmain_coroutine(Unc_View *w) {
         if (e) return e;
         e = unc_setattrc(w, &coro, "__name", &ns);
         if (e) return e;
-        unc_clear(w, &ns);
+        VCLEAR(w, &ns);
     }
 
-    {
-        Unc_Value fn = UNC_BLANK;
-        e = unc_newcfunction(w, &fn, &unc0_lib_coro_c_canresume,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &coro, 0, NULL, "canresume", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &coro, "canresume", &fn);
-        if (e) return e;
-        
-        e = unc_newcfunction(w, &fn, &unc0_lib_coro_c_hasfinished,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 0, 0, NULL,
-                             1, &coro, 0, NULL, "hasfinished", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &coro, "hasfinished", &fn);
-        if (e) return e;
-        
-        e = unc_newcfunction(w, &fn, &unc0_lib_coro_c_resume,
-                             UNC_CFUNC_CONCURRENT,
-                             1, 1, 0, NULL,
-                             1, &coro, 0, NULL, "resume", NULL);
-        if (e) return e;
-        e = unc_setattrc(w, &coro, "resume", &fn);
-        if (e) return e;
-        unc_clear(w, &fn);
-    }
+    e = unc_attrcfunctions(w, &coro, PASSARRAY(lib_c), 1, &coro, NULL);
+    if (e) return e;
 
     e = unc_setpublicc(w, "coroutine", &coro);
     if (e) return e;
 
-    unc_clear(w, &coro);
+    VCLEAR(w, &coro);
     return 0;
 }

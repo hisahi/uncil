@@ -34,31 +34,79 @@ SOFTWARE.
 #include "uosdef.h"
 #include "uvlq.h"
 
-const char *endianness[3] = { "other", "little", "big" };
+static const char *endianness[3] = { "other", "little", "big" };
 
-void uncil_printversion(void) {
-    printf("Uncil version %s\n", UNCIL_VER_STRING);
-    printf("\tByte code version  \t%u\n", UNCIL_PROGRAM_VER);
-    printf("\tTarget platform    \t%s\n", UNCIL_TARGET);
-    printf("\tTarget architecture\t%s\n", UNCIL_CPU_ARCH);
-    printf("\tEndianness         \t%s\n", endianness[unc0_getendianness()]);
-    printf("\tCompiled with      \t%s\n", UNCIL_COMPILED_WITH);
-    printf("\tCompiled on        \t%s\n", __DATE__ ", " __TIME__);
-    printf("\tHas multithreading \t%s\n",
-#if UNCIL_MT_OK
-                                        "yes"
+#define FIELDWIDTH 24
+#define UNCVER_PROP(name, spec, value) printf(                                 \
+                "\t%-"UNCIL_STRINGIFY(FIELDWIDTH)"s\t"spec"\n", name, value);
+
+#define YES "yes"
+#define NO "no"
+#define YESNO(x) ((x) ? YES : NO)
+
+#if NDEBUG
+#define IS_DEBUG_BUILD 0
 #else
-                                        "no"
+#define IS_DEBUG_BUILD 1
 #endif
-                                        );
-#if UNCIL_MT_OK
-    printf("\tThreading backend  \t%s\n", UNCIL_MT_PROVIDER);
-#endif
-    printf("\tDebug build        \t%s\n",
-#ifndef NDEBUG
-                                        "yes"
+
+#if UNCIL_C23
+#define UNCIL_CSTD "C23"
+#elif UNCIL_C11
+#define UNCIL_CSTD "C11"
+#elif UNCIL_C99
+#define UNCIL_CSTD "C99"
 #else
-                                        "no"
+#define UNCIL_CSTD "C89"
 #endif
-                                        );
+
+#if !UNCIL_MT_OK
+#undef UNCIL_MT_PROVIDER
+#define UNCIL_MT_PROVIDER "(none, single-threaded build)"
+#endif
+
+const char *UNCIL_COPYRIGHT = "(C) 2021-2023 hisahi & Uncil Team";
+
+static void uncil_printlibraries(void) {
+    unsigned col = 0, nl = 0;
+#define MAX_COLUMNS 40
+#define PRINT_LIB(flag)                                                        \
+        if (UNCIL_LIB_##flag) {                                                \
+            if (nl && col + sizeof(UNCIL_STRINGIFY(flag)) >= MAX_COLUMNS) {    \
+                col = 0;                                                       \
+                printf( "\n\t%-"UNCIL_STRINGIFY(FIELDWIDTH)"s\t", "");         \
+            }                                                                  \
+            printf("%s ", UNCIL_STRINGIFY(flag));                              \
+            col += sizeof(UNCIL_STRINGIFY(flag));                              \
+            nl = 1;                                                            \
+        }
+
+    printf("\t%-"UNCIL_STRINGIFY(FIELDWIDTH)"s\t", "Libraries");
+
+    PRINT_LIB(PTHREAD);
+    PRINT_LIB(PCRE2);
+    PRINT_LIB(ICU);
+    PRINT_LIB(READLINE);
+    PRINT_LIB(JEMALLOC);
+    PRINT_LIB(TCMALLOC);
+    PRINT_LIB(MIMALLOC);
+
+    putchar('\n');
+}
+
+void uncil_printversion(int detail) {
+    printf("Uncil %s\n", UNCIL_VER_STRING);
+    UNCVER_PROP("Copyright", "%s", UNCIL_COPYRIGHT);
+    if (detail >= 1) {
+        UNCVER_PROP("Byte code version", "%u", UNCIL_PROGRAM_VER);
+        UNCVER_PROP("Target platform", "%s", UNCIL_TARGET);
+        UNCVER_PROP("Target architecture", "%s", UNCIL_CPU_ARCH);
+        UNCVER_PROP("Endianness", "%s", endianness[unc0_getendianness()]);
+        UNCVER_PROP("Compiled with", "%s", UNCIL_COMPILED_WITH);
+        UNCVER_PROP("Compiled on", "%s", __DATE__ ", " __TIME__);
+        UNCVER_PROP("C standard level", "%s", UNCIL_CSTD);
+        UNCVER_PROP("Threading backend", "%s", UNCIL_MT_PROVIDER);
+        UNCVER_PROP("Debug build", "%s", YESNO(IS_DEBUG_BUILD));
+        uncil_printlibraries();
+    }
 }

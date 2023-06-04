@@ -174,7 +174,8 @@ const byte *unc0_utf8scanforw(const byte *s0, const byte *s1, Unc_Size count) {
     }
 }
 
-const byte *unc0_utf8scanbackw(const byte *s0, const byte *s1, Unc_Size count) {
+const byte *unc0_utf8scanbackw(const byte *s0, const byte *s1,
+                               Unc_Size count) {
     ++count;
     for (;;) {
         if (!count)
@@ -336,6 +337,16 @@ Unc_Size unc0_utf8unshift(const byte *s, Unc_Size n) {
         if ((*s++ & 0xC0) != 0x80)
             ++q;
     return q;
+}
+
+Unc_Size unc0_utf8reshiftlz(const byte *s, Unc_Size *pn) {
+    Unc_Size n = *pn, i = 0, l = 0;
+    while (l < n && s[i])
+        l += !!((s[i++] & 0xC0U) != 0x80U);
+    while ((s[i] & 0xC0U) == 0x80U)
+        ++i;
+    *pn = i;
+    return l;
 }
 
 void unc0_utf8rev(byte *b, const byte *s, Unc_Size n) {

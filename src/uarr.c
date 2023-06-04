@@ -55,11 +55,9 @@ int unc0_initarrayn(Unc_View *w, Unc_Array *a, Unc_Size n) {
     if (!n) {
         a->data = NULL;
     } else {
-        Unc_Size i;
         a->data = TMALLOC(Unc_Value, &w->world->alloc, Unc_AllocArray, n);
         if (!a->data) return UNCIL_ERR_MEM;
-        for (i = 0; i < n; ++i)
-            VINITNULL(&a->data[i]);
+        VINITMANY(n, a->data);
     }
     return UNC_LOCKINITL(a->lock);
 }

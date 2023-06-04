@@ -62,7 +62,10 @@ SOFTWARE.
 #define VSETRAW(D, V) *(D) = (V)
 
 /* assign null value */
-#define VINITNULL(D) ((D)->type = Unc_TNull)
+#define VINITFAST(D) ((D)->type = Unc_TNull)
+/* assign null value */
+#define VINITNULL(D) do { register Unc_Value *tN_ = (D);                       \
+            tN_->type = Unc_TNull; tN_->v.p = NULL; } while (0)
 /* assign bool value */
 #define VINITBOOL(D, b) do { register Unc_Value *tB_ = (D);                    \
             tB_->type = Unc_TBool; tB_->v.i = !!(b); } while (0)
@@ -80,7 +83,7 @@ SOFTWARE.
             tE_->type = (t); VGETENT(tE_) = (Unc_Entity *)(e);                 \
             UNCIL_INCREFE(w, VGETENT(tE_)); } while (0)
 
-/* assign null value and decref old */
+/* assign null value and decref old. equivalent to public unc_clear */
 #define VSETNULL(w, D) do { Unc_Value *t_N_ = (D); VDECREF(w, t_N_);           \
                             VINITNULL(t_N_); } while (0)
 /* assign bool value and decref old */
@@ -99,6 +102,10 @@ SOFTWARE.
 #define VSETENT(w, D, t, e) do { Unc_Value *t_E_ = (D); VDECREF(w, t_E_);      \
                             VINITENT(t_E_, t, e); } while (0)
 
+/* done before a value is destroyed. equivalent to unc_clear, except faster.
+   should not be used for any other purpose than the aforementioned one */
+#define VCLEAR(w, D) do { Unc_Value *t_N_ = (D); VDECREF(w, t_N_);             \
+                          VINITFAST(t_N_); } while (0)
 /* assign value without incref */
 #define VMOVE(w, D, V) do { Unc_Value *v2_ = (D);                              \
                             VDECREF(w, v2_);                                   \
@@ -111,6 +118,11 @@ SOFTWARE.
 #define VIMPOSE(w, D, V) do { Unc_Value *v0_ = (V);                            \
                               VINCREF(w, v0_);                                 \
                               VSETRAW(D, VGETRAW(v0_)); } while (0)
+
+/* assign null values to uninitialized buffer */
+#define VINITMANY(n, p)  do {   Unc_Size i;                                    \
+                                for (i = 0; i < n; ++i)                        \
+                                    VINITNULL(&(p)[i]); } while (0)
 
 #define STRINGIFY(s) #s
 #define EVALSTRINGIFY(s) STRINGIFY(s)

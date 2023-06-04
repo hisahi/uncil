@@ -31,13 +31,13 @@ SOFTWARE.
 #include "ufunc.h"
 #include "uncil.h"
 
-int unc0_fcall(Unc_View *w, Unc_Function *fn, Unc_Size argc,
+Unc_RetVal unc0_fcall(Unc_View *w, Unc_Function *fn, Unc_Size argc,
                int spew, int fromc, int allowc, Unc_RegFast target);
-int unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
+Unc_RetVal unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
                 int spew, int fromc, int allowc, Unc_RegFast target);
-int unc0_vmrpush(Unc_View *w);
-int unc0_vmcheckpause(Unc_View *w);
-int unc0_run(Unc_View *w);
+Unc_RetVal unc0_vmrpush(Unc_View *w);
+Unc_RetVal unc0_vmcheckpause(Unc_View *w);
+Unc_RetVal unc0_run(Unc_View *w);
 
 #ifdef UNCIL_DEFINES
 void unc0_loadstrpx(const byte *offp, Unc_Size *l, const byte **b);

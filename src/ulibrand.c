@@ -98,8 +98,8 @@ static int saferng_init = 0;
 struct unc_rng_state {
     uint64_t state;
 };
-static const uint64_t pcg_mul = UINT64_C(0x5851F42D4C957F2D);
-static const uint64_t pcg_add = UINT64_C(0xDD5C0E28D9236311);
+CONSTEXPR uint64_t pcg_mul = UINT64_C(0x5851F42D4C957F2D);
+CONSTEXPR uint64_t pcg_add = UINT64_C(0xDD5C0E28D9236311);
 
 static uint64_t unc0_stdrandseed(void) {
     uint64_t u;
@@ -178,11 +178,11 @@ static Unc_RetVal unc_randwrapper(Unc_View *w, Unc_Value fn,
         return 0;
     }
     if (unc_iscallable(w, &fn)) {
-        int e;
+        Unc_RetVal e;
         Unc_Pile ret;
         Unc_Value v = UNC_BLANK;
         unc_setint(w, &v, n);
-        if ((e = unc_push(w, 1, &v, NULL)))
+        if ((e = unc_push(w, 1, &v)))
             return e;
         e = unc_call(w, &fn, 1, &ret);
         if (e) {
@@ -219,36 +219,40 @@ static Unc_RetVal unc_randwrapper(Unc_View *w, Unc_Value fn,
 }
 
 #define INV_UINT_MAX (1 / ((Unc_Float)(UNC_UINT_MAX / 2 + 1)))
-
-Unc_RetVal unc0_lib_rand_random(Unc_View *w, Unc_Tuple args, void *udata) {
-    Unc_Value v = UNC_BLANK;
-    byte b[sizeof(Unc_UInt)];
+static Unc_RetVal unc_randwrapper_float(Unc_View *w, Unc_Value fn,
+                                 struct unc_rng_state *rng, Unc_Float *f) {
     Unc_UInt u;
-    int e;
+    byte b[sizeof(Unc_UInt)];
+    Unc_RetVal e = unc_randwrapper(w, fn, sizeof(b), b, rng);
+
+    if (e) return e;
+    unc0_memcpy(&u, b, sizeof(Unc_UInt));
+    u /= 2;
+    *f = u * INV_UINT_MAX;
+    return 0;
+}
+
+Unc_RetVal uncl_rand_random(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_Value v = UNC_BLANK;
+    Unc_Float uf;
+    Unc_RetVal e;
     struct unc_rng_state *rng;
     (void)udata;
     
     e = unc_lockopaque(w, unc_boundvalue(w, 0), NULL, (void **)&rng);
     if (e) return e;
-    e = unc_randwrapper(w, args.values[0], sizeof(b), b, rng);
-    if (e) {
-        unc_unlock(w, unc_boundvalue(w, 0));
-        return e;
-    }
-
-    memcpy(&u, b, sizeof(Unc_UInt));
-    u /= 2;
-    unc_setfloat(w, &v, u * INV_UINT_MAX);
-    return unc_pushmove(w, &v, NULL);
+    e = unc_randwrapper_float(w, args.values[0], rng, &uf);
+    unc_unlock(w, unc_boundvalue(w, 0));
+    if (e) return e;
+    unc_setfloat(w, &v, uf);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value v = UNC_BLANK;
-    byte b[sizeof(Unc_UInt)];
-    Unc_Int i0, i1;
-    Unc_UInt u;
     Unc_Float uf;
-    int e;
+    Unc_Int i0, i1;
+    Unc_RetVal e;
     struct unc_rng_state *rng;
     (void)udata;
     
@@ -256,27 +260,20 @@ Unc_RetVal unc0_lib_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
     e = unc_getint(w, &args.values[1], &i1);
     if (e) return e;
-    if (i0 >= i1)
-        return unc_throwexc(w, "value", "a must be less than b");
+    if (i0 >= i1) return unc_throwexc(w, "value", "a must be less than b");
+    
     e = unc_lockopaque(w, unc_boundvalue(w, 0), NULL, (void **)&rng);
     if (e) return e;
-    e = unc_randwrapper(w, args.values[2], sizeof(b), b, rng);
-    if (e) {
-        unc_unlock(w, unc_boundvalue(w, 0));
-        return e;
-    }
-
-    memcpy(&u, b, sizeof(Unc_UInt));
-    u /= 2;
-    uf = u * INV_UINT_MAX;
-    unc_setint(w, &v, i0 + (i1 - i0) * uf);
+    e = unc_randwrapper_float(w, args.values[2], rng, &uf);
     unc_unlock(w, unc_boundvalue(w, 0));
-    return unc_pushmove(w, &v, NULL);
+    if (e) return e;
+    unc_setint(w, &v, i0 + (i1 - i0) * uf);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_rand_randombytes(Unc_View *w, Unc_Tuple args,
+Unc_RetVal uncl_rand_randombytes(Unc_View *w, Unc_Tuple args,
                                      void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     byte *b;
     Unc_Int i;
@@ -285,30 +282,26 @@ Unc_RetVal unc0_lib_rand_randombytes(Unc_View *w, Unc_Tuple args,
     e = unc_lockopaque(w, unc_boundvalue(w, 0), NULL, (void **)&rng);
     if (e) return e;
     e = unc_getint(w, &args.values[0], &i);
-    if (e) {
-        unc_unlock(w, unc_boundvalue(w, 0));
-        return e;
-    }
+    if (e) goto fail;
     if (i < 0) {
-        unc_unlock(w, unc_boundvalue(w, 0));
-        return unc_throwexc(w, "value", "cannot request a negative "
-                                        "number of bytes");
+        e = unc_throwexc(w, "value",
+            "cannot request a negative number of bytes");
+        goto fail;
     }
     e = unc_newblob(w, &v, i, &b);
-    if (e) {
-        unc_unlock(w, unc_boundvalue(w, 0));
-        return e;
-    }
+    if (e) goto fail;
     unc0_stdrand(rng, i, b);
     unc_unlock(w, &v);
+    e = unc_returnlocal(w, 0, &v);
+fail:
     unc_unlock(w, unc_boundvalue(w, 0));
-    return unc_pushmove(w, &v, NULL);
+    return e;
 }
 
-Unc_RetVal unc0_lib_rand_securerandom(Unc_View *w, Unc_Tuple args,
-                                     void *udata) {
+Unc_RetVal uncl_rand_securerandom(Unc_View *w, Unc_Tuple args,
+                                      void *udata) {
 #if SAFERNG
-    int e;
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     byte *b;
     Unc_Int i;
@@ -316,30 +309,28 @@ Unc_RetVal unc0_lib_rand_securerandom(Unc_View *w, Unc_Tuple args,
     e = unc_getint(w, &args.values[0], &i);
     if (e) return e;
     if (i < 0)
-        return unc_throwexc(w, "value", "cannot request a negative "
-                                        "number of bytes");
+        return unc_throwexc(w, "value", 
+            "cannot request a negative number of bytes");
     e = unc_newblob(w, &v, i, &b);
     if (e) return e;
     e = saferng(i, b);
     if (e) {
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
         return unc_throwexc(w, "system", "secure RNG returned an error");
     }
 
     unc_unlock(w, &v);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 #else
     return UNCIL_ERR_LOGIC_NOTSUPPORTED;
 #endif
 }
 
-Unc_RetVal unc0_lib_rand_shuffle(Unc_View *w, Unc_Tuple args, void *udata) {
+Unc_RetVal uncl_rand_shuffle(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value *av;
-    byte b[sizeof(Unc_UInt)];
     Unc_Size a, an, aj;
-    Unc_UInt u;
     Unc_Float uf;
-    int e;
+    Unc_RetVal e;
     struct unc_rng_state *rng;
     (void)udata;
     
@@ -351,16 +342,10 @@ Unc_RetVal unc0_lib_rand_shuffle(Unc_View *w, Unc_Tuple args, void *udata) {
         return e;
     }
 
+    e = 0;
     for (a = 0; a < an - 1; ++a) {
-        e = unc_randwrapper(w, args.values[1], sizeof(b), b, rng);
-        if (e) {
-            unc_unlock(w, unc_boundvalue(w, 0));
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
-        memcpy(&u, b, sizeof(Unc_UInt));
-        u /= 2;
-        uf = u * INV_UINT_MAX;
+        e = unc_randwrapper_float(w, args.values[1], rng, &uf);
+        if (e) break;
         aj = a + (Unc_Size)(uf * (an - a));
         if (a != aj) {
             Unc_Value tmp = av[a];
@@ -371,8 +356,16 @@ Unc_RetVal unc0_lib_rand_shuffle(Unc_View *w, Unc_Tuple args, void *udata) {
 
     unc_unlock(w, unc_boundvalue(w, 0));
     unc_unlock(w, &args.values[0]);
-    return 0;
+    return e;
 }
+
+#define FN(x) &uncl_rand_##x, #x
+static const Unc_ModuleCFunc lib[] = {
+    { FN(random),        0, 1, 0, UNC_CFUNC_DEFAULT },
+    { FN(randomint),     2, 1, 0, UNC_CFUNC_DEFAULT },
+    { FN(randombytes),   1, 0, 0, UNC_CFUNC_DEFAULT },
+    { FN(shuffle),       1, 1, 0, UNC_CFUNC_DEFAULT },
+};
 
 Unc_RetVal uncilmain_random(Unc_View *w) {
     Unc_RetVal e;
@@ -385,34 +378,18 @@ Unc_RetVal uncilmain_random(Unc_View *w) {
         saferng_init = 1;
     }
 #endif
+    e = unc_exportcfunction(w, "securerandom", &uncl_rand_securerandom,
+                            1, 0, 0, UNC_CFUNC_DEFAULT, NULL,
+                            0, NULL, 0, NULL, NULL);
+    if (e) return e;
 
     e = unc_newopaque(w, &rng, NULL,
                       sizeof(struct unc_rng_state), (void **)&rngs,
                       NULL, 0, NULL, 0, NULL);
     if (e) return e;
     unc0_stdrandinit(rngs);
+    e = unc_exportcfunctions(w, PASSARRAY(lib), 1, &rng, 0);
     unc_unlock(w, &rng);
-
-    e = unc_exportcfunction(w, "random", &unc0_lib_rand_random,
-                            UNC_CFUNC_DEFAULT,
-                            0, 0, 1, NULL, 1, &rng, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "randomint", &unc0_lib_rand_randomint,
-                            UNC_CFUNC_DEFAULT,
-                            2, 0, 1, NULL, 1, &rng, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "randombytes", &unc0_lib_rand_randombytes,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 0, NULL, 1, &rng, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "securerandom", &unc0_lib_rand_securerandom,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-    e = unc_exportcfunction(w, "shuffle", &unc0_lib_rand_shuffle,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 1, NULL, 1, &rng, 0, NULL, NULL);
-    if (e) return e;
-    unc_clear(w, &rng);
-    return 0;
+    VCLEAR(w, &rng);
+    return e;
 }

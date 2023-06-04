@@ -24,17 +24,25 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <errno.h>
-#include <math.h>
 #include <stdarg.h>
 
 #define UNCIL_DEFINES
 
+#include "uarithm.h"
 #include "uctype.h"
-#include "ulibio.h"
+#include "umem.h"
 #include "uncil.h"
 #include "uutf.h"
+#include "uvsio.h"
 #include "uxprintf.h"
+
+#if UNCIL_SANDBOXED
+#define UNCIL_NOLIBIO 1
+#endif
+
+#if !UNCIL_NOLIBIO
+#include "ulibio.h"
+#endif
 
 struct json_decode_string {
     Unc_Size n;
@@ -48,6 +56,8 @@ static int json_decode_string_do(void *p) {
     --s->n;
     return *s->c++;
 }
+
+#if !UNCIL_NOLIBIO
 /*
 static int json_decode_file_do(void *p) {
     struct ulib_io_file *filep = p;
@@ -80,6 +90,7 @@ static int json_decode_file_do(void *p_) {
     }
     return p->buffer[p->i++];
 }
+#endif
 
 struct json_decode_context {
     int next;
@@ -93,8 +104,8 @@ INLINE int jsonnext(struct json_decode_context *c) {
     return (*c->getch)(c->getch_data);
 }
 
-INLINE int jsondec_err(struct json_decode_context *c,
-                       const char *type, const char *msg) {
+INLINE Unc_RetVal jsondec_err(struct json_decode_context *c,
+                              const char *type, const char *msg) {
     return unc_throwexc(c->view, type, msg);
 }
 
@@ -113,7 +124,7 @@ static int jsondec_rest(struct json_decode_context *c, const char *s) {
     return 0;
 }
 
-static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
+static Unc_RetVal jsondec_num(struct json_decode_context *c, Unc_Value *v) {
     int x = c->next;
     Unc_UInt u, up;
     Unc_Float f;
@@ -161,7 +172,7 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
             fp = (fp * 10) + (x - '0');
             x = jsonnext(c);
         } while (unc0_isdigit(x));
-        f += fp / pow(10, pow10);
+        f += fp / unc0_mpow10(pow10);
     }
 
     if (x == 'e' || x == 'E') {
@@ -194,11 +205,11 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
         if (!eneg) {
             if (u > DBL_MAX_10_EXP * 2)
                 u = DBL_MAX_10_EXP * 2;
-            x = x * pow(10, (int)u);
+            x = x * unc0_mpow10((int)u);
         } else {
             if (u > -DBL_MIN_10_EXP * 2)
                 u = -DBL_MIN_10_EXP * 2;
-            x = x * pow(10, -(int)u);
+            x = x * unc0_mpow10(-(int)u);
         }
     }
 
@@ -219,8 +230,9 @@ static int jsondec_num(struct json_decode_context *c, Unc_Value *v) {
     return 0;
 }
 
-static int jsondec_str(struct json_decode_context *c, Unc_Value *v) {
-    int e, x = c->next;
+static Unc_RetVal jsondec_str(struct json_decode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
+    int x = c->next;
     char buf_[64], *buf = buf_;
     byte uc[UNC_UTF8_MAX_SIZE];
     int buf_ext = 0;
@@ -348,10 +360,11 @@ static int jsondec_str(struct json_decode_context *c, Unc_Value *v) {
     return 0;
 }
 
-static int jsondec_val(struct json_decode_context *c, Unc_Value *v);
+static Unc_RetVal jsondec_val(struct json_decode_context *c, Unc_Value *v);
 
-static int jsondec_arr(struct json_decode_context *c, Unc_Value *v) {
-    int e, x = c->next;
+static Unc_RetVal jsondec_arr(struct json_decode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
+    int x = c->next;
     Unc_Value arr = UNC_BLANK, tmp = UNC_BLANK;
     Unc_Size arr_n = 0, arr_c;
     Unc_Value *arr_v;
@@ -368,13 +381,13 @@ static int jsondec_arr(struct json_decode_context *c, Unc_Value *v) {
     for (;;) {
         x = jsondec_skipw(c);
         if (x < 0) {
-            unc_clear(c->view, &tmp);
-            unc_clear(c->view, &arr);
+            VCLEAR(c->view, &tmp);
+            VCLEAR(c->view, &arr);
             return jsondec_err(c, "syntax", 
                     "JSON syntax error: array not terminated");
         }
         if (x == ']') {
-            unc_clear(c->view, &tmp);
+            VCLEAR(c->view, &tmp);
             x = jsonnext(c);
             break;
         }
@@ -382,16 +395,16 @@ static int jsondec_arr(struct json_decode_context *c, Unc_Value *v) {
         e = jsondec_val(c, &tmp);
         x = c->next;
         if (e) {
-            unc_clear(c->view, &tmp);
-            unc_clear(c->view, &arr);
+            VCLEAR(c->view, &tmp);
+            VCLEAR(c->view, &arr);
             return e;
         }
         if (arr_n == arr_c) {
             Unc_Size nz = arr_c + 8;
             e = unc_resizearray(c->view, &arr, nz, &arr_v);
             if (e) {
-                unc_clear(c->view, &tmp);
-                unc_clear(c->view, &arr);
+                VCLEAR(c->view, &tmp);
+                VCLEAR(c->view, &arr);
                 return e;
             }
             arr_c = nz;
@@ -418,8 +431,9 @@ static int jsondec_arr(struct json_decode_context *c, Unc_Value *v) {
     return 0;
 }
 
-static int jsondec_obj(struct json_decode_context *c, Unc_Value *v) {
-    int e, x = c->next;
+static Unc_RetVal jsondec_obj(struct json_decode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
+    int x = c->next;
     Unc_Value obj = UNC_BLANK, key = UNC_BLANK, val = UNC_BLANK;
     if (!c->recurse)
         return UNCIL_ERR_TOODEEP;
@@ -433,15 +447,15 @@ static int jsondec_obj(struct json_decode_context *c, Unc_Value *v) {
     for (;;) {
         x = jsondec_skipw(c);
         if (x < 0) {
-            unc_clear(c->view, &val);
-            unc_clear(c->view, &key);
-            unc_clear(c->view, &obj);
+            VCLEAR(c->view, &val);
+            VCLEAR(c->view, &key);
+            VCLEAR(c->view, &obj);
             return jsondec_err(c, "syntax", 
                     "JSON syntax error: list not terminated");
         }
         if (x == '}') {
-            unc_clear(c->view, &val);
-            unc_clear(c->view, &key);
+            VCLEAR(c->view, &val);
+            VCLEAR(c->view, &key);
             x = jsonnext(c);
             break;
         }
@@ -449,9 +463,9 @@ static int jsondec_obj(struct json_decode_context *c, Unc_Value *v) {
         e = jsondec_str(c, &key);
         x = c->next;
         if (e) {
-            unc_clear(c->view, &val);
-            unc_clear(c->view, &key);
-            unc_clear(c->view, &obj);
+            VCLEAR(c->view, &val);
+            VCLEAR(c->view, &key);
+            VCLEAR(c->view, &obj);
             return e;
         }
         if (x == ':') {
@@ -465,16 +479,16 @@ static int jsondec_obj(struct json_decode_context *c, Unc_Value *v) {
         e = jsondec_val(c, &val);
         x = c->next;
         if (e) {
-            unc_clear(c->view, &val);
-            unc_clear(c->view, &key);
-            unc_clear(c->view, &obj);
+            VCLEAR(c->view, &val);
+            VCLEAR(c->view, &key);
+            VCLEAR(c->view, &obj);
             return e;
         }
         e = unc_setattrv(c->view, &obj, &key, &val);
         if (e) {
-            unc_clear(c->view, &val);
-            unc_clear(c->view, &key);
-            unc_clear(c->view, &obj);
+            VCLEAR(c->view, &val);
+            VCLEAR(c->view, &key);
+            VCLEAR(c->view, &obj);
             return e;
         }
         c->next = x;
@@ -496,7 +510,7 @@ static int jsondec_obj(struct json_decode_context *c, Unc_Value *v) {
     return 0;
 }
 
-static int jsondec_val(struct json_decode_context *c, Unc_Value *v) {
+static Unc_RetVal jsondec_val(struct json_decode_context *c, Unc_Value *v) {
     int x = jsondec_skipw(c);
     switch (x) {
     case '-':
@@ -520,7 +534,7 @@ static int jsondec_val(struct json_decode_context *c, Unc_Value *v) {
         return jsondec_obj(c, v);
     case 'f':
     {
-        int e;
+        Unc_RetVal e;
         if ((e = jsondec_rest(c, "false")))
             return e;
         VSETBOOL(c->view, v, 0);
@@ -528,15 +542,15 @@ static int jsondec_val(struct json_decode_context *c, Unc_Value *v) {
     }
     case 'n':
     {
-        int e;
+        Unc_RetVal e;
         if ((e = jsondec_rest(c, "null")))
             return e;
-        VSETNULL(c->view, v);
+        VCLEAR(c->view, v);
         return 0;
     }
     case 't':
     {
-        int e;
+        Unc_RetVal e;
         if ((e = jsondec_rest(c, "true")))
             return e;
         VSETBOOL(c->view, v, 1);
@@ -546,13 +560,13 @@ static int jsondec_val(struct json_decode_context *c, Unc_Value *v) {
     return jsondec_err(c, "syntax", "JSON syntax error: invalid initial");
 }
 
-static int jsondec(struct json_decode_context *c, Unc_Value *v) {
+static Unc_RetVal jsondec(struct json_decode_context *c, Unc_Value *v) {
     c->next = (*c->getch)(c->getch_data);
     return jsondec_val(c, v);
 }
 
-Unc_RetVal unc0_lib_json_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+Unc_RetVal uncl_json_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct json_decode_context cxt;
     struct json_decode_string rs;
@@ -567,12 +581,12 @@ Unc_RetVal unc0_lib_json_decode(Unc_View *w, Unc_Tuple args, void *ud_) {
     cxt.recurse = unc_recurselimit(w);
     
     e = jsondec(&cxt, &v);
-    if (e) return e;
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
-Unc_RetVal unc0_lib_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+#if !UNCIL_NOLIBIO
+Unc_RetVal uncl_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct json_decode_context cxt;
     struct json_decode_file buf;
@@ -596,26 +610,24 @@ Unc_RetVal unc0_lib_json_decodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     if (buf.err == -2)
         e = unc_throwexc(w, "io", "json.decodefile(): could not decode text");
     else if (unc0_io_ferror(pfile))
-        e = unc0_io_makeerr(w, "json.decodefile()", errno);
+        e = unc0_io_makeerr_errno(w, "json.decodefile()");
     unc0_io_unlockfile(w, &args.values[0]);
-    if (e) return e;
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
+#endif
 
 struct json_encode_string {
-    Unc_Allocator *alloc;
-    byte *s;
-    Unc_Size n, c;
+    struct unc0_strbuf buf;
     int err;
 };
 
 /* 0 = OK, <>0 = error */
 static int json_encode_string_do(Unc_Size n, const char *c, void *p) {
     struct json_encode_string *s = p;
-    return (s->err = unc0_strpush(s->alloc, &s->s, &s->n, &s->c,
-                                  6, n, (const byte *)c));
+    return (s->err = unc0_strbuf_putn(&s->buf, n, (const byte *)c));
 }
 
+#if !UNCIL_NOLIBIO
 struct json_encode_file {
     struct ulib_io_file *fp;
     int err;
@@ -626,6 +638,7 @@ static int json_encode_file_do(Unc_Size n, const char *c, void *p_) {
     struct json_encode_file *p = p_;
     return (p->err = unc0_io_fwrite_text(p->view, p->fp, (const byte *)c, n));
 }
+#endif
 
 struct json_encode_context {
     int (*out)(Unc_Size, const char *, void *);
@@ -650,12 +663,12 @@ static int jsonenc_printf(struct json_encode_context *c,
     int r;
     va_list va;
     va_start(va, format);
-    r = unc0_vxprintf(&jsonenc_printf_wrap, c, format, va);
+    r = unc0_vxprintf(&jsonenc_printf_wrap, c, 0, 0, format, va);
     va_end(va);
-    return r < 0 ? UNCIL_ERR_INTERNAL : 0;
+    return r == UNC_PRINTF_EOF ? UNCIL_ERR_INTERNAL : 0;
 }
 
-INLINE int jsonenc_err(struct json_encode_context *c,
+INLINE Unc_RetVal jsonenc_err(struct json_encode_context *c,
                        const char *type, const char *msg) {
     return unc_throwexc(c->view, type, msg);
 }
@@ -668,9 +681,9 @@ static const char tabs[65] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
                              "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
                              "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
-static int jsonenc_indent(struct json_encode_context *c, int depth) {
+static Unc_RetVal jsonenc_indent(struct json_encode_context *c, int depth) {
     if (depth && c->fancy && c->indent) {
-        int e;
+        Unc_RetVal e;
         if (c->indent < 0) {
             static const Unc_Size block = sizeof(tabs) - 1;
             Unc_Size count = depth * -c->indent;
@@ -696,7 +709,7 @@ static int jsonenc_indent(struct json_encode_context *c, int depth) {
     return 0;
 }
 
-static int jsonenc_signent(struct json_encode_context *c, void *p) {
+static Unc_RetVal jsonenc_signent(struct json_encode_context *c, void *p) {
     Unc_Size i = c->ents_n;
     if (i) {
         --i;
@@ -724,9 +737,9 @@ INLINE void jsonenc_hex4(char *buf, unsigned int u) {
         buf[i] = hex[(u >> (4 * (3 - i))) & 15];
 }
 
-static int jsonenc_str_i(struct json_encode_context *c,
-                         Unc_Size n, const char *r) {
-    int e;
+static Unc_RetVal jsonenc_str_i(struct json_encode_context *c,
+                                Unc_Size n, const char *r) {
+    Unc_RetVal e;
     Unc_UChar u;
 
     e = (*c->out)(1, "\"", c->out_data);
@@ -786,8 +799,8 @@ static int jsonenc_str_i(struct json_encode_context *c,
     return (*c->out)(1, "\"", c->out_data);
 }
 
-INLINE int jsonenc_str(struct json_encode_context *c, Unc_Value *v) {
-    int e;
+INLINE Unc_RetVal jsonenc_str(struct json_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
     Unc_Size n;
     const char *r;
     e = unc_getstring(c->view, v, &n, &r);
@@ -795,12 +808,13 @@ INLINE int jsonenc_str(struct json_encode_context *c, Unc_Value *v) {
     return jsonenc_str_i(c, n, r);
 }
 
-static int jsonenc(struct json_encode_context *c, Unc_Value *v);
+static Unc_RetVal jsonenc(struct json_encode_context *c, Unc_Value *v);
 
-static int jsonenc_arr(struct json_encode_context *c, Unc_Value *v) {
+static Unc_RetVal jsonenc_arr(struct json_encode_context *c, Unc_Value *v) {
     Unc_Size sn;
     Unc_Value *ss;
-    int e, depth;
+    Unc_RetVal e;
+    int depth;
     if ((e = jsonenc_signent(c, VGETENT(v))))
         return e;
     if (!c->recurse)
@@ -821,7 +835,8 @@ static int jsonenc_arr(struct json_encode_context *c, Unc_Value *v) {
             }
             if ((e = jsonenc(c, &ss[i]))) goto jsonenc_arr_done;
             if (i < sn - 1) {
-                if ((e = (*c->out)(1, ",", c->out_data))) goto jsonenc_arr_done;
+                if ((e = (*c->out)(1, ",", c->out_data)))
+                    goto jsonenc_arr_done;
             }
         }
         c->depth = --depth;
@@ -838,8 +853,9 @@ jsonenc_arr_done:
     return e;
 }
 
-static int jsonenc_obj(struct json_encode_context *c, Unc_Value *v) {
-    int e, depth;
+static Unc_RetVal jsonenc_obj(struct json_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
+    int depth;
     Unc_Value iter = UNC_BLANK;
     if ((e = jsonenc_signent(c, VGETENT(v))))
         return e;
@@ -882,7 +898,8 @@ static int jsonenc_obj(struct json_encode_context *c, Unc_Value *v) {
             } else {
                 Unc_Size keyn;
                 char *keyc;
-                e = unc_valuetostringn(c->view, &tuple.values[0], &keyn, &keyc);
+                e = unc_valuetostringn(c->view, &tuple.values[0],
+                                       &keyn, &keyc);
                 if (e) goto jsonenc_obj_done;
                 e = jsonenc_str_i(c, keyn, keyc);
                 unc_mfree(c->view, keyc);
@@ -909,12 +926,12 @@ static int jsonenc_obj(struct json_encode_context *c, Unc_Value *v) {
     --c->ents_n;
     ++c->recurse;
 jsonenc_obj_done:
-    unc_clear(c->view, &iter);
+    VCLEAR(c->view, &iter);
     return e;
 }
 
-INLINE int jsonenc_val(struct json_encode_context *c, Unc_Value *v) {
-    int e;
+INLINE Unc_RetVal jsonenc_val(struct json_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
     switch (unc_gettype(c->view, v)) {
     case Unc_TNull:
         return (*c->out)(4, "null", c->out_data);
@@ -935,7 +952,8 @@ INLINE int jsonenc_val(struct json_encode_context *c, Unc_Value *v) {
         Unc_Float f;
         e = unc_getfloat(c->view, v, &f);
         if (e) return e;
-        return jsonenc_printf(c, "%."EVALSTRINGIFY(DBL_DIG) PRIUnc_Float"g", f);
+        return jsonenc_printf(c, "%."EVALSTRINGIFY(DBL_DIG) PRIUnc_Float"g",
+                              f);
     }
     case Unc_TString:
         return jsonenc_str(c, v);
@@ -949,39 +967,40 @@ INLINE int jsonenc_val(struct json_encode_context *c, Unc_Value *v) {
     }
 }
 
-static int jsonenc(struct json_encode_context *c, Unc_Value *v) {
-    int e;
+static Unc_RetVal jsonenc(struct json_encode_context *c, Unc_Value *v) {
+    Unc_RetVal e;
     if (unc_gettype(c->view, &c->mapper)) {
         Unc_View *w = c->view;
         Unc_Value tempval = UNC_BLANK;
         {
             Unc_Pile pile;
             Unc_Tuple tuple;
-            e = unc_push(w, 1, v, NULL);
+            e = unc_push(w, 1, v);
             if (e) return e;
             e = unc_call(w, &c->mapper, 1, &pile);
             if (e) return e;
             unc_returnvalues(w, &pile, &tuple);
             if (!tuple.count) {
                 unc_discard(w, &pile);
-                return jsonenc_err(c, "value", "mapper did not return a value");
+                return jsonenc_err(c, "value",
+                                      "mapper did not return a value");
             }
             unc_copy(w, &tempval, &tuple.values[0]);
             unc_discard(w, &pile);
         }
         e = jsonenc_val(c, &tempval);
-        unc_clear(w, &tempval);
+        VCLEAR(w, &tempval);
         return e;
     }
     return jsonenc_val(c, v);
 }
 
-Unc_RetVal unc0_lib_json_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+Unc_RetVal uncl_json_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     Unc_Value v = UNC_BLANK;
     struct json_encode_context cxt =
         { NULL, NULL, 0, NULL, 0, 0, 0, UNC_BLANK };
-    struct json_encode_string rs = { NULL, NULL, 0, 0 };
+    struct json_encode_string rs;
     (void)ud_;
 
     cxt.view = w;
@@ -998,25 +1017,25 @@ Unc_RetVal unc0_lib_json_encode(Unc_View *w, Unc_Tuple args, void *ud_) {
     cxt.ents = NULL;
     cxt.ents_n = cxt.ents_c = 0;
 
-    rs.alloc = &w->world->alloc;
     if (unc_gettype(w, &args.values[2]) && !unc_iscallable(w, &args.values[2]))
         return unc_throwexc(w, "type", "mapper must be callable or null");
     unc_copy(w, &cxt.mapper, &args.values[2]);
-    
+
+    unc0_strbuf_init(&rs.buf, &w->world->alloc, Unc_AllocString);
+    rs.err = 0;    
     e = jsonenc(&cxt, &args.values[0]);
     if (rs.err) e = rs.err;
-    if (!e) {
-        e = unc_newstringmove(w, &v, rs.n, (char *)rs.s);
-        if (!e) e = unc_push(w, 1, &v, NULL);
-        else unc_mfree(w, rs.s);
-    }
+    if (!e) e = unc0_buftostring(w, &v, &rs.buf);
+    e = unc_returnlocal(w, e, &v);
+    unc0_strbuf_free(&rs.buf);
     unc_mfree(w, cxt.ents);
-    unc_clear(w, &cxt.mapper);
+    VCLEAR(w, &cxt.mapper);
     return e;
 }
 
-Unc_RetVal unc0_lib_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
-    int e;
+#if !UNCIL_NOLIBIO
+Unc_RetVal uncl_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
+    Unc_RetVal e;
     struct json_encode_context cxt =
         { NULL, NULL, 0, NULL, 0, 0, 0, UNC_BLANK };
     struct ulib_io_file *pfile;
@@ -1050,38 +1069,31 @@ Unc_RetVal unc0_lib_json_encodefile(Unc_View *w, Unc_Tuple args, void *ud_) {
     if (buf.err < 0)
         e = unc_throwexc(w, "io", "json.encodefile(): could not encode text");
     else if (unc0_io_ferror(pfile))
-        e = unc0_io_makeerr(w, "json.encodefile()", errno);
+        e = unc0_io_makeerr_errno(w, "json.encodefile()");
     unc0_io_unlockfile(w, &args.values[0]);
     unc_mfree(w, cxt.ents);
-    unc_clear(w, &cxt.mapper);
+    VCLEAR(w, &cxt.mapper);
     return e;
 }
+#endif
+
+#define FN(x) &uncl_json_##x, #x
+static const Unc_ModuleCFunc lib[] = {
+    { FN(decode),       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(encode),       1, 2, 0, UNC_CFUNC_CONCURRENT },
+#if !UNCIL_NOLIBIO
+    { FN(decodefile),   1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { FN(encodefile),   1, 2, 0, UNC_CFUNC_CONCURRENT },
+#endif
+};
 
 Unc_RetVal uncilmain_json(Unc_View *w) {
     Unc_RetVal e;
 
+#if !UNCIL_NOLIBIO
     e = unc0_io_init(w);
     if (e) return e;
+#endif
 
-    e = unc_exportcfunction(w, "decode", &unc0_lib_json_decode,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "encode", &unc0_lib_json_encode,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "decodefile", &unc0_lib_json_decodefile,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-
-    e = unc_exportcfunction(w, "encodefile", &unc0_lib_json_encodefile,
-                            UNC_CFUNC_CONCURRENT,
-                            1, 0, 2, NULL, 0, NULL, 0, NULL, NULL);
-    if (e) return e;
-
-    return 0;
+    return unc_exportcfunctions(w, PASSARRAY(lib), 0, NULL, NULL);
 }

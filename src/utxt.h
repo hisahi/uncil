@@ -54,6 +54,8 @@ typedef int (*Unc_CConv_Dec)(Unc_CConv_In in, void *in_data,
 typedef struct Unc_EncodingEntry {
     Unc_CConv_Enc enc;
     Unc_CConv_Dec dec;
+    Unc_Size name_n;
+    const char *name;
 } Unc_EncodingEntry;
 
 typedef struct Unc_EncodingTable {
@@ -63,9 +65,10 @@ typedef struct Unc_EncodingTable {
 } Unc_EncodingTable;
 
 void unc0_initenctable(Unc_Allocator *alloc, Unc_EncodingTable *table);
-int unc0_adddefaultencs(struct Unc_View *w, Unc_EncodingTable *table);
+Unc_RetVal unc0_adddefaultencs(struct Unc_View *w, Unc_EncodingTable *table);
 void unc0_dropenctable(struct Unc_View *w, Unc_EncodingTable *table);
-int unc0_resolveencindex(struct Unc_View *w, Unc_Size name_n, const byte *name);
+int unc0_resolveencindex(struct Unc_View *w,
+                         Unc_Size name_n, const byte *name);
 Unc_EncodingEntry *unc0_getbyencindex(struct Unc_View *w, int index);
 
 int unc0_cconv_passthru(Unc_CConv_In in, void *in_data,

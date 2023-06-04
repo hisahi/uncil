@@ -26,9 +26,7 @@ SOFTWARE.
 
 /* sorting algorithm based on WikiSort by M. McFadden */
 
-#include <math.h>
 #include <setjmp.h>
-#include <string.h>
 
 #define UNCIL_DEFINES
 
@@ -45,13 +43,14 @@ struct unc0_sortenv {
     Unc_Value *fn;
     Unc_View *w;
     jmp_buf env;
-    int e;
+    Unc_RetVal e;
     Unc_Value *buf;
     Unc_Size bufn;
 };
 
-static int unc0_arrcmp(struct unc0_sortenv *s, Unc_Value *a, Unc_Value *b) {
-    int e;
+static Unc_RetVal unc0_arrcmp(struct unc0_sortenv *s, Unc_Value *a,
+                                                      Unc_Value *b) {
+    Unc_RetVal e;
     if (LIKELY(!s->fn)) {
         e = unc0_vvcmpe(s->w, a, b, s->e);
         if (UNLIKELY(UNCIL_IS_ERR_CMP(e))) goto unc0_arrcmp_err;
@@ -151,8 +150,7 @@ INLINE void unc0_arrswap(Unc_Value *l, Unc_Value *r) {
     *r = v;
 }
 
-static void unc0_sortins(struct unc0_sortenv *s,
-                         Unc_Value *l, Unc_Value *r) {
+static void unc0_sortins(struct unc0_sortenv *s, Unc_Value *l, Unc_Value *r) {
     /* insertion sort */
     Unc_Value *i = l + 1, *j;
     if (l == r) return;
@@ -195,7 +193,7 @@ INLINE void unc0_arrrot_i(Unc_Value *l, Unc_Value *m, Unc_Value *r) {
         unc0_arrrev(m, r);
         unc0_arrrev(l, r);
     } else {
-        /* "trinity" (triple conjoined reversal) notation */
+        /* "trinity" (triple conjoined reversal) rotation */
         Unc_Size q, ql, qr;
         Unc_Value *a = l, *b = m - 1, *c = m, *d = r - 1;
 
@@ -284,7 +282,8 @@ struct wiki_range {
 };
 
 static Unc_Value *unc0_wiki_findbf_i(struct unc0_sortenv *s,
-                                     Unc_Value *l, Unc_Value *r, Unc_Value *v) {
+                                     Unc_Value *l, Unc_Value *r,
+                                     Unc_Value *v) {
     if (l < r) {
         Unc_Value *q = r - 1;
         while (l < r) {
@@ -300,7 +299,8 @@ static Unc_Value *unc0_wiki_findbf_i(struct unc0_sortenv *s,
 }
 
 static Unc_Value *unc0_wiki_findbl_i(struct unc0_sortenv *s,
-                                     Unc_Value *l, Unc_Value *r, Unc_Value *v) {
+                                     Unc_Value *l, Unc_Value *r,
+                                     Unc_Value *v) {
     if (l < r) {
         Unc_Value *q = r - 1;
         while (l < r) {
@@ -711,7 +711,7 @@ static void unc0_wiki_sort(struct unc0_sortenv *s,
 #else
 #define IBUF2 8
 #endif
-    Unc_Size n = r - l ,np2 = rounddown_pow2(n);
+    Unc_Size n = r - l, np2 = rounddown_pow2(n);
     struct wiki_iter it;
     Unc_Size zn;
     Unc_Value *z;
@@ -721,26 +721,24 @@ static void unc0_wiki_sort(struct unc0_sortenv *s,
         return;
     }
 
+    zn = n / 2 + 1;
+    while (zn >= 32) {
+        z = TMALLOC(Unc_Value, &s->w->world->alloc, Unc_AllocInternal, zn);
+        if (z) goto cache_ok;
+        zn >>= 1;
+        zn += zn >> 1;
+    }
+    
+    z = NULL, zn = 0;
+cache_ok:
+    s->buf = z, s->bufn = zn;
+    
     it.arr = l;
     it.s = n;
     it.d = np2 / (IBUF2 >> 1);
     it.dq = n / it.d;
     it.dn = n % it.d;
 
-#define TRY_SIZE(n) do {                                                       \
-        zn = (n);                                                              \
-        z = TMALLOC(Unc_Value, &s->w->world->alloc, Unc_AllocInternal, zn);    \
-        if (z) goto cache_ok;                                                  \
-    } while (0)
-    
-    TRY_SIZE(n / 2 + 1);
-    TRY_SIZE(sqrtz(zn) + 1);
-    for (zn = MIN(512, np2); zn >= 64; zn >>= 1)
-        TRY_SIZE(zn);
-cache_ok:
-    s->buf = z;
-    s->bufn = zn;
-    
     ITER_RESET(it);
     while (!ITER_DONE(it)) {
         struct wiki_range r;
@@ -1125,16 +1123,17 @@ cache_ok:
 #undef IBUF2
 }
 
-INLINE int unc0_arrsort_i(struct unc0_sortenv *s,
+INLINE Unc_RetVal unc0_arrsort_i(struct unc0_sortenv *s,
                           Unc_Value *l, Unc_Value *r) {
-    int e;
+    Unc_RetVal e;
     if (!(e = setjmp(s->env)))
         unc0_wiki_sort(s, l, r);
     return e;
 }
 
-int unc0_arrsort(Unc_View *w, Unc_Value *fn, Unc_Size n, Unc_Value *arr) {
-    int e;
+Unc_RetVal unc0_arrsort(Unc_View *w, Unc_Value *fn,
+                        Unc_Size n, Unc_Value *arr) {
+    Unc_RetVal e;
     struct unc0_sortenv s;
     if (n < 2) return 0;
 

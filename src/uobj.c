@@ -24,8 +24,6 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <string.h>
-
 #define UNCIL_DEFINES
 
 #include "umt.h"
@@ -38,13 +36,13 @@ SOFTWARE.
 #include "uvm.h"
 #include "uvop.h"
 
-int unc0_initdict(Unc_View *w, Unc_Dict *o) {
+Unc_RetVal unc0_initdict(Unc_View *w, Unc_Dict *o) {
     unc0_inithtblv(&w->world->alloc, &o->data);
     o->generation = 0;
-    return UNC_LOCKINITL(o->lock);
+    return UNC_LOCKINITL(o->lock) ? UNCIL_ERR_MEM : 0;
 }
 
-int unc0_initobj(Unc_View *w, Unc_Object *o, Unc_Value *proto) {
+Unc_RetVal unc0_initobj(Unc_View *w, Unc_Object *o, Unc_Value *proto) {
     unc0_inithtblv(&w->world->alloc, &o->data);
     if (proto)
         VIMPOSE(w, &o->prototype, proto);
@@ -53,15 +51,23 @@ int unc0_initobj(Unc_View *w, Unc_Object *o, Unc_Value *proto) {
     /* prototype cycles are impossible, you'd need to know the address
        of the new value */
     o->frozen = 0;
-    return UNC_LOCKINITL(o->lock);
+    return UNC_LOCKINITL(o->lock) ? UNCIL_ERR_MEM : 0;
 }
 
 INLINE void nextgen(Unc_Dict *o) {
     if (++o->generation == UNC_INT_MAX) o->generation = 0;
 }
 
-int unc0_dgetindx(Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, int *found, Unc_Value *out) {
+Unc_Size unc0_dgetsize(Unc_View *w, Unc_Dict *o) {
+    Unc_Size size;
+    UNC_LOCKL(o->lock);
+    size = o->data.entries;
+    UNC_UNLOCKL(o->lock);
+    return size;
+}
+
+Unc_RetVal unc0_dgetindx(Unc_View *w, Unc_Dict *o,
+                         Unc_Value *attr, int *found, Unc_Value *out) {
     Unc_Value *p;
     UNC_LOCKL(o->lock);
     p = unc0_gethtblv(w, &o->data, attr);
@@ -71,10 +77,11 @@ int unc0_dgetindx(Unc_View *w, Unc_Dict *o,
     return 0;
 }
 
-int unc0_dsetindx(Unc_View *w, Unc_Dict *o, Unc_Value *attr, Unc_Value *v) {
+Unc_RetVal unc0_dsetindx(Unc_View *w, Unc_Dict *o,
+                         Unc_Value *attr, Unc_Value *v) {
     Unc_Value *res;
     Unc_Size n;
-    int e;
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     n = o->data.entries;
     e = unc0_puthtblv(w, &o->data, attr, &res);
@@ -88,8 +95,8 @@ int unc0_dsetindx(Unc_View *w, Unc_Dict *o, Unc_Value *attr, Unc_Value *v) {
     return 0;
 }
 
-int unc0_ddelindx(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
-    int e;
+Unc_RetVal unc0_ddelindx(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     nextgen(o);
     e = unc0_delhtblv(w, &o->data, attr);
@@ -97,22 +104,23 @@ int unc0_ddelindx(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
     return e;
 }
 
-int unc0_dgetattrv(Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, int *found, Unc_Value *out) {
+Unc_RetVal unc0_dgetattrv(Unc_View *w, Unc_Dict *o,
+                          Unc_Value *attr, int *found, Unc_Value *out) {
     return unc0_dgetindx(w, o, attr, found, out);
 }
 
-int unc0_dsetattrv(Unc_View *w, Unc_Dict *o,
-                   Unc_Value *attr, Unc_Value *v) {
+Unc_RetVal unc0_dsetattrv(Unc_View *w, Unc_Dict *o,
+                          Unc_Value *attr, Unc_Value *v) {
     return unc0_dsetindx(w, o, attr, v);
 }
 
-int unc0_ddelattrv(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
+Unc_RetVal unc0_ddelattrv(Unc_View *w, Unc_Dict *o, Unc_Value *attr) {
     return unc0_ddelindx(w, o, attr);
 }
 
-int unc0_dgetattrs(Unc_View *w, Unc_Dict *o,
-                   size_t n, const byte *b, int *found, Unc_Value *out) {
+Unc_RetVal unc0_dgetattrs(Unc_View *w, Unc_Dict *o,
+                          size_t n, const byte *b,
+                          int *found, Unc_Value *out) {
     Unc_Value *p;
     UNC_LOCKL(o->lock);
     p = unc0_gethtblvs(w, &o->data, n, b);
@@ -122,11 +130,11 @@ int unc0_dgetattrs(Unc_View *w, Unc_Dict *o,
     return 0;
 }
 
-int unc0_dsetattrs(Unc_View *w, Unc_Dict *o,
-                   size_t n, const byte *b, Unc_Value *v) {
+Unc_RetVal unc0_dsetattrs(Unc_View *w, Unc_Dict *o,
+                          size_t n, const byte *b, Unc_Value *v) {
     Unc_Value *res;
     Unc_Size dn;
-    int e;
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     dn = o->data.entries;
     e = unc0_puthtblvs(w, &o->data, n, b, &res);
@@ -140,8 +148,8 @@ int unc0_dsetattrs(Unc_View *w, Unc_Dict *o,
     return 0;
 }
 
-int unc0_ddelattrs(Unc_View *w, Unc_Dict *o, size_t n, const byte *b) {
-    int e;
+Unc_RetVal unc0_ddelattrs(Unc_View *w, Unc_Dict *o, size_t n, const byte *b) {
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     nextgen(o);
     e = unc0_delhtblvs(w, &o->data, n, b);
@@ -149,8 +157,8 @@ int unc0_ddelattrs(Unc_View *w, Unc_Dict *o, size_t n, const byte *b) {
     return e;
 }
 
-int unc0_ogetattrv(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, int *found, Unc_Value *out) {
+Unc_RetVal unc0_ogetattrv(Unc_View *w, Unc_Object *o,
+                          Unc_Value *attr, int *found, Unc_Value *out) {
     Unc_Value *res;
     for (;;) {
         UNC_LOCKL(o->lock);
@@ -164,7 +172,8 @@ int unc0_ogetattrv(Unc_View *w, Unc_Object *o,
         UNC_UNLOCKL(o->lock);
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
-            return unc0_dgetattrv(w, LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
+            return unc0_dgetattrv(w,
+                                  LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
                                   attr, found, out);
         case Unc_TObject:
             o = LEFTOVER(Unc_Object, VGETENT(&o->prototype));
@@ -200,8 +209,9 @@ exitgetattrforv:
     }
 }
 
-int unc0_ogetattrs(Unc_View *w, Unc_Object *o,
-                   size_t n, const byte *b, int *found, Unc_Value *out) {
+Unc_RetVal unc0_ogetattrs(Unc_View *w, Unc_Object *o,
+                          size_t n, const byte *b,
+                          int *found, Unc_Value *out) {
     Unc_Value *res;
     for (;;) {
         UNC_LOCKL(o->lock);
@@ -216,7 +226,8 @@ int unc0_ogetattrs(Unc_View *w, Unc_Object *o,
         /* proceed to prototype */
         switch (VGETTYPE(&o->prototype)) {
         case Unc_TTable:
-            return unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
+            return unc0_dgetattrs(w,
+                                  LEFTOVER(Unc_Dict, VGETENT(&o->prototype)),
                                   n, b, found, out);
         case Unc_TObject:
             o = LEFTOVER(Unc_Object, VGETENT(&o->prototype));
@@ -251,8 +262,9 @@ exitgetattrfors:
     }
 }
 
-static int unc0_ovgetattrs(Unc_View *w, Unc_Value *v,
-                   size_t n, const byte *b, int *found, Unc_Value *out) {
+static Unc_RetVal unc0_ovgetattrs(Unc_View *w, Unc_Value *v,
+                                  size_t n, const byte *b,
+                                  int *found, Unc_Value *out) {
 unc0_ovgetattrs_again:
     switch (VGETTYPE(v)) {
     case Unc_TTable:
@@ -270,8 +282,9 @@ unc0_ovgetattrs_again:
     }
 }
 
-int unc0_getprotomethod(Unc_View *w, Unc_Value *v,
-                   size_t n, const byte *b, int *found, Unc_Value *out) {
+Unc_RetVal unc0_getprotomethod(Unc_View *w, Unc_Value *v,
+                               size_t n, const byte *b,
+                               int *found, Unc_Value *out) {
     switch (VGETTYPE(v)) {
     case Unc_TObject:
         return unc0_ovgetattrs(w, &LEFTOVER(Unc_Object, VGETENT(v))->prototype,
@@ -285,9 +298,9 @@ int unc0_getprotomethod(Unc_View *w, Unc_Value *v,
     }
 }
 
-int unc0_ogetattrc(struct Unc_View *w, Unc_Object *o,
-                   const byte *s, int *found, Unc_Value *out) {
-    return unc0_ogetattrs(w, o, strlen((const char *)s), s, found, out);
+Unc_RetVal unc0_ogetattrc(struct Unc_View *w, Unc_Object *o,
+                          const byte *s, int *found, Unc_Value *out) {
+    return unc0_ogetattrs(w, o, unc0_strlen((const char *)s), s, found, out);
 }
 
 void unc0_ofreeze(struct Unc_View *w, Unc_Object *o) {
@@ -296,9 +309,9 @@ void unc0_ofreeze(struct Unc_View *w, Unc_Object *o) {
     UNC_UNLOCKL(o->lock);
 }
 
-int unc0_osetattrv(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value *v) {
-    int e;
+Unc_RetVal unc0_osetattrv(Unc_View *w, Unc_Object *o,
+                          Unc_Value *attr, Unc_Value *v) {
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     if (!o->frozen) {
         Unc_Value *res;
@@ -313,9 +326,9 @@ int unc0_osetattrv(Unc_View *w, Unc_Object *o,
     return 0;
 }
 
-int unc0_osetattrs(Unc_View *w, Unc_Object *o,
-                   size_t n, const byte *b, Unc_Value *v) {
-    int e;
+Unc_RetVal unc0_osetattrs(Unc_View *w, Unc_Object *o,
+                          size_t n, const byte *b, Unc_Value *v) {
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     if (!o->frozen) {
         Unc_Value *res;
@@ -330,25 +343,27 @@ int unc0_osetattrs(Unc_View *w, Unc_Object *o,
     return 0;
 }
 
-int unc0_odelattrv(Unc_View *w, Unc_Object *o, Unc_Value *attr) {
-    int e;
+Unc_RetVal unc0_odelattrv(Unc_View *w, Unc_Object *o, Unc_Value *attr) {
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     e = o->frozen ? 0 : unc0_delhtblv(w, &o->data, attr);
     UNC_UNLOCKL(o->lock);
     return e;
 }
 
-int unc0_odelattrs(Unc_View *w, Unc_Object *o, size_t n, const byte *b) {
-    int e;
+Unc_RetVal unc0_odelattrs(Unc_View *w, Unc_Object *o,
+                          size_t n, const byte *b) {
+    Unc_RetVal e;
     UNC_LOCKL(o->lock);
     e = o->frozen ? 0 : unc0_delhtblvs(w, &o->data, n, b);
     UNC_UNLOCKL(o->lock);
     return e;
 }
 
-int unc0_ogetindx(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, int *found, Unc_Value *out) {
-    int e, fnf;
+Unc_RetVal unc0_ogetindx(Unc_View *w, Unc_Object *o,
+                         Unc_Value *attr, int *found, Unc_Value *out) {
+    Unc_RetVal e;
+    int fnf;
     Unc_Value fn = UNC_BLANK;
     e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(getindex)),
                         &fnf, &fn);
@@ -405,9 +420,10 @@ int unc0_ogetindx(Unc_View *w, Unc_Object *o,
     return unc0_ogetattrv(w, o, attr, found, out);
 }
 
-int unc0_osetindx(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value *v) {
-    int e, fnf;
+Unc_RetVal unc0_osetindx(Unc_View *w, Unc_Object *o,
+                         Unc_Value *attr, Unc_Value *v) {
+    Unc_RetVal e;
+    int fnf;
     Unc_Value fn = UNC_BLANK;
     e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(setindex)),
                         &fnf, &fn);
@@ -445,13 +461,14 @@ int unc0_osetindx(Unc_View *w, Unc_Object *o,
     return unc0_osetattrv(w, o, attr, v);
 }
 
-int unc0_osetindxraw(Unc_View *w, Unc_Object *o,
-                   Unc_Value *attr, Unc_Value *v) {
+Unc_RetVal unc0_osetindxraw(Unc_View *w, Unc_Object *o,
+                            Unc_Value *attr, Unc_Value *v) {
     return unc0_osetattrv(w, o, attr, v);
 }
 
-int unc0_odelindx(Unc_View *w, Unc_Object *o, Unc_Value *attr) {
-    int e, fnf;
+Unc_RetVal unc0_odelindx(Unc_View *w, Unc_Object *o, Unc_Value *attr) {
+    Unc_RetVal e;
+    int fnf;
     Unc_Value fn = UNC_BLANK;
     e = unc0_ovgetattrs(w, &o->prototype, PASSSTRL(OPOVERLOAD(delindex)),
                         &fnf, &fn);

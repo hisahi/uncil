@@ -27,7 +27,6 @@ SOFTWARE.
 /* xprintf is a nearly standard printf. differences:
     always on C locale
     no support for %lc or %ls
-    no support for %a (yet?)
 */
 
 #include <float.h>
@@ -35,37 +34,19 @@ SOFTWARE.
 
 #define UNCIL_DEFINES
 
+#include "uarithm.h"
 #include "uctype.h"
-#include "udebug.h"
 #include "udef.h"
 #include "umem.h"
 #include "uosdef.h"
+#include "uutf.h"
 #include "uxprintf.h"
 
 #if UNCIL_C99
 #include <stdint.h>
-#include <tgmath.h>
-#else
-#include <math.h>
 #endif
 
-#ifndef INTMAX_MAX
-#if UNCIL_C99
-typedef long long intmax_t;
-#else
-typedef long intmax_t;
-#endif
-#endif
-
-#ifndef UINTMAX_MAX
-#if UNCIL_C99
-typedef unsigned long long uintmax_t;
-#else
-typedef unsigned long uintmax_t;
-#endif
-#endif
-
-#define PUTC(c) do { if (out(c, udata)) return -1; ++outp; } while (0)
+#define PUTC(c) do { if (out(c, udata)) return UNC_PRINTF_EOF; ++outp; } while (0)
 
 enum length_mod {
     L_, L_hh, L_h, L_l, L_ll, L_j, L_z, L_t, L_L
@@ -140,9 +121,9 @@ INLINE int toibase(int c, int b, int u) {
     }
 }
 
-static int unc0_vxprintf_i(int (*out)(char outp, void *udata),
+static size_t unc0_vxprintf_i(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, intmax_t x) {
-    int outp = 0;
+    size_t outp = 0;
     char bufa[(sizeof(intmax_t) * CHAR_BIT * 5 + 15) / 16 + 1], *buf = bufa;
     char sign = 0;
     size_t sz, iw = 0, i;
@@ -164,14 +145,14 @@ static int unc0_vxprintf_i(int (*out)(char outp, void *udata),
     else if (f & PR_FLAG_SPACE)
         sign = ' ', ++sz;
 
-    if (f & PR_FLAG_LEFT) {
-        for (i = sz; i < w; ++i)
-            PUTC(' ');
-        if (sign) PUTC(sign);
-    } else if (f & PR_FLAG_ZERO) {
+    if (f & PR_FLAG_ZERO) {
         if (sign) PUTC(sign);
         for (i = sz; i < w; ++i)
             PUTC('0');
+    } else if (!(f & PR_FLAG_LEFT)) {
+        for (i = sz; i < w; ++i)
+            PUTC(' ');
+        if (sign) PUTC(sign);
     } else {
         if (sign) PUTC(sign);
     }
@@ -181,16 +162,16 @@ static int unc0_vxprintf_i(int (*out)(char outp, void *udata),
     for (i = 0; i < iw; ++i)
         PUTC(buf[i]);
     
-    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+    if (f & PR_FLAG_LEFT)
         for (i = sz; i < w; ++i)
             PUTC(' ');
     
     return outp;
 }
 
-static int unc0_vxprintf_u(int (*out)(char outp, void *udata),
+static size_t unc0_vxprintf_u(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, uintmax_t u) {
-    int outp = 0;
+    size_t outp = 0;
     char bufa[(sizeof(uintmax_t) * CHAR_BIT * 6 + 15) / 16 + 1], *buf = bufa;
     char sign = 0;
     size_t sz, iw = 0, i;
@@ -215,7 +196,7 @@ static int unc0_vxprintf_u(int (*out)(char outp, void *udata),
             sz += 2;
     }
 
-    if (f & PR_FLAG_LEFT)
+    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
         for (i = sz; i < w; ++i)
             PUTC(' ');
     
@@ -225,7 +206,7 @@ static int unc0_vxprintf_u(int (*out)(char outp, void *udata),
         PUTC((f & PR_FLAG_UPPER) ? 'X' : 'x');
     }
 
-    if (!(f & PR_FLAG_LEFT) && (f & PR_FLAG_ZERO))
+    if (f & PR_FLAG_ZERO)
         for (i = sz; i < w; ++i)
             PUTC('0');
     for (i = iw; i < p; ++i)
@@ -233,17 +214,17 @@ static int unc0_vxprintf_u(int (*out)(char outp, void *udata),
     for (i = 0; i < iw; ++i)
         PUTC(buf[i]);
     
-    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+    if (f & PR_FLAG_LEFT)
         for (i = sz; i < w; ++i)
             PUTC(' ');
     
     return outp;
 }
 
-static int unc0_vxprintf_sf(int (*out)(char outp, void *udata),
-                 void *udata, int f, size_t w, size_t p,
-                 size_t sn, const char *s, int negative) {
-    int outp = 0;
+static size_t unc0_vxprintf_sf(int (*out)(char outp, void *udata),
+                  void *udata, int f, size_t w, size_t p,
+                  size_t sn, const char *s, int negative) {
+    size_t outp = 0;
     size_t sz = sn, i;
     char sign = 0;
     if (negative)
@@ -253,7 +234,7 @@ static int unc0_vxprintf_sf(int (*out)(char outp, void *udata),
     else if (f & PR_FLAG_SPACE)
         sign = ' ', ++sz;
     
-    if (f & (PR_FLAG_LEFT | PR_FLAG_ZERO))
+    if (!(f & PR_FLAG_LEFT))
         for (i = sz; i < w; ++i)
             PUTC(' ');
     
@@ -261,7 +242,7 @@ static int unc0_vxprintf_sf(int (*out)(char outp, void *udata),
     for (i = 0; i < sn; ++i)
         PUTC(s[i]);
     
-    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+    if (f & PR_FLAG_LEFT)
         for (i = sz; i < w; ++i)
             PUTC(' ');
     
@@ -334,8 +315,8 @@ INLINE void widemul(uint_least32_t m, uint_least32_t *l, uint_least32_t *h) {
 #define LSH(h, l, n) (h = (h << (n)) | (l >> (NUMWIDTH - (n))), l <<= (n))
 #define RSH(h, l, n) (l = (l >> (n)) | (h << (NUMWIDTH - (n))), h >>= (n))
 #endif
-INLINE int ilog2(NUMTYPE x) {
-    int n = 0;
+INLINE unsigned ilog2(NUMTYPE x) {
+    unsigned n = 0;
     while (x >>= 1) ++n;
     return n;
 }
@@ -409,9 +390,10 @@ INLINE void wideadd(NUMTYPE *p, NUMTYPE d) {
 /* converts the integer part of p (>= 0) to a decimal string under pbuf */
 /* *pbuf points to the END of a buffer that is at least LDBL_MAX_10_EXP + 3
    chars long */
-static int cvtb_f2i(char **pbuf, long double p) {
+static size_t cvtb_f2i(char **pbuf, Unc_FloatMax p) {
     /* TODO pretty inefficient, we need to deal with overflows */
-    int iw = 0, exp, iexp, hi, lo, i = 0;
+    size_t iw = 0;
+    int exp, iexp, hi, lo, i = 0;
     char *buf = *pbuf;
 #if UNCIL_C99 && UNCIL_64BIT
     NUMTYPE div = UINT64_C(1000000000000000000);
@@ -426,30 +408,24 @@ static int cvtb_f2i(char **pbuf, long double p) {
     NUMTYPE num[LDBL_MAX_EXP / NUMWIDTH + 1] = { 0 };
     NUMTYPE quo[LDBL_MAX_EXP / NUMWIDTH + 1] = { 0 };
     NUMTYPE rem, tmp, tmpl, tmph;
-#if UNCIL_C99
-    long double frac = frexpl(p, &exp);
-    if (exp >= LDBL_MANT_DIG)
-        iexp = LDBL_MANT_DIG, exp -= LDBL_MANT_DIG;
+    Unc_FloatMax frac = unc0_mfrexp(p, &exp);
+    if (exp >= UNCF_MANT_DIG)
+        iexp = UNCF_MANT_DIG, exp -= UNCF_MANT_DIG;
     else
         iexp = exp, exp = 0;
-#else
-    double frac = frexp(p, &exp);
-    if (exp >= DBL_MANT_DIG)
-        iexp = DBL_MANT_DIG, exp -= DBL_MANT_DIG;
-    else
-        iexp = exp, exp = 0;
-#endif
 #if UNCIL_C99 && NUMWIDTH == 64
     {
-        NUMTYPE rem = (NUMTYPE)ldexpl(frac, iexp);
+        NUMTYPE rem = (NUMTYPE)unc0_mldexp(frac, iexp);
         hi = exp >> NUMLOG2, lo = exp & ((1 << NUMLOG2) - 1);
         num[hi++] = rem << lo;
         if (lo) num[hi++] = rem >> (NUMWIDTH - lo);
     }
 #else
     {
-        unsigned long reml = (NUMTYPE)ldexp(frac, iexp) & 0xFFFFFFFFUL;
-        unsigned long remh = (NUMTYPE)ldexp(frac, iexp - 32) & 0xFFFFFFFFUL;
+        unsigned long reml = (NUMTYPE)unc0_mldexp(frac, iexp)
+                                            & 0xFFFFFFFFUL;
+        unsigned long remh = (NUMTYPE)unc0_mldexp(frac, iexp - 32)
+                                            & 0xFFFFFFFFUL;
         hi = exp >> 5, lo = exp & ((1 << 5) - 1);
         if (lo) {
             num[hi++] = reml << lo;
@@ -465,7 +441,7 @@ static int cvtb_f2i(char **pbuf, long double p) {
     do {
         /* divide num by div */
         i = hi;
-        unc0_memset(quo, 0, hi * sizeof(NUMTYPE));
+        unc0_mbzero(quo, hi * sizeof(NUMTYPE));
         while (i--) {
             widediv(div, num[i], num[i + 1], &rem, &tmph, &tmpl);
             wideadd(&quo[i], tmpl);
@@ -492,9 +468,9 @@ static int cvtb_f2i(char **pbuf, long double p) {
     return iw;
 }
 
-static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
-                 void *udata, int f, size_t w, size_t prec, long double x) {
-    int outp = 0;
+static size_t unc0_vxprintf_f(int (*out)(char outp, void *udata),
+                 void *udata, int f, size_t w, size_t prec, Unc_FloatMax x) {
+    size_t outp = 0;
     char sign = 0;
     if (x != x)
         return unc0_vxprintf_sf(out, udata, f, w, prec,
@@ -506,7 +482,7 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
 #endif
         return unc0_vxprintf_sf(out, udata, f, w, prec,
             3, (f & PR_FLAG_UPPER) ? "INF" : "inf", x < 0);
-    
+
     if (x < 0)
         sign = '-', x = -x;
     else if (f & PR_FLAG_SIGN)
@@ -517,31 +493,14 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
     if (!(f & PR_FLAG_SCIENTIFIC)) {
         char bufa[LDBL_MAX_10_EXP + 3], *buf = bufa;
         size_t sz, iw = 0, i;
-        long double q;
+        Unc_FloatMax q;
         int dot = 0;
-#if UNCIL_C99
-        long double p;
+        Unc_FloatMax p;
         if (!prec)
             x += 0.5L;
         else
-#if UNCIL_C99
-            x += 0.5L * powl(0.1L, prec);
-#else
-            x += 0.5L * pow(0.1, prec);
-#endif
-        q = modfl(x, &p);
-#else
-        double p;
-        if (!prec)
-            x += 0.5L;
-        else
-#if UNCIL_C99
-            x += 0.5L * powl(0.1L, prec);
-#else
-            x += 0.5L * pow(0.1, prec);
-#endif
-        q = modf(x, &p);
-#endif
+            x += 0.5L * unc0_mpow10n(prec);
+        q = unc0_mmodf(x, &p);
         buf += sizeof(bufa);
         iw = p ? cvtb_f2i(&buf, p) : 0;
         if (!iw)
@@ -549,13 +508,9 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
         sz = iw + (sign != 0);
         if (f & PR_FLAG_CUT_ZEROS) {
             size_t tprec = 0, zprec = 0;
-            long double qq = q;
+            Unc_FloatMax qq = q;
             while (tprec < prec && qq) {
-#if UNCIL_C99
-                qq = modfl(qq * 10, &p);
-#else
-                qq = modf(qq * 10, &p);
-#endif
+                qq = unc0_mmodf(qq * 10, &p);
                 ++tprec;
                 if (p) zprec = tprec;
             }
@@ -566,14 +521,14 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
             dot = 1;
         }
 
-        if (f & PR_FLAG_LEFT) {
-            for (i = sz; i < w; ++i)
-                PUTC(' ');
-            if (sign) PUTC(sign);
-        } else if (f & PR_FLAG_ZERO) {
+        if (f & PR_FLAG_ZERO) {
             if (sign) PUTC(sign);
             for (i = sz; i < w; ++i)
                 PUTC('0');
+        } else if (!(f & PR_FLAG_LEFT)) {
+            for (i = sz; i < w; ++i)
+                PUTC(' ');
+            if (sign) PUTC(sign);
         } else {
             if (sign) PUTC(sign);
         }
@@ -583,26 +538,23 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
         if (dot) {
             PUTC('.');
             for (i = 0; i < prec; ++i) {
-#if UNCIL_C99
-                q = modfl(q * 10, &p);
-#else
-                q = modf(q * 10, &p);
-#endif
+                q = unc0_mmodf(q * 10, &p);
                 PUTC(todecimal((int)p));
             }
         }
         
-        if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+        if (f & PR_FLAG_LEFT)
             for (i = sz; i < w; ++i)
                 PUTC(' ');
     } else {
-        char bufa[(sizeof(intmax_t) * CHAR_BIT * 5 + 15) / 16 + 1], *buf = bufa;
+        char bufa[(sizeof(intmax_t) * CHAR_BIT * 5 + 15) / 16 + 1],
+            *buf = bufa;
         char esign;
         intmax_t off;
         int ip, dot = 0;
         size_t eiw = 0, sz, i;
 #if UNCIL_C99
-        long double p;
+        Unc_FloatMax p;
 #else
         double p;
 #endif
@@ -612,26 +564,13 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
         if (!x)
             off = 0;
         else {
-#if UNCIL_C99
-            off = (intmax_t)floor(log10l(fabsl(x)));
-            x *= powl(10.0L, -off);
-#else
-            off = (intmax_t)floor(log10(fabs((double)x)));
-            x *= pow(10.0, -off);
-#endif
+            off = unc0_malog10f(x);
+            x *= unc0_mpow10n(off);
         }
-        
+
         if (prec)
-#if UNCIL_C99
-            x += 0.5L * powl(0.1L, prec);
-#else
-            x += 0.5L * pow(0.1, prec);
-#endif
-#if UNCIL_C99
-        x = modfl(x, &p);
-#else
-        x = modf(x, &p);
-#endif
+            x += 0.5L * unc0_mpow10n(prec);
+        x = unc0_mmodf(x, &p);
         ip = (int)p;
         
         if (off < 0) {
@@ -651,16 +590,12 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
         if (f & PR_FLAG_CUT_ZEROS) {
             size_t tprec = 0, zprec = 0;
 #if UNCIL_C99
-            long double qq = x;
+            Unc_FloatMax qq = x;
 #else
             double qq = x;
 #endif
             while (tprec < prec && qq) {
-#if UNCIL_C99
-                qq = modfl(qq * 10, &p);
-#else
-                qq = modf(qq * 10, &p);
-#endif
+                qq = unc0_mmodf(qq * 10, &p);
                 ++tprec;
                 if (p) zprec = tprec;
             }
@@ -671,14 +606,14 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
             dot = 1;
         }
 
-        if (f & PR_FLAG_LEFT) {
-            for (i = sz; i < w; ++i)
-                PUTC(' ');
-            if (sign) PUTC(sign);
-        } else if (f & PR_FLAG_ZERO) {
+        if (f & PR_FLAG_ZERO) {
             if (sign) PUTC(sign);
             for (i = sz; i < w; ++i)
                 PUTC('0');
+        } else if (!(f & PR_FLAG_LEFT)) {
+            for (i = sz; i < w; ++i)
+                PUTC(' ');
+            if (sign) PUTC(sign);
         } else {
             if (sign) PUTC(sign);
         }
@@ -687,11 +622,7 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
         if (dot) {
             PUTC('.');
             for (i = 0; i < prec; ++i) {
-#if UNCIL_C99
-                x = modfl(x * 10, &p);
-#else   
-                x = modf(x * 10, &p);
-#endif
+                x = unc0_mmodf(x * 10, &p);
                 PUTC(todecimal((int)p));
             }
         }
@@ -701,7 +632,7 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
         for (i = 0; i < eiw; ++i)
             PUTC(buf[i]);
         
-        if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+        if (f & PR_FLAG_LEFT)
             for (i = sz; i < w; ++i)
                 PUTC(' ');
     }
@@ -709,30 +640,26 @@ static int unc0_vxprintf_f(int (*out)(char outp, void *udata),
     return outp;
 }
 
-static size_t unc0_vxprintf_xf_prec(long double x) {
+static size_t unc0_vxprintf_xf_prec(Unc_FloatMax x) {
 #if FLT_RADIX != 2
 #error "unc0_vxprintf_xf_prec not implemented for FLT_RADIX != 2"
 #endif
     int exp;
     size_t p = 0;
     if (!x) return 0;
-#if UNCIL_C99
-    x = frexpl(x, &exp);
-#else
-    x = frexp(x, &exp);
-#endif
-    x = ldexp(x, 1) - 1;
+    x = unc0_mfrexp(x, &exp);
+    x = unc0_mldexp(x, 1) - 1;
     while (x) {
         ++p;
-        x = ldexp(x, 4);
+        x = unc0_mldexp(x, 4);
         x -= (unsigned)x;
     }
     return p;
 }
 
-static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
-                 void *udata, int f, size_t w, size_t p, long double x) {
-    int outp = 0, dot;
+static size_t unc0_vxprintf_xf(int (*out)(char outp, void *udata),
+                  void *udata, int f, size_t w, size_t p, Unc_FloatMax x) {
+    size_t outp = 0, dot;
     char sign = 0, esign = 0;
     size_t expw = 0, sz, i;
     char expbuf[(sizeof(unsigned) * CHAR_BIT * 6 + 15) / 16 + 1], *exps;
@@ -762,13 +689,9 @@ static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
         int iexp;
         unsigned exp;
         exps = expbuf + sizeof(expbuf);
-#if UNCIL_C99
-        x = frexpl(x, &iexp);
-#else
-        x = frexp(x, &iexp);
-#endif
+        x = unc0_mfrexp(x, &iexp);
         if (x) --iexp;
-        x = ldexp(x, 1);
+        x = unc0_mldexp(x, 1);
         exp = (unsigned)(iexp < 0 ? -iexp : iexp);
         esign = iexp < 0 ? '-' : '+';
         if (!exp) {
@@ -785,13 +708,13 @@ static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
 
     dot = p || (f & PR_FLAG_POUND);
     sz = 5 + !!sign + expw + p + (dot ? 1 : 0);
-    if (f & PR_FLAG_LEFT)
+    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
         for (i = sz; i < w; ++i)
             PUTC(' ');
     if (sign) PUTC(sign);
     PUTC('0');
     PUTC((f & PR_FLAG_UPPER) ? 'X' : 'x');
-    if (!(f & PR_FLAG_LEFT) && (f & PR_FLAG_ZERO))
+    if (f & PR_FLAG_ZERO)
         for (i = sz; i < w; ++i)
             PUTC('0');
     
@@ -806,7 +729,7 @@ static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
         PUTC('.');
     for (i = 0; i < p; ++i) {
         unsigned d;
-        x = ldexp(x, 4);
+        x = unc0_mldexp(x, 4);
         d = (unsigned)x;
         x -= d;
         PUTC(tohex(d, f & PR_FLAG_UPPER));
@@ -817,57 +740,83 @@ static int unc0_vxprintf_xf(int (*out)(char outp, void *udata),
     while (expw--)
         PUTC(*exps++);
 
-    if (!(f & (PR_FLAG_LEFT | PR_FLAG_ZERO)))
+    if (f & PR_FLAG_LEFT)
         for (i = sz; i < w; ++i)
             PUTC(' ');
     
     return outp;
 }
 
-static int unc0_vxprintf_s(int (*out)(char outp, void *udata),
+static size_t unc0_vxprintf_s(int (*out)(char outp, void *udata),
                  void *udata, int f, size_t w, size_t p, const char *s) {
-    int outp = 0;
-    size_t l = 0, i;
-    while (l < p && s[l])
-        ++l;
+    size_t outp = 0;
+    size_t l, i;
+    /*  while (l < p && s[l])
+            ++l;*/
+    const char *s_end = unc0_memchr(s, 0, p);
+    if (s_end) l = s_end - s;
+    else l = p;
     
-    if (f & PR_FLAG_LEFT)
+    if (!(f & PR_FLAG_LEFT))
         for (i = l; i < w; ++i)
             PUTC(' ');
     
     for (i = 0; i < l; ++i)
         PUTC(s[i]);
     
-    if (!(f & PR_FLAG_LEFT))
+    if (f & PR_FLAG_LEFT)
         for (i = l; i < w; ++i)
             PUTC(' ');
     
     return outp;
 }
 
-static int unc0_vxprintf_ss(int (*out)(char outp, void *udata),
-                 void *udata, int f, size_t w, size_t p, const char *s) {
-    int outp = 0;
-    size_t i;
+static size_t unc0_vxprintf_su(int (*out)(char outp, void *udata),
+                  void *udata, int f, size_t w, size_t p, const char *s) {
+    size_t outp = 0;
+    size_t i, l = p;
+    size_t ll = unc0_utf8reshiftlz((const byte *)s, &l);
+
+    if (!(f & PR_FLAG_LEFT))
+        for (i = ll; i < w; ++i)
+            PUTC(' ');
+    
+    for (i = 0; i < l; ++i)
+        PUTC(s[i]);
     
     if (f & PR_FLAG_LEFT)
+        for (i = ll; i < w; ++i)
+            PUTC(' ');
+    
+    return outp;
+}
+
+static size_t unc0_vxprintf_ss(int (*out)(char outp, void *udata),
+                  void *udata, int f, size_t w, size_t p, const char *s) {
+    size_t outp = 0;
+    size_t i;
+    
+    if (!(f & PR_FLAG_LEFT))
         for (i = p; i < w; ++i)
             PUTC(' ');
     
     for (i = 0; i < p; ++i)
         PUTC(s[i]);
     
-    if (!(f & PR_FLAG_LEFT))
+    if (f & PR_FLAG_LEFT)
         for (i = p; i < w; ++i)
             PUTC(' ');
     
     return outp;
 }
 
-int unc0_vxprintf(int (*out)(char outp, void *udata),
-                 void *udata, const char *format, va_list arg) {
-    int outp = 0, c;
-    while ((c = *format++)) {
+size_t unc0_vxprintf(int (*out)(char outp, void *udata),
+                     void *udata, int gflags, size_t format_n,
+                     const char *format, va_list arg) {
+    size_t outp = 0;
+    int c;
+    const char *format_end = format + format_n;
+    while ((!format_n || format < format_end) && (c = *format++)) {
         if (c != '%')
             PUTC(c);
         else {
@@ -883,6 +832,13 @@ int unc0_vxprintf(int (*out)(char outp, void *udata),
                 continue;
             }
 
+            if ((gflags & UNC0_PRINTF_SKIPPOS) && unc0_isdigit(*format)) {
+                const char *tmp = format;
+                while (unc0_isdigit(*tmp))
+                    ++tmp;
+                if (*tmp == '$')
+                    format = tmp + 1;
+            }
 nextflag:
             switch ((c = *format)) {
             case '-':
@@ -906,6 +862,11 @@ nextflag:
                 ++format;
                 goto nextflag;
             }
+
+            if (flags & PR_FLAG_LEFT)
+                flags &= ~PR_FLAG_ZERO;
+            if (flags & PR_FLAG_SIGN)
+                flags &= ~PR_FLAG_SPACE;
 
             if (unc0_isdigit(*format)) {
                 size_t nw;
@@ -1073,27 +1034,23 @@ nextflag:
             case 'g':
             case 'a':
             {
-                long double num;
+                Unc_FloatMax num;
                 switch (len) {
                 case L_l:
-                    num = (long double)va_arg(arg, double);
+                default:
+                    num = (Unc_FloatMax)va_arg(arg, double);
                     break;
                 case L_L:
-                    num = (long double)va_arg(arg, long double);
+                    num = (Unc_FloatMax)va_arg(arg, long double);
                     break;
-                default:
-                    num = (long double)(float)va_arg(arg, double);
-                    break;
+                /*default:
+                    num = (Unc_FloatMax)(float)va_arg(arg, double);
+                    break;*/
                 }
 
                 if (!(flags & PR_FLAG_PREC)) precision = 6;
                 if (c == 'g') {
-                    intmax_t exp = 
-#if UNCIL_C99
-                        num ? (intmax_t)floorl(log10l(fabsl(num))) : 0;
-#else
-                        num ? (intmax_t)floor(log10(fabs((double)num))) : 0;
-#endif
+                    intmax_t exp =  num ? (intmax_t)unc0_malog10f(num) : 0;
                     if (!precision) precision = 1;
                     if ((exp < 0 || precision > exp) && exp >= -4) {
                         precision -= exp + 1;
@@ -1115,16 +1072,33 @@ nextflag:
                 break;
             }
             case 'c':
-                PUTC(va_arg(arg, int));
+                if (gflags & UNC0_PRINTF_UTF8) {
+                    byte uc[UNC_UTF8_MAX_SIZE];
+                    unsigned long u = va_arg(arg, unsigned long);
+                    size_t i, n;
+                    if (u >= UNC_UTF8_MAX_CHAR) u = 0xFFFDUL;
+                    n = unc0_utf8enc(u, sizeof(uc), uc);
+                    for (i = 0; i < n; ++i) {
+                        PUTC(uc[i]);
+                    }
+                } else
+                    PUTC(va_arg(arg, int));
                 break;
             case 's':
                 if (!(flags & PR_FLAG_PREC)) precision = SIZE_MAX;
-                e = unc0_vxprintf_s(out, udata, flags, width, precision,
-                                    va_arg(arg, const char *));
+                if (gflags & UNC0_PRINTF_UTF8)
+                    e = unc0_vxprintf_su(out, udata, flags,
+                                         width, precision,
+                                         va_arg(arg, const char *));
+                else
+                    e = unc0_vxprintf_s(out, udata, flags,
+                                        width, precision,
+                                        va_arg(arg, const char *));
                 break;
             case 'S':
                 if (!(flags & PR_FLAG_PREC)) precision = 1;
-                e = unc0_vxprintf_ss(out, udata, flags, width, precision,
+                e = unc0_vxprintf_ss(out, udata, flags,
+                                     width, precision,
                                      va_arg(arg, const char *));
                 break;
             case 'p':
@@ -1136,7 +1110,7 @@ nextflag:
                                 (uintptr_t)va_arg(arg, void *));
                 break;
             case 'n':
-                *(va_arg(arg, int *)) = outp;
+                *(va_arg(arg, size_t *)) = outp;
                 break;
             }
 
@@ -1148,12 +1122,13 @@ nextflag:
     return outp;
 }
 
-int unc0_xprintf(int (*out)(char outp, void *udata),
-                 void *udata, const char *format, ...) {
-    int r;
+size_t unc0_xprintf(int (*out)(char outp, void *udata),
+                    void *udata, int gflags,
+                    size_t format_n, const char *format, ...) {
+    size_t r;
     va_list va;
     va_start(va, format);
-    r = unc0_vxprintf(out, udata, format, va);
+    r = unc0_vxprintf(out, udata, gflags, format_n, format, va);
     va_end(va);
     return r;
 }
@@ -1170,21 +1145,208 @@ static int xsnprintf_wrapper(char c, void *udata) {
     return 0;
 }
 
-int unc0_vxsnprintf(char *out, size_t n, const char *format, va_list arg) {
-    int r;
+size_t unc0_vxsnprintf(char *out, size_t n, int gflags,
+                       const char *format, va_list arg) {
+    size_t r;
     struct xsnprintf_buffer buf;
     buf.c = out;
     buf.n = n - 1;
-    r = unc0_vxprintf(&xsnprintf_wrapper, &buf, format, arg);
+    r = unc0_vxprintf(&xsnprintf_wrapper, &buf, gflags, 0, format, arg);
     *buf.c++ = 0;
     return r;
 }
 
-int unc0_xsnprintf(char *out, size_t n, const char *format, ...) {
-    int r;
+size_t unc0_xsnprintf(char *out, size_t n, int gflags, 
+                      const char *format, ...) {
+    size_t r;
     va_list va;
     va_start(va, format);
-    r = unc0_vxsnprintf(out, n, format, va);
+    r = unc0_vxsnprintf(out, n, gflags, format, va);
     va_end(va);
     return r;
+}
+
+size_t unc0_printf_specparse(unsigned *output, const char **p_format,
+                             int gflags) {
+    char c;
+    size_t outputs = 0;
+    const char *format = *p_format;
+    enum length_mod len = L_;
+
+    if ((gflags & UNC0_PRINTF_SKIPPOS) && unc0_isdigit(*format)) {
+        const char *backup = format;
+        while (unc0_isdigit(*format))
+            ++format;
+        if (*format == '$')
+            ++format;
+        else
+            format = backup;
+    }
+
+nextflag:
+    switch ((c = *format)) {
+    case '-':
+    case '+':
+    case ' ':
+    case '#':
+    case '0':
+        ++format;
+        goto nextflag;
+    }
+
+    if (unc0_isdigit(*format)) {
+        while (unc0_isdigit((c = *format)))
+            ++format;
+    } else if (*format == '*') {
+        output[outputs++] = UNC_PRINTFSPEC_STAR;
+        ++format;
+    }
+    
+    if (*format == '.') {
+        ++format;
+        if (unc0_isdigit(*format)) {
+            while (unc0_isdigit((c = *format)))
+                ++format;
+        } else if (*format == '*') {
+            output[outputs++] = UNC_PRINTFSPEC_STAR;
+            ++format;
+        }
+    }
+
+    switch ((c = *format)) {
+    case 'h':
+        if (*++format == 'h')
+            len = L_hh, ++format;
+        else
+            len = L_h;
+        break;
+    case 'l':
+        if (*++format == 'l')
+            len = L_ll, ++format;
+        else
+            len = L_l;
+        break;
+    case 'j':
+        len = L_j;
+        ++format;
+        break;
+    case 't':
+        len = L_t;
+        ++format;
+        break;
+    case 'z':
+        len = L_z;
+        ++format;
+        break;
+    case 'L':
+        len = L_L;
+        ++format;
+        break;
+    }
+
+    switch ((c = *format++)) {
+    case 'd':
+    case 'i':
+    {
+        unsigned mode;
+        switch (len) {
+        case L_l:
+            mode = UNC_PRINTFSPEC_LI;
+            break;
+#if UNCIL_C99
+        case L_ll:
+            mode = UNC_PRINTFSPEC_LLI;
+            break;
+#endif
+        case L_j:
+            mode = UNC_PRINTFSPEC_JI;
+            break;
+        case L_t:
+            mode = UNC_PRINTFSPEC_TI;
+            break;
+        case L_z:
+            mode = UNC_PRINTFSPEC_ZI;
+            break;
+        case L_hh:
+        case L_h:
+        default:
+            mode = UNC_PRINTFSPEC_I;
+            break;
+        }
+        output[outputs++] = mode;
+        break;
+    }
+    case 'o':
+    case 'X':
+    case 'x':
+    case 'u':
+    {
+        unsigned mode;
+        switch (len) {
+        case L_l:
+            mode = UNC_PRINTFSPEC_LU;
+            break;
+#if UNCIL_C99
+        case L_ll:
+            mode = UNC_PRINTFSPEC_LLU;
+            break;
+#endif
+        case L_j:
+            mode = UNC_PRINTFSPEC_JU;
+            break;
+        case L_t:
+            mode = UNC_PRINTFSPEC_TU;
+            break;
+        case L_z:
+            mode = UNC_PRINTFSPEC_ZU;
+            break;
+        case L_hh:
+        case L_h:
+        default:
+            mode = UNC_PRINTFSPEC_U;
+            break;
+        }
+        output[outputs++] = mode;
+        break;
+    }
+    case 'F':
+    case 'E':
+    case 'G':
+    case 'A':
+    case 'f':
+    case 'e':
+    case 'g':
+    case 'a':
+    {
+        unsigned mode;
+        switch (len) {
+        case L_L:
+            mode = UNC_PRINTFSPEC_LLF;
+            break;
+        case L_l:
+        default:
+            mode = UNC_PRINTFSPEC_LF;
+            break;
+        }
+        output[outputs++] = mode;
+        break;
+    }
+    case 'c':
+        output[outputs++] = UNC_PRINTFSPEC_C;
+        break;
+    case 's':
+        output[outputs++] = UNC_PRINTFSPEC_S;
+        break;
+    case 'p':
+        output[outputs++] = UNC_PRINTFSPEC_P;
+        break;
+    case 'n':
+        output[outputs++] = UNC_PRINTFSPEC_N;
+        break;
+    }
+
+    output[outputs] = UNC_PRINTFSPEC_NULL;
+    /* outputs < UNC_PRINTFSPEC_MAX */
+    *p_format = format;
+    return outputs;
 }

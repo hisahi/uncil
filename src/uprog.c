@@ -47,7 +47,7 @@ void unc0_initprogram(Unc_Program *program) {
     program->pname = NULL;
 }
 
-int unc0_upgradeprogram(Unc_Program *program, Unc_Allocator *alloc) {
+Unc_RetVal unc0_upgradeprogram(Unc_Program *program, Unc_Allocator *alloc) {
     if (program->uncil_version == UNCIL_PROGRAM_VER)
         return 0;
     if (program->uncil_version > UNCIL_PROGRAM_VER)

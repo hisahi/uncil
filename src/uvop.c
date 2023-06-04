@@ -131,8 +131,9 @@ int unc0_vvcmpe(Unc_View *w, Unc_Value *a, Unc_Value *b, int e) {
     return unc0_vvcmpe_(w, a, b, e);
 }
 
-int unc0_vgetattrf(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
-                                    int q, Unc_Value *v) {
+Unc_RetVal unc0_vgetattrf(Unc_View *w, Unc_Value *a,
+                          Unc_Size sl, const byte *sb,
+                          int q, Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TString:
         return unc0_vgetattr(w, &w->world->met_str, sl, sb, q, v);
@@ -141,7 +142,7 @@ int unc0_vgetattrf(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
     case Unc_TArray:
         return unc0_vgetattr(w, &w->world->met_arr, sl, sb, q, v);
     case Unc_TTable:
-        return unc0_vgetattr(w, &w->world->met_dict, sl, sb, q, v);
+        return unc0_vgetattr(w, &w->world->met_table, sl, sb, q, v);
     case Unc_TObject:
     case Unc_TOpaque:
         return unc0_vgetattr(w, a, sl, sb, q, v);
@@ -150,12 +151,14 @@ int unc0_vgetattrf(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
     }
 }
 
-int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
-                                    int q, Unc_Value *v) {
+Unc_RetVal unc0_vgetattr(Unc_View *w, Unc_Value *a,
+                         Unc_Size sl, const byte *sb,
+                         int q, Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TTable: {
         Unc_Value r = UNC_BLANK;
-        int e, f;
+        Unc_RetVal e;
+        int f;
         e = unc0_dgetattrs(w, LEFTOVER(Unc_Dict, VGETENT(a)), sl, sb, &f, &r);
         if (e) return e;
         if (f)
@@ -170,8 +173,10 @@ int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
     }
     case Unc_TObject: {
         Unc_Value r = UNC_BLANK;
-        int e, f;
-        e = unc0_ogetattrs(w, LEFTOVER(Unc_Object, VGETENT(a)), sl, sb, &f, &r);
+        Unc_RetVal e;
+        int f;
+        e = unc0_ogetattrs(w, LEFTOVER(Unc_Object, VGETENT(a)),
+                           sl, sb, &f, &r);
         if (e) return e;
         if (f)
             VMOVE(w, v, &r);
@@ -188,7 +193,8 @@ int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
         Unc_Opaque *oq = LEFTOVER(Unc_Opaque, VGETENT(a));
         if (VGETTYPE(&oq->prototype)) {
             Unc_Value o = UNC_BLANK;
-            int e, f;
+            Unc_RetVal e;
+            int f;
             e = unc0_getprotomethod(w, a, sl, sb, &f, &o);
             if (e)
                 return e;
@@ -213,8 +219,8 @@ int unc0_vgetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
     }
 }
 
-int unc0_vsetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
-                                    Unc_Value *v) {
+Unc_RetVal unc0_vsetattr(Unc_View *w, Unc_Value *a,
+                         Unc_Size sl, const byte *sb, Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TTable:
         return unc0_dsetattrs(w, LEFTOVER(Unc_Dict, VGETENT(a)), sl, sb, v);
@@ -225,7 +231,8 @@ int unc0_vsetattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb,
     }
 }
 
-int unc0_vdelattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb) {
+Unc_RetVal unc0_vdelattr(Unc_View *w, Unc_Value *a,
+                         Unc_Size sl, const byte *sb) {
     switch (VGETTYPE(a)) {
     case Unc_TTable:
         return unc0_ddelattrs(w, LEFTOVER(Unc_Dict, VGETENT(a)), sl, sb);
@@ -236,12 +243,13 @@ int unc0_vdelattr(Unc_View *w, Unc_Value *a, Unc_Size sl, const byte *sb) {
     }
 }
 
-int unc0_vgetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
-                   Unc_Value *v) {
+Unc_RetVal unc0_vgetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
+                          Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TTable: {
         Unc_Value r = UNC_BLANK;
-        int e, f;
+        Unc_RetVal e;
+        int f;
         e = unc0_dgetattrv(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, &f, &r);
         if (e) return e;
         if (f)
@@ -256,7 +264,8 @@ int unc0_vgetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
     }
     case Unc_TObject: {
         Unc_Value r = UNC_BLANK;
-        int e, f;
+        Unc_RetVal e;
+        int f;
         e = unc0_ogetattrv(w, LEFTOVER(Unc_Object, VGETENT(a)), i, &f, &r);
         if (e) return e;
         if (f)
@@ -275,7 +284,8 @@ int unc0_vgetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, int q,
     }
 }
 
-int unc0_vsetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, Unc_Value *v) {
+Unc_RetVal unc0_vsetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i,
+                          Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TTable:
         return unc0_dsetattrv(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, v);
@@ -286,7 +296,7 @@ int unc0_vsetattrv(Unc_View *w, Unc_Value *a, Unc_Value *i, Unc_Value *v) {
     }
 }
 
-int unc0_vdelattrv(Unc_View *w, Unc_Value *a, Unc_Value *i) {
+Unc_RetVal unc0_vdelattrv(Unc_View *w, Unc_Value *a, Unc_Value *i) {
     switch (VGETTYPE(a)) {
     case Unc_TTable:
         return unc0_ddelattrv(w, LEFTOVER(Unc_Dict, VGETENT(a)), i);
@@ -297,8 +307,8 @@ int unc0_vdelattrv(Unc_View *w, Unc_Value *a, Unc_Value *i) {
     }
 }
 
-int unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
-                  int q, Unc_Value *v) {
+Unc_RetVal unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
+                         int q, Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TString:
         return unc0_sgetcodepat(w, LEFTOVER(Unc_String, VGETENT(a)), i, q, v);
@@ -308,7 +318,8 @@ int unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
         return unc0_agetindx(w, LEFTOVER(Unc_Array, VGETENT(a)), i, q, v);
     case Unc_TTable: {
         Unc_Value r = UNC_BLANK;
-        int e, f;
+        Unc_RetVal e;
+        int f;
         e = unc0_dgetindx(w, LEFTOVER(Unc_Dict, VGETENT(a)), i, &f, &r);
         if (e) return e;
         if (f)
@@ -323,7 +334,8 @@ int unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
     }
     case Unc_TObject: {
         Unc_Value r = UNC_BLANK;
-        int e, f;
+        Unc_RetVal e;
+        int f;
         e = unc0_ogetindx(w, LEFTOVER(Unc_Object, VGETENT(a)), i, &f, &r);
         if (e) return e;
         if (f)
@@ -341,13 +353,14 @@ int unc0_vgetindx(Unc_View *w, Unc_Value *a, Unc_Value *i,
     }
 }
 
-int unc0_vsetindx(Unc_View *w, Unc_Value *a, Unc_Value *i, Unc_Value *v) {
+Unc_RetVal unc0_vsetindx(Unc_View *w, Unc_Value *a,
+                         Unc_Value *i, Unc_Value *v) {
     switch (VGETTYPE(a)) {
     case Unc_TString:
         return UNCIL_ERR_ARG_CANNOTSETINDEX;
     case Unc_TBlob:
     {
-        int e = unc0_blsetbyte(w, LEFTOVER(Unc_Blob, VGETENT(a)), i, v);
+        Unc_RetVal e = unc0_blsetbyte(w, LEFTOVER(Unc_Blob, VGETENT(a)), i, v);
         if (e == UNCIL_ERR_CONVERT_TOINT)
             return unc0_throwexc(w, "type", "blob value must be a valid byte");
         return e;
@@ -363,7 +376,7 @@ int unc0_vsetindx(Unc_View *w, Unc_Value *a, Unc_Value *i, Unc_Value *v) {
     }
 }
 
-int unc0_vdelindx(Unc_View *w, Unc_Value *a, Unc_Value *i) {
+Unc_RetVal unc0_vdelindx(Unc_View *w, Unc_Value *a, Unc_Value *i) {
     switch (VGETTYPE(a)) {
     case Unc_TString:
     case Unc_TBlob:
@@ -387,11 +400,11 @@ Unc_RetVal unc0_iter_blob(Unc_View *w, Unc_Tuple args, void *udata);
 Unc_RetVal unc0_iter_array(Unc_View *w, Unc_Tuple args, void *udata);
 Unc_RetVal unc0_iter_table(Unc_View *w, Unc_Tuple args, void *udata);
 
-int unc0_vgetiter(Unc_View *w, Unc_Value *out, Unc_Value *in) {
+Unc_RetVal unc0_vgetiter(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     switch (VGETTYPE(in)) {
     case Unc_TString:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Entity *en = unc0_wake(w, Unc_TFunction);
         Unc_Value initvalues[2];
         if (!en) return UNCIL_ERR_MEM;
@@ -411,7 +424,7 @@ int unc0_vgetiter(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     }
     case Unc_TBlob:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Entity *en = unc0_wake(w, Unc_TFunction);
         Unc_Value initvalues[2];
         if (!en) return UNCIL_ERR_MEM;
@@ -431,7 +444,7 @@ int unc0_vgetiter(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     }
     case Unc_TArray:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Entity *en = unc0_wake(w, Unc_TFunction);
         Unc_Value initvalues[2];
         if (!en) return UNCIL_ERR_MEM;
@@ -451,7 +464,7 @@ int unc0_vgetiter(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     }
     case Unc_TTable:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Entity *en = unc0_wake(w, Unc_TFunction);
         Unc_Value initvalues[4];
         if (!en) return UNCIL_ERR_MEM;
@@ -479,7 +492,7 @@ int unc0_vgetiter(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     }
 }
 
-int unc0_vcvt2int(Unc_View *w, Unc_Value *out, Unc_Value *in) {
+Unc_RetVal unc0_vcvt2int(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     switch (VGETTYPE(in)) {
     case Unc_TInt:
         VCOPY(w, out, in);
@@ -551,7 +564,7 @@ int unc0_vcvt2int(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     case Unc_TOpaque:
     {
         Unc_Value vout;
-        int e = unc0_vovlunary(w, in, &vout,
+        Unc_RetVal e = unc0_vovlunary(w, in, &vout,
                                 PASSSTRL(OPOVERLOAD(int)));
         if (e) {
             if (UNCIL_IS_ERR(e)) return e;
@@ -595,7 +608,7 @@ int unc0_vcvt2int(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     }
 }
 
-int unc0_vcvt2flt(Unc_View *w, Unc_Value *out, Unc_Value *in) {
+Unc_RetVal unc0_vcvt2flt(Unc_View *w, Unc_Value *out, Unc_Value *in) {
     switch (VGETTYPE(in)) {
     case Unc_TInt:
         VSETFLT(w, out, (Unc_Float)VGETINT(in));
@@ -608,7 +621,7 @@ int unc0_vcvt2flt(Unc_View *w, Unc_Value *out, Unc_Value *in) {
         Unc_Size sn;
         const byte *sb;
         Unc_Float f;
-        int n;
+        size_t n;
         Unc_String *s = LEFTOVER(Unc_String, VGETENT(in));
         sn = s->size;
         sb = unc0_getstringdata(s);
@@ -693,7 +706,7 @@ int unc0_vovlunary(Unc_View *w, Unc_Value *in,
 int unc0_vovlbinary(Unc_View *w, Unc_Value *a, Unc_Value *b,
                         Unc_Value *out, Unc_Size bn, const byte *bb,
                                         Unc_Size b2n, const byte *b2b) {
-    int e, fnf;
+    int e,  fnf;
     Unc_Value fn = UNC_BLANK;
     e = unc0_getprotomethod(w, a, bn, bb, &fnf, &fn);
     if (e) return e;
@@ -788,7 +801,8 @@ int unc0_vovlbinary(Unc_View *w, Unc_Value *a, Unc_Value *b,
 }
 
 int unc0_vdowith(Unc_View *w, Unc_Value *v) {
-    int e, fnf;
+    int e;
+    int fnf;
     Unc_Value fn = UNC_BLANK;
     e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(open)), &fnf, &fn);
     if (!e && fnf) {
@@ -821,7 +835,8 @@ int unc0_vdowith(Unc_View *w, Unc_Value *v) {
 }
 
 void unc0_vdowout(Unc_View *w, Unc_Value *v) {
-    int e, fnf;
+    Unc_RetVal e;
+    int fnf;
     Unc_Value fn = UNC_BLANK;
     e = unc0_getprotomethod(w, v, PASSSTRL(OPOVERLOAD(close)), &fnf, &fn);
     if (!e && fnf) {

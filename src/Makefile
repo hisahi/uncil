@@ -17,11 +17,12 @@ OBJS=uvlq.o uview.o utxt.o uarithm.o ustack.o uhash.o ubtree.o uctype.o uval.o \
      ulibtime.o ulibregx.o ulibjson.o ulibcbor.o ulibfs.o ulibproc.o           \
      ulibunic.o ulibcoro.o ulibthrd.o
 
-HEADERS=ualloc.h uarithm.h uarr.h ublob.h ubtree.h ucommon.h ucomp.h uctype.h  \
-        ucxt.h udebug.h udef.h uerr.h ufunc.h ugc.h uhash.h ulex.h ulibio.h    \
-        umem.h umodule.h umt.h uncil.h uobj.h uosdef.h uopaque.h uops.h        \
-        uoptim.h uparse.h uprog.h usort.h ustack.h ustr.h utxt.h uutf.h uval.h \
-        uvali.h uview.h uvlq.h uvm.h uvop.h uvsio.h uxprintf.h uxscanf.h
+HEADERS=ualloc.h uarithm.h uarr.h ublob.h ubtree.h ucommon.h ucomp.h           \
+        ucompdef.h ucstd.h uctype.h ucxt.h udebug.h udef.h uerr.h ufunc.h      \
+        ugc.h uhash.h ulex.h ulibio.h umem.h umodule.h umt.h uncil.h uobj.h    \
+        uopaque.h uops.h uoptim.h uosdef.h uparse.h uprog.h usort.h ustack.h   \
+        ustr.h utxt.h uutf.h uval.h uvali.h uview.h uvlq.h uvm.h uvop.h        \
+        uvsio.h uxprintf.h uxscanf.h
 
 ALLOBJS := $(OBJS) uncver.o uncil.o uncilc.o dbguncil.o udebug.o uncil.o
 DEBUGOBJS?=udebug.o

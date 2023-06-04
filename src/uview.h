@@ -29,11 +29,11 @@ SOFTWARE.
 
 #include "uncil.h"
 
-Unc_World *unc0_incept(Unc_Alloc alloc, void *udata);
+Unc_World *unc0_launch(Unc_Alloc alloc, void *udata);
 Unc_View *unc0_newview(Unc_World *world, Unc_ViewType vtype);
 void unc0_haltview(Unc_View *view);
 void unc0_freeview(Unc_View *view);
-void unc0_doomsday(Unc_View *v, Unc_World *w);
+void unc0_scuttle(Unc_View *v, Unc_World *w);
 
 void unc0_wsetprogram(Unc_View *w, Unc_Program *p);
 

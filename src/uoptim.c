@@ -31,7 +31,7 @@ SOFTWARE.
 #include "uparse.h"
 #include "uvlq.h"
 
-#define MUST(val) do { int e; if ((e = (val))) return e; } while (0)
+#define MUST(val) do { Unc_RetVal e; if ((e = (val))) return e; } while (0)
 
 #define MARK(cd) ((cd)->o0type |= 0x80, (cd)->o1type &= 0x7F)
 #define UNMARK(cd) ((cd)->o0type &= 0x7F, (cd)->o1type &= 0x7F)
@@ -97,7 +97,7 @@ INLINE Unc_Dst reducetmp_mapreg(Unc_Size *trd, Unc_Dst reg,
     return dst + 1;
 }
 
-static int reducetmp(Unc_Context *cxt, Unc_QFunc *fn) {
+static Unc_RetVal reducetmp(Unc_Context *cxt, Unc_QFunc *fn) {
     /* minimize temp registers by merging ones where the lifetimes do not 
         overlap. ignore TMP(0) though, that one is special */
     Unc_Dst *trs;
@@ -171,7 +171,7 @@ reducetmp_fail0:
     return 0;
 }
 
-static int tailcalls(Unc_Context *cxt, Unc_QFunc *fn) {
+static Unc_RetVal tailcalls(Unc_Context *cxt, Unc_QFunc *fn) {
     Unc_Size n = fn->cd_sz, i = n;
     Unc_QInstr *cd = fn->cd + n;
     int exited = 0;
@@ -231,7 +231,7 @@ static Unc_Size mergejmps_i(Unc_QInstr *qc, Unc_Size qi, int rec) {
     return qi;
 }
 
-static int mergejmps(Unc_Context *cxt, Unc_QFunc *fn) {
+static Unc_RetVal mergejmps(Unc_Context *cxt, Unc_QFunc *fn) {
     Unc_Size i, n = fn->cd_sz;
     for (i = 0; i < n; ++i) {
         if (unc0_qcode_isjump(fn->cd[i].op)) {
@@ -241,7 +241,7 @@ static int mergejmps(Unc_Context *cxt, Unc_QFunc *fn) {
     return 0;
 }
 
-static int nodeadcode_i(Unc_Context *cxt, Unc_QFunc *fn) {
+static Unc_RetVal nodeadcode_i(Unc_Context *cxt, Unc_QFunc *fn) {
     Unc_Size i, n = fn->cd_sz;
     int ret = 0;
     for (i = 0; i < n; ++i)
@@ -287,7 +287,7 @@ nodeadcode_again:
     return ret;
 }
 
-static int nodeadcode(Unc_Context *cxt, Unc_QFunc *fn) {
+static Unc_RetVal nodeadcode(Unc_Context *cxt, Unc_QFunc *fn) {
     int cycles = 8;
     while (--cycles && nodeadcode_i(cxt, fn))
         ;
@@ -310,7 +310,7 @@ static Unc_Size ilog2(Unc_Size v) {
     return v;
 }
 
-int unc0_optqcode(Unc_Context *cxt, Unc_QCode *out) {
+Unc_RetVal unc0_optqcode(Unc_Context *cxt, Unc_QCode *out) {
     Unc_Size i, fs = out->fn_sz;
     /* intra-function optimizations */
     for (i = 0; i < fs; ++i) {

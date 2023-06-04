@@ -31,11 +31,13 @@ SOFTWARE.
 
 #include "udef.h"
 
+#define UNCIL_OK 0
 /* error codes */
 /* note that 0x01 - 0xFF are "valid" return values depending on context!
    they can never be valid error codes! -1 is also never a valid error code */
 #define UNCIL_ERR_MEM 0x0100
 #define UNCIL_ERR_INTERNAL 0x0101
+#define UNCIL_ERR_RESOURCE 0x0102
 #define UNCIL_ERR_UNCIL 0x0200
 #define UNCIL_ERR_SYNTAX 0x0300
 #define UNCIL_ERR_SYNTAX_UNTERMSTR 0x0301
@@ -46,20 +48,20 @@ SOFTWARE.
 #define UNCIL_ERR_SYNTAX_TOODEEP 0x0306
 #define UNCIL_ERR_SYNTAX_BADBREAK 0x0307
 #define UNCIL_ERR_SYNTAX_BADCONTINUE 0x0308
-#define UNCIL_ERR_SYNTAX_INLINEIFMUSTELSE 0x0309
+#define UNCIL_ERR_SYNTAX_INLINEIFNOELSE 0x0309
 #define UNCIL_ERR_SYNTAX_NOFOROP 0x030A
-#define UNCIL_ERR_SYNTAX_CANNOTPUBLICLOCAL 0x030B
+#define UNCIL_ERR_SYNTAX_PUBLICONLOCAL 0x030B
 #define UNCIL_ERR_SYNTAX_OPTAFTERREQ 0x030C
 #define UNCIL_ERR_SYNTAX_UNPACKLAST 0x030D
-#define UNCIL_ERR_SYNTAX_NODEFAULTUNPACK 0x030E
-#define UNCIL_ERR_SYNTAX_ONLYONEELLIPSIS 0x030F
-#define UNCIL_ERR_SYNTAX_FUNCTABLEUNNAMED 0x0310
-#define UNCIL_ERR_SYNTAX_ELLIPSISCOMPOUND 0x0311
+#define UNCIL_ERR_SYNTAX_UNPACKDEFAULT 0x030E
+#define UNCIL_ERR_SYNTAX_MANYELLIPSES 0x030F
+#define UNCIL_ERR_SYNTAX_TBLNONAMEFUNC 0x0310
+#define UNCIL_ERR_SYNTAX_COMPOUNDELLIP 0x0311
 #define UNCIL_ERR_SYNTAX_PUBLICONLYONE 0x0312
 #define UNCIL_ERR_PROGRAM_INCOMPATIBLE 0x0401
 #define UNCIL_ERR_UNHASHABLE 0x0402
 #define UNCIL_ERR_ARG_OUTOFBOUNDS 0x0403
-#define UNCIL_ERR_ARG_REFCOPYOUTOFBOUNDS 0x0404
+#define UNCIL_ERR_ARG_BADREFCOPYINDEX 0x0404
 #define UNCIL_ERR_ARG_INDEXOUTOFBOUNDS 0x0405
 #define UNCIL_ERR_ARG_INDEXNOTINTEGER 0x0406
 #define UNCIL_ERR_ARG_CANNOTWEAK 0x0407
@@ -89,6 +91,7 @@ SOFTWARE.
 #define UNCIL_ERR_ARG_NULLCHAR 0x041F
 #define UNCIL_ERR_ARG_INTOVERFLOW 0x0420
 #define UNCIL_ERR_ARG_NOCFUNC 0x0421
+#define UNCIL_ERR_ARG_FAILEDVERIFY 0x0422
 #define UNCIL_ERR_CONVERT_TOINT 0x0502
 #define UNCIL_ERR_CONVERT_TOFLOAT 0x0503
 #define UNCIL_ERR_IO_GENERIC 0x0600
@@ -133,11 +136,11 @@ SOFTWARE.
 
 struct Unc_View;
 struct Unc_Frame;
-int unc0_err_unsup1(struct Unc_View *w, int t);
-int unc0_err_unsup2(struct Unc_View *w, int t1, int t2);
-int unc0_err_unsup2(struct Unc_View *w, int t1, int t2);
-int unc0_err_withname(struct Unc_View *w, int e, Unc_Size s,
-                      const unsigned char *b);
+Unc_RetVal unc0_err_unsup1(struct Unc_View *w, int t);
+Unc_RetVal unc0_err_unsup2(struct Unc_View *w, int t1, int t2);
+Unc_RetVal unc0_err_unsup2(struct Unc_View *w, int t1, int t2);
+Unc_RetVal unc0_err_withname(struct Unc_View *w, Unc_RetVal e, Unc_Size s,
+                             const unsigned char *b);
 void unc0_errstackpush(struct Unc_View *w, Unc_Size lineno);
 void unc0_errstackpushcoro(struct Unc_View *w);
 void unc0_errinfocopyfrom(struct Unc_View *w, struct Unc_View *wc);

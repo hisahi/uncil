@@ -26,8 +26,6 @@ SOFTWARE.
 
 #define UNCIL_DEFINES
 
-#include <string.h>
-
 #include "uerr.h"
 #include "uncil.h"
 #include "uobj.h"
@@ -36,13 +34,14 @@ SOFTWARE.
 #include "uvali.h"
 #include "uvlq.h"
 #include "uvsio.h"
+#include "uxprintf.h"
 
-#define MUST(cond) do { int e; if ((e = (cond))) return e; } while (0)
+#define MUST(cond) do { Unc_RetVal e; if ((e = (cond))) return e; } while (0)
 
 /* make sure type is a string literal */
-int unc0_makeexception(struct Unc_View *w, const char *type,
-                       const char *msg, Unc_Value *out) {
-    int e;
+Unc_RetVal unc0_makeexception(struct Unc_View *w, const char *type,
+                              const char *msg, Unc_Value *out) {
+    Unc_RetVal e;
     Unc_Entity *ed = unc0_wake(w, Unc_TObject), *es1 = NULL, *es2 = NULL;
     Unc_Object *o;
     if (!ed) return UNCIL_ERR_MEM;
@@ -103,10 +102,10 @@ int unc0_makeexception(struct Unc_View *w, const char *type,
     return 0;
 }
 
-/* make sure type is a string literal */
-int unc0_makeexceptiona(struct Unc_View *w, const char *type, Unc_Size msg_n,
-                        byte *msg, Unc_Value *out) {
-    int e;
+/* make sure type is a string literal. null-terminate msg! */
+Unc_RetVal unc0_makeexceptiona(struct Unc_View *w, const char *type,
+                               Unc_Size msg_n, byte *msg, Unc_Value *out) {
+    Unc_RetVal e;
     Unc_Entity *ed = unc0_wake(w, Unc_TObject), *es1 = NULL, *es2 = NULL;
     Unc_Object *o;
     if (!ed) return UNCIL_ERR_MEM;
@@ -137,8 +136,8 @@ int unc0_makeexceptiona(struct Unc_View *w, const char *type, Unc_Size msg_n,
         es2 = unc0_wake(w, Unc_TString);
         if (!es2) e = UNCIL_ERR_MEM;
         else {
-            e = unc0_initstringmove(&w->world->alloc, LEFTOVER(Unc_String, es2),
-                                                      msg_n, msg);
+            e = unc0_initstringmove(&w->world->alloc, 
+                                    LEFTOVER(Unc_String, es2), msg_n, msg);
             if (e) {
                 unc0_unwake(es2, w);
                 es2 = NULL;
@@ -163,9 +162,9 @@ int unc0_makeexceptiona(struct Unc_View *w, const char *type, Unc_Size msg_n,
 }
 
 /* make sure type is a string literal */
-int unc0_makeexceptiont(struct Unc_View *w, const char *type,
-                        Unc_Value *msg, Unc_Value *out) {
-    int e;
+Unc_RetVal unc0_makeexceptiont(struct Unc_View *w, const char *type,
+                               Unc_Value *msg, Unc_Value *out) {
+    Unc_RetVal e;
     Unc_Entity *ed = unc0_wake(w, Unc_TObject), *es1 = NULL;
     Unc_Object *o;
     if (!ed) return UNCIL_ERR_MEM;
@@ -205,9 +204,9 @@ int unc0_makeexceptiont(struct Unc_View *w, const char *type,
     return 0;
 }
 
-int unc0_makeexceptionv(struct Unc_View *w, Unc_Value *type,
-                        Unc_Value *msg, Unc_Value *out) {
-    int e;
+Unc_RetVal unc0_makeexceptionv(struct Unc_View *w, Unc_Value *type,
+                               Unc_Value *msg, Unc_Value *out) {
+    Unc_RetVal e;
     Unc_Entity *ed = unc0_wake(w, Unc_TObject);
     Unc_Object *o;
     if (!ed) return UNCIL_ERR_MEM;
@@ -253,11 +252,12 @@ void unc0_makeexceptionvoroom(Unc_View *w, Unc_Value *out, Unc_Value *type,
         VCOPY(w, out, &w->world->exc_oom);
 }
 
-static void unc0_errtoexcept_unknown(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_unknown(Unc_View *w, Unc_RetVal e,
+                                     Unc_Value *out) {
     unc0_makeexceptionoroom(w, out, "unknown", "unknown error");
 }
 
-static void unc0_errtoexcept_fatal(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_fatal(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_MEM:
         unc0_makeexceptionoroom(w, out, "memory", "out of memory");
@@ -274,11 +274,10 @@ static void unc0_errtoexcept_fatal(Unc_View *w, int e, Unc_Value *out) {
 static void unc0_errtoexcept_syntax_msg(Unc_View *w, Unc_Value *out,
                                         const char *msg) {
     if (w->comperrlineno) {
-        int ee;
         byte *s;
-        ee = unc0_saxprintf(&w->world->alloc, &s,
+        size_t ee = unc0_saxprintf(&w->world->alloc, &s,
             "%s on line %lu", msg, w->comperrlineno);
-        if (ee < 0)
+        if (ee == UNC_PRINTF_EOF)
             VCOPY(w, out, &w->world->exc_oom);
         else
             unc0_makeexceptionaoroom(w, out, "syntax", ee, s);
@@ -287,7 +286,8 @@ static void unc0_errtoexcept_syntax_msg(Unc_View *w, Unc_Value *out,
     unc0_makeexceptionoroom(w, out, "syntax", msg);
 }
 
-static void unc0_errtoexcept_syntax(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_syntax(Unc_View *w, Unc_RetVal e,
+                                    Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_SYNTAX_UNTERMSTR:
         unc0_errtoexcept_syntax_msg(w, out,
@@ -321,7 +321,7 @@ static void unc0_errtoexcept_syntax(Unc_View *w, int e, Unc_Value *out) {
         unc0_errtoexcept_syntax_msg(w, out,
             "unexpected 'continue' (not in a loop)");
         return;
-    case UNCIL_ERR_SYNTAX_INLINEIFMUSTELSE:
+    case UNCIL_ERR_SYNTAX_INLINEIFNOELSE:
         unc0_errtoexcept_syntax_msg(w, out,
             "if expressions must have an else");
         return;
@@ -329,7 +329,7 @@ static void unc0_errtoexcept_syntax(Unc_View *w, int e, Unc_Value *out) {
         unc0_errtoexcept_syntax_msg(w, out,
             "relational operator missing before the end value");
         return;
-    case UNCIL_ERR_SYNTAX_CANNOTPUBLICLOCAL:
+    case UNCIL_ERR_SYNTAX_PUBLICONLOCAL:
         unc0_errtoexcept_syntax_msg(w, out,
             "cannot use public on identifier already assigned to");
         return;
@@ -341,19 +341,19 @@ static void unc0_errtoexcept_syntax(Unc_View *w, int e, Unc_Value *out) {
         unc0_errtoexcept_syntax_msg(w, out,
             "an ellipsis parameter must be the final parameter");
         return;
-    case UNCIL_ERR_SYNTAX_NODEFAULTUNPACK:
+    case UNCIL_ERR_SYNTAX_UNPACKDEFAULT:
         unc0_errtoexcept_syntax_msg(w, out,
             "an ellipsis parameter cannot have a default value");
         return;
-    case UNCIL_ERR_SYNTAX_ONLYONEELLIPSIS:
+    case UNCIL_ERR_SYNTAX_MANYELLIPSES:
         unc0_errtoexcept_syntax_msg(w, out,
             "only one ellipsis to assign to is allowed");
         return;
-    case UNCIL_ERR_SYNTAX_FUNCTABLEUNNAMED:
+    case UNCIL_ERR_SYNTAX_TBLNONAMEFUNC:
         unc0_errtoexcept_syntax_msg(w, out,
             "functions directly under table definitions must have a name");
         return;
-    case UNCIL_ERR_SYNTAX_ELLIPSISCOMPOUND:
+    case UNCIL_ERR_SYNTAX_COMPOUNDELLIP:
         unc0_errtoexcept_syntax_msg(w, out,
             "cannot use ellipsis with compound assignment");
         return;
@@ -369,15 +369,17 @@ static void unc0_errtoexcept_syntax(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-static void unc0_errtoexcept_unsup1(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_unsup1(Unc_View *w, Unc_RetVal e,
+                                    Unc_Value *out) {
     if (w->has_lasterr) {
-        int ee, t0 = w->lasterr.i1;
+        size_t ee;
+        int t0 = w->lasterr.i1;
         byte *s;
         ee = unc0_saxprintf(&w->world->alloc, &s,
             "unary operator not supported on type %s",
             unc0_getvaluetypename(t0));
         w->has_lasterr = 0;
-        if (ee < 0)
+        if (ee == UNC_PRINTF_EOF)
             VCOPY(w, out, &w->world->exc_oom);
         else
             unc0_makeexceptionaoroom(w, out, "type", ee, s);
@@ -387,15 +389,17 @@ static void unc0_errtoexcept_unsup1(Unc_View *w, int e, Unc_Value *out) {
             "unary operation not supported");
 }
 
-static void unc0_errtoexcept_unsup2(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_unsup2(Unc_View *w, Unc_RetVal e,
+                                    Unc_Value *out) {
     if (w->has_lasterr) {
-        int ee, t0 = w->lasterr.i1, t1 = w->lasterr.i2;
+        size_t ee;
+        int t0 = w->lasterr.i1, t1 = w->lasterr.i2;
         byte *s;
         ee = unc0_saxprintf(&w->world->alloc, &s,
             "binary operator not supported on types %s and %s",
             unc0_getvaluetypename(t0), unc0_getvaluetypename(t1));
         w->has_lasterr = 0;
-        if (ee < 0)
+        if (ee == UNC_PRINTF_EOF)
             VCOPY(w, out, &w->world->exc_oom);
         else
             unc0_makeexceptionaoroom(w, out, "type", ee, s);
@@ -406,16 +410,16 @@ static void unc0_errtoexcept_unsup2(Unc_View *w, int e, Unc_Value *out) {
 }
 
 static void unc0_errtoexcept_withname(Unc_View *w, Unc_Value *out,
-                                            const char *type,
-                                            const char *fmsg,
-                                            const char *msg) {
+                                      const char *type,
+                                      const char *fmsg,
+                                      const char *msg) {
     if (w->has_lasterr) {
-        int ee;
+        size_t ee;
         byte *s;
         ee = unc0_saxprintf(&w->world->alloc, &s, fmsg,
             (int)w->lasterr.s, (const char *)w->lasterr.p.c);
         w->has_lasterr = 0;
-        if (ee < 0)
+        if (ee == UNC_PRINTF_EOF)
             VCOPY(w, out, &w->world->exc_oom);
         else
             unc0_makeexceptionaoroom(w, out, type, ee, s);
@@ -424,7 +428,7 @@ static void unc0_errtoexcept_withname(Unc_View *w, Unc_Value *out,
     unc0_makeexceptionoroom(w, out, type, msg);
 }
 
-static void unc0_errtoexcept_arg(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_arg(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_PROGRAM_INCOMPATIBLE:
         unc0_makeexceptionoroom(w, out, "internal",
@@ -438,7 +442,7 @@ static void unc0_errtoexcept_arg(Unc_View *w, int e, Unc_Value *out) {
         unc0_makeexceptionoroom(w, out, "value",
             "index out of bounds");
         return;
-    case UNCIL_ERR_ARG_REFCOPYOUTOFBOUNDS:
+    case UNCIL_ERR_ARG_BADREFCOPYINDEX:
         unc0_makeexceptionoroom(w, out, "interface",
             "reference copy index out of bounds");
         return;
@@ -452,7 +456,8 @@ static void unc0_errtoexcept_arg(Unc_View *w, int e, Unc_Value *out) {
         return;
     case UNCIL_ERR_ARG_CANNOTWEAK:
         unc0_makeexceptionoroom(w, out, "value",
-            "weak references may only be created to values of reference types");
+            "weak references may only be created to "
+            "values of reference types");
         return;
     case UNCIL_ERR_TOODEEP:
         unc0_makeexceptionoroom(w, out, "recursion",
@@ -558,7 +563,7 @@ static void unc0_errtoexcept_arg(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-static void unc0_errtoexcept_cvt(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_cvt(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_CONVERT_TOINT:
         unc0_makeexceptionoroom(w, out, "type", "cannot convert to integer");
@@ -572,7 +577,7 @@ static void unc0_errtoexcept_cvt(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-static void unc0_errtoexcept_io(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_io(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_IO_INVALIDENCODING:
         unc0_makeexceptionoroom(w, out, "encoding", "invalid encoding");
@@ -583,7 +588,7 @@ static void unc0_errtoexcept_io(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-static void unc0_errtoexcept_type(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_type(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_TYPE_NOTBOOL:
         unc0_makeexceptionoroom(w, out, "type",
@@ -639,7 +644,7 @@ static void unc0_errtoexcept_type(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-static void unc0_errtoexcept_logic(Unc_View *w, int e, Unc_Value *out) {
+static void unc0_errtoexcept_logic(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (e) {
     case UNCIL_ERR_LOGIC_UNPACKTOOFEW:
         unc0_makeexceptionoroom(w, out, "value",
@@ -674,7 +679,7 @@ static void unc0_errtoexcept_logic(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-void unc0_errtoexcept(Unc_View *w, int e, Unc_Value *out) {
+void unc0_errtoexcept(Unc_View *w, Unc_RetVal e, Unc_Value *out) {
     switch (UNCIL_ERR_KIND(e)) {
     case UNCIL_ERR_KIND_FATAL:
         unc0_errtoexcept_fatal(w, e, out);
@@ -706,34 +711,43 @@ void unc0_errtoexcept(Unc_View *w, int e, Unc_Value *out) {
     }
 }
 
-int unc0_err_unsup1(struct Unc_View *w, int t) {
+Unc_RetVal unc0_err_unsup1(struct Unc_View *w, int t) {
     w->has_lasterr = 1;
     w->lasterr.i1 = t;
     return UNCIL_ERR_ARG_UNSUP1;
 }
 
-int unc0_err_unsup2(struct Unc_View *w, int t1, int t2) {
+Unc_RetVal unc0_err_unsup2(struct Unc_View *w, int t1, int t2) {
     w->has_lasterr = 1;
     w->lasterr.i1 = t1;
     w->lasterr.i2 = t2;
     return UNCIL_ERR_ARG_UNSUP2;
 }
 
-int unc0_err_withname(struct Unc_View *w, int e, Unc_Size s, const byte *b) {
+Unc_RetVal unc0_err_withname(struct Unc_View *w, Unc_RetVal e,
+                             Unc_Size s, const byte *b) {
     w->has_lasterr = 1;
     w->lasterr.s = s;
     w->lasterr.p.c = b;
     return e;
 }
 
-int unc0_throwexc(struct Unc_View *w, const char *type, const char *msg) {
+Unc_RetVal unc0_throw(struct Unc_View *w, Unc_Value *exc) {
+    VMOVE(w, &w->exc, exc);
+    VINITNULL(exc);
+    return UNCIL_ERR_UNCIL;
+}
+
+Unc_RetVal unc0_throwexc(struct Unc_View *w,
+                         const char *type, const char *msg) {
     unc0_makeexceptionoroom(w, &w->exc, type, msg);
     return UNCIL_ERR_UNCIL;
 }
 
 /* format stack entry */
-static int unc0_errstackfmtu(Unc_View *w, Unc_Value *out, Unc_Size lineno) {
-    int e;
+static Unc_RetVal unc0_errstackfmtu(Unc_View *w, Unc_Value *out,
+                                    Unc_Size lineno) {
+    Unc_RetVal e;
     const byte *un = w->uncfname;
     Unc_Size fname_n;
     const char *pname = w->program->pname, *fname;
@@ -748,9 +762,10 @@ static int unc0_errstackfmtu(Unc_View *w, Unc_Value *out, Unc_Size lineno) {
     if (!pname)
         pname = "<unknown>";
     if (lineno)
-        sprintf(linenumber, ":%"PRIUnc_Int"u", (Unc_UInt)lineno);
+        unc0_xsnprintf(linenumber, sizeof(linenumber), 0,
+                       ":%"PRIUnc_Int"u", (Unc_UInt)lineno);
     else
-        strcpy(linenumber, "");
+        *linenumber = 0;
     if (fname_n > INT_MAX)
         fname_n = INT_MAX;
     e = unc0_usxprintf(w, out, "'%.*S' in %s%s",
@@ -759,12 +774,12 @@ static int unc0_errstackfmtu(Unc_View *w, Unc_Value *out, Unc_Size lineno) {
     return e;
 }
 
-static int unc0_errstackfmt(Unc_View *w, Unc_Value *out, int fromc,
-                                         Unc_Size lineno) {
+static Unc_RetVal unc0_errstackfmt(Unc_View *w, Unc_Value *out, int fromc,
+                                   Unc_Size lineno) {
     if (!fromc)
         return unc0_errstackfmtu(w, out, lineno);
     else {
-        int e;
+        Unc_RetVal e;
         e = unc0_usxprintf(w, out, "(C function)");
         if (!e) unc_incref(w, out);
         return e;
@@ -784,7 +799,7 @@ INLINE int isframec(int ft) {
 void unc0_errstackpush(Unc_View *w, Unc_Size lineno) {
     /* add w to exception stack variable */
     if (!unc_issame(w, &w->exc, &w->world->exc_oom)) {
-        int e;
+        Unc_RetVal e;
         Unc_Value stack = UNC_BLANK;
         e = unc_getattrc(w, &w->exc, "stack", &stack);
         if (e == UNCIL_ERR_ARG_NOSUCHATTR) {
@@ -806,25 +821,25 @@ void unc0_errstackpush(Unc_View *w, Unc_Size lineno) {
 
             e = unc_lockarray(w, &stack, &an, &ap);
             if (e) {
-                unc_clear(w, &stackline);
+                VCLEAR(w, &stackline);
                 return;
             }
             e = unc_resizearray(w, &stack, an + 1, &ap);
             if (e) {
-                unc_clear(w, &stackline);
+                VCLEAR(w, &stackline);
                 return;
             }
             unc_copy(w, &ap[an], &stackline);
             unc_unlock(w, &stack);
-            unc_clear(w, &stackline);
+            VCLEAR(w, &stackline);
         }
-        unc_clear(w, &stack);
+        VCLEAR(w, &stack);
     }
 }
 
 void unc0_errstackpushcoro(struct Unc_View *w) {
     if (!unc_issame(w, &w->exc, &w->world->exc_oom)) {
-        int e;
+        Unc_RetVal e;
         Unc_Value stack = UNC_BLANK;
         e = unc_getattrc(w, &w->exc, "stack", &stack);
         if (e == UNCIL_ERR_ARG_NOSUCHATTR) {
@@ -842,19 +857,19 @@ void unc0_errstackpushcoro(struct Unc_View *w) {
 
             e = unc_lockarray(w, &stack, &an, &ap);
             if (e) {
-                unc_clear(w, &stackline);
+                VCLEAR(w, &stackline);
                 return;
             }
             e = unc_resizearray(w, &stack, an + 1, &ap);
             if (e) {
-                unc_clear(w, &stackline);
+                VCLEAR(w, &stackline);
                 return;
             }
             unc_copy(w, &ap[an], &stackline);
             unc_unlock(w, &stack);
-            unc_clear(w, &stackline);
+            VCLEAR(w, &stackline);
         }
-        unc_clear(w, &stack);
+        VCLEAR(w, &stack);
     }
 }
 

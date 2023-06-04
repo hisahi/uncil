@@ -25,7 +25,6 @@ SOFTWARE.
 *******************************************************************************/
 
 #include <limits.h>
-#include <string.h>
 
 #define UNCIL_DEFINES
 
@@ -38,6 +37,8 @@ SOFTWARE.
 #include "ulex.h"
 #include "umem.h"
 #include "uutf.h"
+
+#define SWAP(T, a, b) do { T _tmp = a; a = b; b = _tmp; } while (0)
 
 INLINE int isbdigit_(int c) {
     return '0' == c || c == '1';
@@ -89,108 +90,115 @@ INLINE int isident_(int c) {
     return unc0_isdigit(c) || unc0_isalnum(c) || c == '_';
 }
 
+INLINE int kwmatch(const char *s, const char *kw) {
+    while (*kw)
+        if (*kw++ != *s++)
+            return 0;
+    return !*s;
+}
+
 #define KWFOUND(target, kw) return (target = kw, 1)
 /* look up keyword with a trie-like structure */
 static int kwtrie(const byte *sb, Unc_LexToken *nx) {
     const char *s = (const char *)sb;
     switch (*s++) {
     case 'a':
-        if (!strcmp(s, "nd"))
+        if (kwmatch(s, "nd"))
             KWFOUND(*nx, ULT_Kand);
         break;
     case 'b':
-        if (!strcmp(s, "reak"))
+        if (kwmatch(s, "reak"))
             KWFOUND(*nx, ULT_Kbreak);
         break;
     case 'c':
         switch (*s++) {
         case 'a':
-            if (!strcmp(s, "tch"))
+            if (kwmatch(s, "tch"))
                 KWFOUND(*nx, ULT_Kcatch);
             break;
         case 'o':
-            if (!strcmp(s, "ntinue"))
+            if (kwmatch(s, "ntinue"))
                 KWFOUND(*nx, ULT_Kcontinue);
         }
         break;
     case 'd':
         switch (*s++) {
         case 'e':
-            if (!strcmp(s, "lete"))
+            if (kwmatch(s, "lete"))
                 KWFOUND(*nx, ULT_Kdelete);
             break;
         case 'o':
-            if (!strcmp(s, ""))
+            if (kwmatch(s, ""))
                 KWFOUND(*nx, ULT_Kdo);
         }
         break;
     case 'e':
         switch (*s++) {
         case 'l':
-            if (!strcmp(s, "se"))
+            if (kwmatch(s, "se"))
                 KWFOUND(*nx, ULT_Kelse);
             break;
         case 'n':
-            if (!strcmp(s, "d"))
+            if (kwmatch(s, "d"))
                 KWFOUND(*nx, ULT_Kend);
         }
         break;
     case 'f':
         switch (*s++) {
         case 'a':
-            if (!strcmp(s, "lse"))
+            if (kwmatch(s, "lse"))
                 KWFOUND(*nx, ULT_Kfalse);
             break;
         case 'o':
-            if (!strcmp(s, "r"))
+            if (kwmatch(s, "r"))
                 KWFOUND(*nx, ULT_Kfor);
             break;
         case 'u':
-            if (!strcmp(s, "nction"))
+            if (kwmatch(s, "nction"))
                 KWFOUND(*nx, ULT_Kfunction);
         }
         break;
     case 'i':
-        if (!strcmp(s, "f"))
+        if (kwmatch(s, "f"))
             KWFOUND(*nx, ULT_Kif);
         break;
     case 'n':
         switch (*s++) {
         case 'o':
-            if (!strcmp(s, "t"))
+            if (kwmatch(s, "t"))
                 KWFOUND(*nx, ULT_Knot);
             break;
         case 'u':
-            if (!strcmp(s, "ll"))
+            if (kwmatch(s, "ll"))
                 KWFOUND(*nx, ULT_Knull);
         }
         break;
     case 'o':
-        if (!strcmp(s, "r"))
+        if (kwmatch(s, "r"))
             KWFOUND(*nx, ULT_Kor);
         break;
     case 'p':
-        if (!strcmp(s, "ublic"))
+        if (kwmatch(s, "ublic"))
             KWFOUND(*nx, ULT_Kpublic);
         break;
     case 'r':
-        if (!strcmp(s, "eturn"))
+        if (kwmatch(s, "eturn"))
             KWFOUND(*nx, ULT_Kreturn);
         break;
     case 't':
         switch (*s++) {
         case 'h':
-            if (!strcmp(s, "en"))
+            if (kwmatch(s, "en"))
                 KWFOUND(*nx, ULT_Kthen);
             break;
         case 'r':
             switch (*s++) {
             case 'u':
-                if (!strcmp(s, "e"))
+                if (kwmatch(s, "e"))
                     KWFOUND(*nx, ULT_Ktrue);
                 break;
             case 'y':
-                if (!strcmp(s, ""))
+                if (kwmatch(s, ""))
                     KWFOUND(*nx, ULT_Ktry);
             }
         }
@@ -198,11 +206,11 @@ static int kwtrie(const byte *sb, Unc_LexToken *nx) {
     case 'w':
         switch (*s++) {
         case 'h':
-            if (!strcmp(s, "ile"))
+            if (kwmatch(s, "ile"))
                 KWFOUND(*nx, ULT_Kwhile);
             break;
         case 'i':
-            if (!strcmp(s, "th"))
+            if (kwmatch(s, "th"))
                 KWFOUND(*nx, ULT_Kwith);
             break;
         }
@@ -217,14 +225,42 @@ static long add_exp(long a, long b) {
     return a + b;
 }
 
-int unc0_lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
-                   int (*getch)(void *ud), void *ud) {
-    int c, err = 0, sign = 0;
+struct strbuf {
+    byte *data;
+    Unc_Size length;
+    Unc_Size capacity;
+    Unc_Size inc_log2;
+};
+
+static Unc_RetVal sputn(Unc_Allocator *alloc, struct strbuf *buf,
+                        unsigned inc_log2, Unc_Size qn, const byte *qq) {
+    if (buf->length + qn > buf->capacity) {
+        Unc_Size inc = 1 << inc_log2;
+        Unc_Size oc = buf->capacity, nc = oc + (inc > qn ? inc : qn);
+        byte *oo = buf->data, *on;
+        nc = (nc + inc - 1) & ~(inc - 1);
+        on = unc0_mrealloc(alloc, 0, oo, oc, nc);
+        if (!on) return UNCIL_ERR_MEM;
+        buf->capacity = nc, buf->data = on;
+    }
+    buf->length += unc0_memcpy(buf->data + buf->length, qq, qn);
+    return 0;
+}
+
+static Unc_RetVal sput1(Unc_Allocator *alloc, struct strbuf *buf,
+                        unsigned inc_log2, byte q) {
+    return sputn(alloc, buf, inc_log2, 1, &q);
+}
+
+Unc_RetVal unc0_lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
+                          int (*getch)(void *ud), void *ud) {
+    int c, sign = 0;
+    Unc_RetVal err = 0;
     Unc_LexToken nx = 0;
     Unc_Allocator *alloc = cxt->alloc;
-    byte *olc = NULL; Unc_Size olc_n = 0, olc_c = 0;
-    byte *ost = NULL; Unc_Size ost_n = 0, ost_c = 0;
-    byte *oid = NULL; Unc_Size oid_n = 0, oid_c = 0;
+    struct strbuf olc = { NULL, 0, 0 };
+    struct strbuf ost = { NULL, 0, 0 };
+    struct strbuf oid = { NULL, 0, 0 };
     Unc_HSet hstr, hid;
     Unc_Size stcount = 0, idcount = 0;
 
@@ -235,7 +271,7 @@ int unc0_lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
     c = getch(ud);
     for (;;) {
         if (c < 0) {
-            if ((err = unc0_strput(alloc, &olc, &olc_n, &olc_c, 2, ULT_END)))
+            if ((err = sput1(alloc, &olc, 2, ULT_END)))
                 goto lexreturn;
             break;
         } else if (c == '\n') {
@@ -352,47 +388,45 @@ noexpneg:
                     buf[0] = ULT_LInt;
                     unc0_memcpy(buf + 1, &u.i, sizeof(Unc_Int));
                 }
-                if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
-                                    sizeof(buf), buf)))
+                if ((err = sputn(alloc, &olc, 6, sizeof(buf), buf)))
                     goto lexreturn;
             }
             continue;
         } else if (isident_(c)) {
             /* read in identifier */
-            Unc_Size oid_n2 = oid_n, res;
+            Unc_Size oid_n2 = oid.length, res;
 
             while (isident_(c)) {
-                if ((err = unc0_strput(alloc, &oid, &oid_n2, &oid_c, 5, c)))
+                if ((err = sput1(alloc, &oid, 5, c)))
                     goto lexreturn;
                 c = getch(ud);
             }
-            if ((err = unc0_strput(alloc, &oid, &oid_n2, &oid_c, 5, 0)))
+            if ((err = sput1(alloc, &oid, 5, 0)))
                 goto lexreturn;
+            SWAP(Unc_Size, oid_n2, oid.length);
             /* handle elseif as else + if as a special case */
-            if (!strcmp((const char *)oid + oid_n, "elseif")) {
+            if (kwmatch((const char *)oid.data + oid.length, "elseif")) {
                 byte buf[] = { ULT_Kelse, ULT_Kif };
-                if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
-                                    sizeof(buf), buf)))
+                if ((err = sputn(alloc, &olc, 6, sizeof(buf), buf)))
                     goto lexreturn;
                 continue;
-            } else if (!kwtrie(oid + oid_n, &nx)) {
+            } else if (!kwtrie(oid.data + oid.length, &nx)) {
                 byte buf[1 + sizeof(Unc_Size)];
-                if ((err = unc0_puthset(&hid, oid_n2 - oid_n, oid + oid_n,
-                                        &res, idcount)))
+                if ((err = unc0_puthset(&hid, oid_n2 - oid.length,
+                                        oid.data + oid.length, &res, idcount)))
                     goto lexreturn;
                 buf[0] = ULT_I;
                 unc0_memcpy(buf + 1, &res, sizeof(Unc_Size));
                 if (res == idcount)
-                    oid_n = oid_n2, ++idcount;
-                if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
-                                    sizeof(buf), buf)))
+                    oid.length = oid_n2, ++idcount;
+                if ((err = sputn(alloc, &olc, 6, sizeof(buf), buf)))
                     goto lexreturn;
                 continue;
             }
         } else if (c == '"') {
             /* read in string */
             byte buf[1 + sizeof(Unc_Size)];
-            Unc_Size ost_n2 = ost_n, res, inc = 4;
+            Unc_Size ost_n2 = ost.length, res, inc = 4;
 
             c = getch(ud);
             for (;;) {
@@ -416,8 +450,7 @@ noexpneg:
                     case '"':
                         break;
                     case '0': /* convert to $c0 $80 temporarily */
-                        if ((err = unc0_strput(alloc, &ost, &ost_n2, &ost_c,
-                                            inc, 0xc0)))
+                        if ((err = sput1(alloc, &ost, inc, 0xc0)))
                             goto lexreturn;
                         c = 0x80;
                         break;
@@ -463,8 +496,7 @@ noexpneg:
                         {
                             byte ubuf[UNC_UTF8_MAX_SIZE];
                             Unc_Size n = unc0_utf8enc(uc, sizeof(ubuf), ubuf);
-                            if ((err = unc0_strputn(alloc, &ost, &ost_n2,
-                                                &ost_c, inc, n, ubuf)))
+                            if ((err = sputn(alloc, &ost, inc, n, ubuf)))
                                 goto lexreturn;
                         }
                         continue;
@@ -473,29 +505,29 @@ noexpneg:
                         goto lexreturn;
                     }
                 }
-                if ((err = unc0_strput(alloc, &ost, &ost_n2, &ost_c, inc, c)))
+                if ((err = sput1(alloc, &ost, inc, c)))
                     goto lexreturn;
                 if (inc < 7)
                     ++inc;
                 c = getch(ud);
             }
-            if ((err = unc0_strput(alloc, &ost, &ost_n2, &ost_c, inc, 0)))
+            if ((err = sput1(alloc, &ost, inc, 0)))
                 goto lexreturn;
-            if (ost_n2 - ost_n < 256) {
+            SWAP(Unc_Size, ost_n2, ost.length);
+            if (ost_n2 - ost.length < 256) {
                 /* check hash */
-                if ((err = unc0_puthset(&hstr, ost_n2 - ost_n, ost + ost_n,
-                                        &res, stcount)))
+                if ((err = unc0_puthset(&hstr, ost_n2 - ost.length,
+                                        ost.data + ost.length, &res, stcount)))
                     goto lexreturn;
             } else {
                 res = stcount;
             }
             buf[0] = ULT_LStr;
             unc0_memcpy(buf + 1, &res, sizeof(Unc_Size));
-            if ((err = unc0_strputn(alloc, &olc, &olc_n, &olc_c, 6,
-                                sizeof(buf), buf)))
+            if ((err = sputn(alloc, &olc, 6, sizeof(buf), buf)))
                 goto lexreturn;
             if (res == stcount)
-                ost_n = ost_n2, ++stcount;
+                ost.length = ost_n2, ++stcount;
             continue;
         } else {
             /* punctuation symbol table */
@@ -659,24 +691,24 @@ noexpneg:
                 c = getch(ud);
 keep_buf:   ;
         }
-        if ((err = unc0_strput(alloc, &olc, &olc_n, &olc_c, 6, nx)))
+        if ((err = sput1(alloc, &olc, 3, nx)))
             goto lexreturn;
     }
     
 lexreturn:
     if (err) {
-        unc0_mfree(alloc, olc, olc_c);
-        unc0_mfree(alloc, ost, ost_c);
-        unc0_mfree(alloc, oid, oid_c);
+        unc0_mfree(alloc, olc.data, olc.capacity);
+        unc0_mfree(alloc, ost.data, ost.capacity);
+        unc0_mfree(alloc, oid.data, oid.capacity);
     } else {
-        Unc_Size s = olc_n;
-        while (s < olc_c)
-            olc[s++] = 0;
-        out->lc_sz = olc_c, out->lc = olc;
-        out->st = unc0_mrealloc(alloc, 0, ost, ost_c, ost_n);
-        out->id = unc0_mrealloc(alloc, 0, oid, oid_c, oid_n);
-        out->st_sz = ost_n, out->st_n = stcount;
-        out->id_sz = oid_n, out->id_n = idcount;
+        Unc_Size s = olc.length;
+        while (s < olc.capacity)
+            olc.data[s++] = 0;
+        out->lc_sz = olc.capacity, out->lc = olc.data;
+        out->st = unc0_mrealloc(alloc, 0, ost.data, ost.capacity, ost.length);
+        out->id = unc0_mrealloc(alloc, 0, oid.data, oid.capacity, oid.length);
+        out->st_sz = ost.length, out->st_n = stcount;
+        out->id_sz = oid.length, out->id_n = idcount;
     }
     unc0_drophset(&hstr);
     unc0_drophset(&hid);
@@ -736,9 +768,9 @@ static int utf8_checker_getch_(void *ud) {
     return c;
 }
 
-int unc0_lexcode(Unc_Context *cxt, Unc_LexOut *out,
-                 int (*getch)(void *ud), void *ud) {
-    int e;
+Unc_RetVal unc0_lexcode(Unc_Context *cxt, Unc_LexOut *out,
+                        int (*getch)(void *ud), void *ud) {
+    Unc_RetVal e;
     struct utf8_checker buf;
     buf.getch = getch;
     buf.ud = ud;
@@ -747,7 +779,6 @@ int unc0_lexcode(Unc_Context *cxt, Unc_LexOut *out,
     buf.invalid = 0;
     buf.eof = 0;
     e = unc0_lexcode_i(cxt, out, &utf8_checker_getch_, &buf);
-    if (buf.invalid)
-        return UNCIL_ERR_IO_INVALIDENCODING;
+    if (buf.invalid) return UNCIL_ERR_IO_INVALIDENCODING;
     return e;
 }

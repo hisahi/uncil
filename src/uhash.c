@@ -25,7 +25,6 @@ SOFTWARE.
 *******************************************************************************/
 
 #include <limits.h>
-#include <string.h>
 
 #define UNCIL_DEFINES
 
@@ -75,8 +74,8 @@ void unc0_inithset(Unc_HSet *hset, Unc_Allocator *alloc) {
     hset->buckets = NULL;
 }
 
-int unc0_puthset(Unc_HSet *hset, Unc_Size sn, const unsigned char *s,
-                  Unc_Size *out, Unc_Size submit) {
+Unc_RetVal unc0_puthset(Unc_HSet *hset, Unc_Size sn, const unsigned char *s,
+                        Unc_Size *out, Unc_Size submit) {
     unsigned h, h1;
     Unc_HSet_V *b, **prev;
     if (!hset->buckets) {
@@ -104,12 +103,13 @@ int unc0_puthset(Unc_HSet *hset, Unc_Size sn, const unsigned char *s,
             /* expand & rehash */
             Unc_Size s, oc = hset->capacity, nc = oc * 2;
             Unc_HSet_V *b, **bb, **obb;
-            if (!(bb = unc0_mallocz(hset->alloc, 0, nc * sizeof(Unc_HSet_V *))))
+            if (!(bb = unc0_mallocz(hset->alloc, 0,
+                                    nc * sizeof(Unc_HSet_V *))))
                 return 1;
             obb = hset->buckets;
             for (s = 0; s < oc; ++s) {
                 Unc_HSet_V **p0 = &bb[s], **p1 = &bb[s + oc];
-                int hh;
+                unsigned hh;
                 b = obb[s];
                 while (b) {
                     hh = unc0_hashstr(b->size, b->val) % nc;
@@ -194,14 +194,15 @@ static Unc_HTblS_V *unc0_lookuphtbls(Unc_HTblS *h, unsigned hash, Unc_Size n,
     return x;
 }
 
-Unc_Value *unc0_gethtbls(Unc_View *w, Unc_HTblS *h, Unc_Size n, const byte *s) {
+Unc_Value *unc0_gethtbls(Unc_View *w, Unc_HTblS *h,
+                         Unc_Size n, const byte *s) {
     Unc_HTblS_V **p;
     Unc_HTblS_V *o = unc0_lookuphtbls(h, unc0_hashstr(n, s), n, s, &p);
     return o ? &o->val : NULL;
 }
 
-int unc0_puthtbls(Unc_View *w, Unc_HTblS *h, Unc_Size n,
-                  const byte *s, Unc_Value **out) {
+Unc_RetVal unc0_puthtbls(Unc_View *w, Unc_HTblS *h, Unc_Size n,
+                         const byte *s, Unc_Value **out) {
     Unc_HTblS_V **p, *o;
     Unc_Allocator *alloc;
     unsigned hash = unc0_hashstr(n, s);
@@ -270,7 +271,8 @@ static void shrinks(Unc_View *w, Unc_HTblS *h) {
                  h->buckets, cc, c);
 }
 
-int unc0_delhtbls(Unc_View *w, Unc_HTblS *h, Unc_Size n, const byte *s) {
+Unc_RetVal unc0_delhtbls(Unc_View *w, Unc_HTblS *h,
+                         Unc_Size n, const byte *s) {
     Unc_HTblS_V **p, *o;
     Unc_Allocator *alloc = &w->world->alloc;
     o = unc0_lookuphtbls(h, unc0_hashstr(n, s), n, s, &p);
@@ -371,8 +373,9 @@ INLINE unsigned hashval(Unc_View *w, Unc_Value *key) {
     return u;
 }
 
-static int unc0_inserthtblv(Unc_View *w, Unc_HTblV *h, Unc_Value *key,
-                            Unc_Value **out, Unc_HTblV_V **p, unsigned hash) {
+static Unc_RetVal unc0_inserthtblv(Unc_View *w, Unc_HTblV *h, Unc_Value *key,
+                                   Unc_Value **out, Unc_HTblV_V **p,
+                                   unsigned hash) {
     Unc_Allocator *alloc = &w->world->alloc;
     Unc_HTblV_V *o;
     if (!h->capacity || h->entries == h->capacity) {
@@ -423,10 +426,11 @@ static int unc0_inserthtblv(Unc_View *w, Unc_HTblV *h, Unc_Value *key,
     return 0;
 }
 
-int unc0_puthtblv(Unc_View *w, Unc_HTblV *h, Unc_Value *key, Unc_Value **out) {
+Unc_RetVal unc0_puthtblv(Unc_View *w, Unc_HTblV *h,
+                         Unc_Value *key, Unc_Value **out) {
     Unc_HTblV_V **p, *o;
     unsigned hash;
-    int e = unc0_hashvalue(w, key, &hash);
+    Unc_RetVal e = unc0_hashvalue(w, key, &hash);
     if (e) return e;
     o = unc0_lookuphtblv(w, h, hash, key, &p);
     if (o) {
@@ -448,11 +452,11 @@ static void shrinkv(Unc_View *w, Unc_HTblV *h) {
                  h->buckets, cc, c);
 }
 
-int unc0_delhtblv(Unc_View *w, Unc_HTblV *h, Unc_Value *key) {
+Unc_RetVal unc0_delhtblv(Unc_View *w, Unc_HTblV *h, Unc_Value *key) {
     Unc_HTblV_V **p, *o;
     Unc_Allocator *alloc = &w->world->alloc;
     unsigned hash;
-    int e = unc0_hashvalue(w, key, &hash);
+    Unc_RetVal e = unc0_hashvalue(w, key, &hash);
     if (e) return e;
     o = unc0_lookuphtblv(w, h, hash, key, &p);
     if (!o) return 0;
@@ -491,8 +495,8 @@ Unc_Value *unc0_gethtblvs(Unc_View *w, Unc_HTblV *h,
     return o ? &o->val : NULL;
 }
 
-int unc0_puthtblvs(Unc_View *w, Unc_HTblV *h,
-                  Unc_Size n, const byte *s, Unc_Value **out) {
+Unc_RetVal unc0_puthtblvs(Unc_View *w, Unc_HTblV *h,
+                          Unc_Size n, const byte *s, Unc_Value **out) {
     Unc_HTblV_V **p;
     unsigned hash = unc0_hashstr(n, s);
     Unc_HTblV_V *o = unc0_lookuphtblvs(h, hash, n, s, &p);
@@ -500,7 +504,7 @@ int unc0_puthtblvs(Unc_View *w, Unc_HTblV *h,
         *out = &o->val;
         return 0;
     } else {
-        int e;
+        Unc_RetVal e;
         Unc_Value tmp;
         Unc_Entity *en = unc0_wake(w, Unc_TString);
         if (!en) return UNCIL_ERR_MEM;
@@ -511,7 +515,8 @@ int unc0_puthtblvs(Unc_View *w, Unc_HTblV *h,
     }
 }
 
-int unc0_delhtblvs(Unc_View *w, Unc_HTblV *h, Unc_Size n, const byte *s) {
+Unc_RetVal unc0_delhtblvs(Unc_View *w, Unc_HTblV *h,
+                          Unc_Size n, const byte *s) {
     Unc_HTblV_V **p, *o;
     Unc_Allocator *alloc = &w->world->alloc;
     o = unc0_lookuphtblvs(h, unc0_hashstr(n, s), n, s, &p);

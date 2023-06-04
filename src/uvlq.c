@@ -30,7 +30,19 @@ SOFTWARE.
 #include "umem.h"
 #include "uvlq.h"
 
+#if UNCIL_C23
+#include <stdbit.h>
+#endif
+
+/* Returns one of UNC_ENDIAN_OTHER, UNC_ENDIAN_LITTLE, UNC_ENDIAN_BIG */
 int unc0_getendianness(void) {
+#if UNCIL_C23
+	if (__STDC_ENDIAN_NATIVE__ == __STDC_ENDIAN_LITTLE__)
+        return UNC_ENDIAN_LITTLE;
+	if (__STDC_ENDIAN_NATIVE__ == __STDC_ENDIAN_BIG__)
+        return UNC_ENDIAN_BIG;
+	return UNC_ENDIAN_OTHER;
+#else
     int i;
     byte b[sizeof(unsigned long)];
     unsigned long u = ULONG_MAX;
@@ -48,6 +60,7 @@ int unc0_getendianness(void) {
     if (i == 4)
         return UNC_ENDIAN_BIG;
     return UNC_ENDIAN_OTHER;
+#endif
 }
 
 Unc_Size unc0_vlqencz(Unc_Size v, Unc_Size n, byte *out) {

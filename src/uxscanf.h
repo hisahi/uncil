@@ -29,11 +29,15 @@ SOFTWARE.
 
 #include <stdarg.h>
 
-int unc0_vxscanf(int (*getch)(void *data),
+#define UNC_SCANF_EOF ((size_t)(-1))
+
+size_t unc0_vxscanf(int (*getch)(void *data),
                               void (*ungetch)(int c, void *data),
                               void *data, const char *format, va_list arg);
-int unc0_xscanf(int (*getch)(void *data),
+size_t unc0_xscanf(int (*getch)(void *data),
                          void (*ungetch)(int c, void *data),
                          void *data, const char *format, ...);
+
+size_t unc0_snscanf(const char *s, size_t n, const char *format, ...);
 
 #endif /* UNCIL_UXSCANF_H */

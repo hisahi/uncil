@@ -27,9 +27,6 @@ SOFTWARE.
 #ifndef UNCIL_UCOMMON_H
 #define UNCIL_UCOMMON_H
 
-#include <setjmp.h>
-#include <signal.h>
-
 #include "ualloc.h"
 #include "ucxt.h"
 #include "udef.h"
@@ -88,7 +85,7 @@ typedef struct Unc_World {
     Unc_Value met_str;          /* string methods */
     Unc_Value met_blob;         /* blob methods */
     Unc_Value met_arr;          /* array methods */
-    Unc_Value met_dict;         /* dict methods */
+    Unc_Value met_table;        /* table methods */
     Unc_Value io_file;          /* I/O file table */
     Unc_Value exc_oom;          /* out of memory exception */
     Unc_HTblS modulecache;      /* module cache */
@@ -168,8 +165,8 @@ typedef struct Unc_View {
     Unc_FunctionC *cfunc;       /* current C func */
     Unc_Size boundcount;        /* number of bound variables. only used
                                    for C functions and is 0 otherwise */
-    Unc_Size recurse;           /* overload / C function call recursion count */
-    Unc_Size recurselimit;      /* overload / C function call recursion limit */
+    Unc_Size recurse;           /* overload/C function call recursion count */
+    Unc_Size recurselimit;      /* overload/C function call recursion limit */
     Unc_Size vid;               /* view ID */
     Unc_Stack swith;            /* with stack values */
     struct {                    /* with stack regions */
@@ -188,7 +185,7 @@ typedef struct Unc_View {
     Unc_Value met_str;          /* string methods */
     Unc_Value met_blob;         /* blob methods */
     Unc_Value met_arr;          /* array methods */
-    Unc_Value met_dict;         /* dict methods */
+    Unc_Value met_table;        /* table methods */
     Unc_Value exc;              /* exception */
     Unc_Value tmpval;
     /* import stuff */

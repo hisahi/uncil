@@ -112,7 +112,7 @@ typedef unsigned Unc_Dst;
 #define UNC_QOPER_TYPE_EXHALE 3
 /* bound value (o = index), source/sink */
 #define UNC_QOPER_TYPE_INHALE 4
-/* public value (addressed by name, o = index into string table), source/sink */
+/* public value (addressed by name, o = index in string table), source/sink */
 #define UNC_QOPER_TYPE_PUBLIC 5
 /* integer literal (ui), source only */
 #define UNC_QOPER_TYPE_INT 6
@@ -199,7 +199,7 @@ typedef struct Unc_QFunc {
     Unc_QInstr *cd;         /* Q-code */
     Unc_Size name;          /* offset into string table */
     Unc_Size parent;        /* index of parent function or 0 for none */
-    Unc_QOperand *inhales;  /* which must itself be either exhales or inhales */
+    Unc_QOperand *inhales;  /* must itself be either exhales or inhales */
 } Unc_QFunc;
 
 typedef struct Unc_QCode {
@@ -210,6 +210,6 @@ typedef struct Unc_QCode {
     byte *st;               /* string table */
 } Unc_QCode;
 
-int unc0_parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex);
+Unc_RetVal unc0_parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex);
 
 #endif /* UNCIL_UPARSE_H */

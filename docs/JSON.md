@@ -16,7 +16,8 @@ Decodes a `text` containing a JSON object into an Uncil object and returns it.
 Same as `json.decode` but reads one JSON object from the open file (`io.file`).
 The file must be in text mode.
 
-Not available if the `io` module has been disabled.
+Not available if the `io` module has been disabled. This function
+is not available if Uncil is compiled in sandboxed mode.
 
 ## json.encode
 `json.encode(obj, [spacing], [mapper])`
@@ -42,4 +43,5 @@ Same as `json.encode` but writes the JSON object directly into an open
 file (`io.file`). Trying to access the same file from the mapper results in
 undefined behavior. The file must be in text mode.
 
-Not available if the `io` module has been disabled.
+Not available if the `io` module has been disabled. This function
+is not available if Uncil is compiled in sandboxed mode.

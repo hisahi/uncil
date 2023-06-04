@@ -76,8 +76,8 @@ unsigned unc0_hashstr(Unc_Size n, const byte *s);
 
 Unc_HSet *unc0_newhset(Unc_Allocator *alloc);
 void unc0_inithset(Unc_HSet *hset, Unc_Allocator *alloc);
-int unc0_puthset(Unc_HSet *hset, Unc_Size n, const byte *s,
-                  Unc_Size *out, Unc_Size submit);
+Unc_RetVal unc0_puthset(Unc_HSet *hset, Unc_Size n, const byte *s,
+                        Unc_Size *out, Unc_Size submit);
 void unc0_drophset(Unc_HSet *hset);
 void unc0_freehset(Unc_HSet *hset);
 
@@ -85,12 +85,12 @@ struct Unc_View;
 
 Unc_HTblS *unc0_newhtbls(Unc_Allocator *alloc);
 void unc0_inithtbls(Unc_Allocator *alloc, Unc_HTblS *h);
-Unc_Value *unc0_gethtbls(struct Unc_View *w, Unc_HTblS *h, Unc_Size n,
-                  const byte *s);
-int unc0_puthtbls(struct Unc_View *w, Unc_HTblS *h, Unc_Size n,
-                  const byte *s, Unc_Value **out);
-int unc0_delhtbls(struct Unc_View *w, Unc_HTblS *h, Unc_Size n,
-                  const byte *s);
+Unc_Value *unc0_gethtbls(struct Unc_View *w, Unc_HTblS *h,
+                         Unc_Size n, const byte *s);
+Unc_RetVal unc0_puthtbls(struct Unc_View *w, Unc_HTblS *h, 
+                         Unc_Size n, const byte *s, Unc_Value **out);
+Unc_RetVal unc0_delhtbls(struct Unc_View *w, Unc_HTblS *h,
+                         Unc_Size n, const byte *s);
 void unc0_compacthtbls(struct Unc_View *w, Unc_HTblS *h);
 void unc0_drophtbls(struct Unc_View *w, Unc_HTblS *h);
 void unc0_sunsethtbls(Unc_Allocator *alloc, Unc_HTblS *h);
@@ -99,15 +99,16 @@ void unc0_freehtbls(struct Unc_View *w, Unc_HTblS *h);
 Unc_HTblV *unc0_newhtblv(Unc_Allocator *alloc);
 void unc0_inithtblv(Unc_Allocator *alloc, Unc_HTblV *h);
 Unc_Value *unc0_gethtblv(struct Unc_View *w, Unc_HTblV *h, Unc_Value *key);
-int unc0_puthtblv(struct Unc_View *w, Unc_HTblV *h,
-                  Unc_Value *key, Unc_Value **out);
-int unc0_delhtblv(struct Unc_View *w, Unc_HTblV *h, Unc_Value *key);
+Unc_RetVal unc0_puthtblv(struct Unc_View *w, Unc_HTblV *h,
+                         Unc_Value *key, Unc_Value **out);
+Unc_RetVal unc0_delhtblv(struct Unc_View *w, Unc_HTblV *h, Unc_Value *key);
 void unc0_compacthtblv(struct Unc_View *w, Unc_HTblV *h);
 Unc_Value *unc0_gethtblvs(struct Unc_View *w, Unc_HTblV *h,
                           Unc_Size n, const byte *s);
-int unc0_puthtblvs(struct Unc_View *w, Unc_HTblV *h,
-                  Unc_Size n, const byte *s, Unc_Value **out);
-int unc0_delhtblvs(struct Unc_View *w, Unc_HTblV *h, Unc_Size n, const byte *s);
+Unc_RetVal unc0_puthtblvs(struct Unc_View *w, Unc_HTblV *h,
+                          Unc_Size n, const byte *s, Unc_Value **out);
+Unc_RetVal unc0_delhtblvs(struct Unc_View *w, Unc_HTblV *h,
+                          Unc_Size n, const byte *s);
 void unc0_drophtblv(struct Unc_View *w, Unc_HTblV *h);
 void unc0_sunsethtblv(Unc_Allocator *alloc, Unc_HTblV *h);
 void unc0_freehtblv(struct Unc_View *w, Unc_HTblV *h);

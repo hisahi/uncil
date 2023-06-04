@@ -32,7 +32,7 @@ SOFTWARE.
 #include "uvali.h"
 #include "uvop.h"
 
-int unc0_stackinit(Unc_View *w, Unc_Stack *s, Unc_Size start) {
+Unc_RetVal unc0_stackinit(Unc_View *w, Unc_Stack *s, Unc_Size start) {
     s->base = s->top = s->end = NULL;
     if (start) {
         Unc_Allocator *alloc = &w->world->alloc;
@@ -45,7 +45,7 @@ int unc0_stackinit(Unc_View *w, Unc_Stack *s, Unc_Size start) {
     return 0;
 }
 
-int unc0_stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
+Unc_RetVal unc0_stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     Unc_Size q = s->top - s->base, c = s->end - s->base;
     if (q + n > c) {
         Unc_Allocator *alloc = &w->world->alloc;
@@ -64,9 +64,10 @@ int unc0_stackreserve(Unc_View *w, Unc_Stack *s, Unc_Size n) {
     return 0;
 }
 
-int unc0_stackpush(Unc_View *w, Unc_Stack *s, Unc_Size n, Unc_Value *v) {
+Unc_RetVal unc0_stackpush(Unc_View *w, Unc_Stack *s,
+                          Unc_Size n, Unc_Value *v) {
     Unc_Size i;
-    int e = unc0_stackreserve(w, s, n);
+    Unc_RetVal e = unc0_stackreserve(w, s, n);
     if (e) return e;
     for (i = 0; i < n; ++i)
         VIMPOSE(w, &s->top[i], &v[i]);
@@ -74,25 +75,24 @@ int unc0_stackpush(Unc_View *w, Unc_Stack *s, Unc_Size n, Unc_Value *v) {
     return 0;
 }
 
-int unc0_stackpushn(Unc_View *w, Unc_Stack *s, Unc_Size n) {
-    Unc_Size i;
-    int e = unc0_stackreserve(w, s, n);
+Unc_RetVal unc0_stackpushn(Unc_View *w, Unc_Stack *s, Unc_Size n) {
+    Unc_RetVal e = unc0_stackreserve(w, s, n);
     if (e) return e;
-    for (i = 0; i < n; ++i)
-        VINITNULL(&s->top[i]);
+    VINITMANY(n, s->top);
     s->top += n;
     return 0;
 }
 
-int unc0_stackpushv(Unc_View *w, Unc_Stack *s, Unc_Value *v) {
-    int e = unc0_stackreserve(w, s, 1);
+Unc_RetVal unc0_stackpushv(Unc_View *w, Unc_Stack *s, Unc_Value *v) {
+    Unc_RetVal e = unc0_stackreserve(w, s, 1);
     if (e) return e;
     VIMPOSE(w, s->top++, v);
     return 0;
 }
 
-int unc0_stackinsert(Unc_View *w, Unc_Stack *s, Unc_Size i, Unc_Value *v) {
-    int e = unc0_stackreserve(w, s, 1);
+Unc_RetVal unc0_stackinsert(Unc_View *w, Unc_Stack *s,
+                            Unc_Size i, Unc_Value *v) {
+    Unc_RetVal e = unc0_stackreserve(w, s, 1);
     if (e) return e;
     unc0_memmove(s->base + i + 1, s->base + i,
                  sizeof(Unc_Value) * (s->top - s->base - i));
@@ -101,9 +101,9 @@ int unc0_stackinsert(Unc_View *w, Unc_Stack *s, Unc_Size i, Unc_Value *v) {
     return 0;
 }
 
-int unc0_stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
-                                                     Unc_Size n, Unc_Value *v) {
-    int e = unc0_stackreserve(w, s, n);
+Unc_RetVal unc0_stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
+                                                 Unc_Size n, Unc_Value *v) {
+    Unc_RetVal e = unc0_stackreserve(w, s, n);
     if (e) return e;
     unc0_memmove(s->base + i + n, s->base + i,
                  sizeof(Unc_Value) * (s->top - s->base - i));
@@ -113,9 +113,9 @@ int unc0_stackinsertm(struct Unc_View *w, Unc_Stack *s, Unc_Size i,
     return 0;
 }
 
-int unc0_stackinsertn(struct Unc_View *w, Unc_Stack *s,
-                                                    Unc_Size i, Unc_Value *v) {
-    int e = unc0_stackreserve(w, s, 1);
+Unc_RetVal unc0_stackinsertn(struct Unc_View *w, Unc_Stack *s,
+                             Unc_Size i, Unc_Value *v) {
+    Unc_RetVal e = unc0_stackreserve(w, s, 1);
     if (e) return e;
     unc0_memmove(s->top - i + 1, s->top - i, sizeof(Unc_Value) * i);
     VIMPOSE(w, s->top - i, v);

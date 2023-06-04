@@ -24,12 +24,11 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <string.h>
-
 #define UNCIL_DEFINES
 
 #include "udebug.h"
 #include "ufunc.h"
+#include "umem.h"
 #include "umt.h"
 #include "uncil.h"
 #include "uops.h"
@@ -41,14 +40,14 @@ INLINE Unc_Size dec_ca(const byte *b) {
     return unc0_clqdeczd(UNC_BYTES_IN_FCODEADDR, b);
 }
 
-int unc0_initfuncu(Unc_View *w, Unc_Function *fn,
-                   Unc_Program *program, Unc_Size in_off,
-                   int fromc) {
+Unc_RetVal unc0_initfuncu(Unc_View *w, Unc_Function *fn, Unc_Program *program,
+                          Unc_Size in_off, int fromc) {
     /* see ucomp.c pushfunc for format */
     Unc_FunctionUnc fu;
     const byte *in = program->data + in_off;
     Unc_Size offset = dec_ca(in), exh, inh, tmp, oargc, lr;
-    int e = 0, optok = 0;
+    Unc_RetVal e = 0;
+    int optok = 0;
 
     in += UNC_BYTES_IN_FCODEADDR;
     fu.dbugoff = dec_ca(in);
@@ -75,7 +74,8 @@ int unc0_initfuncu(Unc_View *w, Unc_Function *fn,
     if (!e && fn->refc) {
         Unc_Size i;
         Unc_Allocator *alloc = &w->world->alloc;
-        if (!(fn->refs = TMALLOC(Unc_Entity *, alloc, Unc_AllocFunc, fn->refc)))
+        if (!(fn->refs = TMALLOC(Unc_Entity *, alloc,
+                                 Unc_AllocFunc, fn->refc)))
             e = UNCIL_ERR_MEM;
         
         if (!e) {
@@ -133,18 +133,18 @@ int unc0_initfuncu(Unc_View *w, Unc_Function *fn,
     return e;
 }
 
-int unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
-            Unc_Size argcount, int flags, int cflags,
-            Unc_Size optcount, Unc_Value *defaults,
-            Unc_Size refcount, Unc_Value *initvalues,
-            Unc_Size refcopycount, Unc_Size *refcopies,
-            const char *fname, void *udata) {
-    int e = 0;
+Unc_RetVal unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
+                          Unc_Size argcount, int flags, int cflags,
+                          Unc_Size optcount, Unc_Value *defaults,
+                          Unc_Size refcount, Unc_Value *initvalues,
+                          Unc_Size refcopycount, Unc_Size *refcopies,
+                          const char *fname, void *udata) {
+    Unc_RetVal e = 0;
     Unc_FunctionC fc;
     Unc_Allocator *alloc = &w->world->alloc;
     fc.fc = fcp;
     if (fname) {
-        fc.namelen = strlen(fname);
+        fc.namelen = unc0_strlen(fname);
         fc.name = unc0_malloc(alloc, Unc_AllocInternal, fc.namelen);
         if (!fc.name)
             fc.namelen = 0;
@@ -170,7 +170,8 @@ int unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
         fn->defaults = NULL;
     if (!e && fn->refc) {
         Unc_Size i, bc = w->boundcount;
-        if (!(fn->refs = TMALLOC(Unc_Entity *, alloc, Unc_AllocFunc, fn->refc)))
+        if (!(fn->refs = TMALLOC(Unc_Entity *, alloc,
+                                 Unc_AllocFunc, fn->refc)))
             e = UNCIL_ERR_MEM;
         
         if (!e) {
@@ -196,7 +197,7 @@ int unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
         if (!e)
             for (i = 0; i < refcopycount; ++i) {
                 if (refcopies[i] >= bc) {
-                    e = UNCIL_ERR_ARG_REFCOPYOUTOFBOUNDS;
+                    e = UNCIL_ERR_ARG_BADREFCOPYINDEX;
                     break;
                 }
             }
@@ -218,17 +219,15 @@ int unc0_initfuncc(Unc_View *w, Unc_Function *fn, Unc_CFunc fcp,
         if (defaults)
             for (i = 0; i < optcount; ++i)
                 VIMPOSE(w, &fn->defaults[i], &defaults[i]);
-        else {
-            for (i = 0; i < optcount; ++i)
-                VINITNULL(&fn->defaults[i]);
-        }
+        else
+            VINITMANY(optcount, fn->defaults);
     }
     fn->f.c = fc;
     return e;
 }
 
-int unc0_initbfunc(Unc_View *w, Unc_FunctionBound *bfn,
-            Unc_Value *fn, Unc_Value *boundto) {
+Unc_RetVal unc0_initbfunc(Unc_View *w, Unc_FunctionBound *bfn,
+                          Unc_Value *fn, Unc_Value *boundto) {
     switch (VGETTYPE(fn)) {
     case Unc_TFunction:
     case Unc_TObject:

@@ -36,7 +36,7 @@ SOFTWARE.
 #include "uops.h"
 #include "uvlq.h"
 
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if UNCIL_IS_POSIX || UNCIL_IS_UNIX
 #define UNCIL_EXIT_OK 0
 #define UNCIL_EXIT_FAIL 1
 #define UNCIL_EXIT_USE 2
@@ -47,6 +47,10 @@ SOFTWARE.
 #endif
 
 #define UNCIL_FLAG_S 1
+
+#if UNCIL_SANDBOXED
+#error The standalone Uncil compiler cannot be compiled with UNCIL_SANDBOXED
+#endif
 
 const char *myname;
 static char errbuf[512];
@@ -91,6 +95,10 @@ void hexdump(const byte *data, size_t n) {
             putchar('\n');
     }
     putchar('\n');
+}
+
+void pdump_instr(const char *s) {
+    printf("%s\t", s);
 }
 
 void pdump_reg(const byte **d) {
@@ -139,511 +147,511 @@ void pdump_lit(const byte **d) {
 int pinstrdump(const byte **d, byte b) {
     switch (b) {
     case UNC_I_NOP:
-        printf("%s\t", "NOP");
+        pdump_instr("NOP");
         break;
     case UNC_I_LDNUM:
-        printf("%s\t", "LDNUM");
+        pdump_instr("LDNUM");
         pdump_reg(d);
         pdump_lit(d);
         break;
     case UNC_I_LDINT:
-        printf("%s\t", "LDINT");
+        pdump_instr("LDINT");
         pdump_reg(d);
         pdump_lint(d);
         break;
     case UNC_I_LDFLT:
-        printf("%s\t", "LDFLT");
+        pdump_instr("LDFLT");
         pdump_reg(d);
         pdump_lflt(d);
         break;
     case UNC_I_LDBLF:
-        printf("%s\t", "LDBLF");
+        pdump_instr("LDBLF");
         pdump_reg(d);
         break;
     case UNC_I_LDBLT:
-        printf("%s\t", "LDBLT");
+        pdump_instr("LDBLT");
         pdump_reg(d);
         break;
     case UNC_I_LDSTR:
-        printf("%s\t", "LDSTR");
+        pdump_instr("LDSTR");
         pdump_reg(d);
         pdump_lstr(d);
         break;
     case UNC_I_LDNUL:
-        printf("%s\t", "LDNUL");
+        pdump_instr("LDNUL");
         pdump_reg(d);
         break;
     case UNC_I_LDSTK:
-        printf("%s\t", "LDSTK");
+        pdump_instr("LDSTK");
         pdump_reg(d);
         pdump_loff("%06lu", d);
         break;
     case UNC_I_LDPUB:
-        printf("%s\t", "LDPUB");
+        pdump_instr("LDPUB");
         pdump_reg(d);
         pdump_loff("PUB(%06lx)", d);
         break;
     case UNC_I_LDBIND:
-        printf("%s\t", "LDBIND");
+        pdump_instr("LDBIND");
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_LDSTKN:
-        printf("%s\t", "LDSTKN");
+        pdump_instr("LDSTKN");
         pdump_reg(d);
         pdump_loff("%06lu", d);
         break;
     case UNC_I_LDATTR:
-        printf("%s\t", "LDATTR");
+        pdump_instr("LDATTR");
         pdump_reg(d);
         pdump_reg(d);
         pdump_loff("ID(%06lx)", d);
         break;
     case UNC_I_LDATTRQ:
-        printf("%s\t", "LDATTRQ");
+        pdump_instr("LDATTRQ");
         pdump_reg(d);
         pdump_reg(d);
         pdump_loff("ID(%06lx)", d);
         break;
     case UNC_I_LDINDX:
-        printf("%s\t", "LDINDX");
+        pdump_instr("LDINDX");
         pdump_reg(d);
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_LDINDXQ:
-        printf("%s\t", "LDINDXQ");
+        pdump_instr("LDINDXQ");
         pdump_reg(d);
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_MOV:
-        printf("%s\t", "MOV");
+        pdump_instr("MOV");
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_STSTK:
-        printf("%s\t", "STSTK");
+        pdump_instr("STSTK");
         pdump_reg(d);
         break;
     case UNC_I_STPUB:
-        printf("%s\t", "STPUB");
+        pdump_instr("STPUB");
         pdump_reg(d);
         pdump_loff("PUB(%06lx)", d);
         break;
     case UNC_I_STBIND:
-        printf("%s\t", "STBIND");
+        pdump_instr("STBIND");
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_STATTR:
-        printf("%s\t", "STATTR");
+        pdump_instr("STATTR");
         pdump_reg(d);
         pdump_reg(d);
         pdump_loff("ID(%06lx)", d);
         break;
     case UNC_I_STINDX:
-        printf("%s\t", "STINDX");
+        pdump_instr("STINDX");
         pdump_reg(d);
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_STWITH:
-        printf("%s\t", "STWITH");
+        pdump_instr("STWITH");
         pdump_reg(d);
         break;
     case UNC_I_ADD_RR:
-        printf("%s\t", "ADD");
+        pdump_instr("ADD");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_SUB_RR:
-        printf("%s\t", "SUB");
+        pdump_instr("SUB");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_MUL_RR:
-        printf("%s\t", "MUL");
+        pdump_instr("MUL");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_DIV_RR:
-        printf("%s\t", "DIV");
+        pdump_instr("DIV");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_IDIV_RR:
-        printf("%s\t", "IDIV");
+        pdump_instr("IDIV");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_MOD_RR:
-        printf("%s\t", "MOD");
+        pdump_instr("MOD");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_AND_RR:
-        printf("%s\t", "AND");
+        pdump_instr("AND");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_BOR_RR:
-        printf("%s\t", "BOR");
+        pdump_instr("BOR");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_XOR_RR:
-        printf("%s\t", "XOR");
+        pdump_instr("XOR");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_SHL_RR:
-        printf("%s\t", "SHL");
+        pdump_instr("SHL");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_SHR_RR:
-        printf("%s\t", "SHR");
+        pdump_instr("SHR");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_CAT_RR:
-        printf("%s\t", "CAT");
+        pdump_instr("CAT");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_CEQ_RR:
-        printf("%s\t", "CEQ");
+        pdump_instr("CEQ");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_CLT_RR:
-        printf("%s\t", "CLT");
+        pdump_instr("CLT");
         pdump_reg(d); pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_ADD_RL:
-        printf("%s\t", "ADD");
+        pdump_instr("ADD");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_SUB_RL:
-        printf("%s\t", "SUB");
+        pdump_instr("SUB");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_MUL_RL:
-        printf("%s\t", "MUL");
+        pdump_instr("MUL");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_DIV_RL:
-        printf("%s\t", "DIV");
+        pdump_instr("DIV");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_IDIV_RL:
-        printf("%s\t", "IDIV");
+        pdump_instr("IDIV");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_MOD_RL:
-        printf("%s\t", "MOD");
+        pdump_instr("MOD");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_AND_RL:
-        printf("%s\t", "AND");
+        pdump_instr("AND");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_BOR_RL:
-        printf("%s\t", "BOR");
+        pdump_instr("BOR");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_XOR_RL:
-        printf("%s\t", "XOR");
+        pdump_instr("XOR");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_SHL_RL:
-        printf("%s\t", "SHL");
+        pdump_instr("SHL");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_SHR_RL:
-        printf("%s\t", "SHR");
+        pdump_instr("SHR");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_CAT_RL:
-        printf("%s\t", "CAT");
+        pdump_instr("CAT");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_CEQ_RL:
-        printf("%s\t", "CEQ");
+        pdump_instr("CEQ");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_CLT_RL:
-        printf("%s\t", "CLT");
+        pdump_instr("CLT");
         pdump_reg(d); pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_ADD_LR:
-        printf("%s\t", "ADD");
+        pdump_instr("ADD");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_SUB_LR:
-        printf("%s\t", "SUB");
+        pdump_instr("SUB");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_MUL_LR:
-        printf("%s\t", "MUL");
+        pdump_instr("MUL");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_DIV_LR:
-        printf("%s\t", "DIV");
+        pdump_instr("DIV");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_IDIV_LR:
-        printf("%s\t", "IDIV");
+        pdump_instr("IDIV");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_MOD_LR:
-        printf("%s\t", "MOD");
+        pdump_instr("MOD");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_AND_LR:
-        printf("%s\t", "AND");
+        pdump_instr("AND");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_BOR_LR:
-        printf("%s\t", "BOR");
+        pdump_instr("BOR");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_XOR_LR:
-        printf("%s\t", "XOR");
+        pdump_instr("XOR");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_SHL_LR:
-        printf("%s\t", "SHL");
+        pdump_instr("SHL");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_SHR_LR:
-        printf("%s\t", "SHR");
+        pdump_instr("SHR");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_CAT_LR:
-        printf("%s\t", "CAT");
+        pdump_instr("CAT");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_CEQ_LR:
-        printf("%s\t", "CEQ");
+        pdump_instr("CEQ");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_CLT_LR:
-        printf("%s\t", "CLT");
+        pdump_instr("CLT");
         pdump_reg(d); pdump_lit(d); pdump_reg(d);
         break;
     case UNC_I_ADD_LL:
-        printf("%s\t", "ADD");
+        pdump_instr("ADD");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_SUB_LL:
-        printf("%s\t", "SUB");
+        pdump_instr("SUB");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_MUL_LL:
-        printf("%s\t", "MUL");
+        pdump_instr("MUL");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_DIV_LL:
-        printf("%s\t", "DIV");
+        pdump_instr("DIV");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_IDIV_LL:
-        printf("%s\t", "IDIV");
+        pdump_instr("IDIV");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_MOD_LL:
-        printf("%s\t", "MOD");
+        pdump_instr("MOD");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_AND_LL:
-        printf("%s\t", "AND");
+        pdump_instr("AND");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_BOR_LL:
-        printf("%s\t", "BOR");
+        pdump_instr("BOR");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_XOR_LL:
-        printf("%s\t", "XOR");
+        pdump_instr("XOR");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_SHL_LL:
-        printf("%s\t", "SHL");
+        pdump_instr("SHL");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_SHR_LL:
-        printf("%s\t", "SHR");
+        pdump_instr("SHR");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_CAT_LL:
-        printf("%s\t", "CAT");
+        pdump_instr("CAT");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_CEQ_LL:
-        printf("%s\t", "CEQ");
+        pdump_instr("CEQ");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_CLT_LL:
-        printf("%s\t", "CLT");
+        pdump_instr("CLT");
         pdump_reg(d); pdump_lit(d); pdump_lit(d);
         break;
     case UNC_I_LNOT_R:
-        printf("%s\t", "LNOT");
+        pdump_instr("LNOT");
         pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_UPOS_R:
-        printf("%s\t", "UPOS");
+        pdump_instr("UPOS");
         pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_UNEG_R:
-        printf("%s\t", "UNEG");
+        pdump_instr("UNEG");
         pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_UXOR_R:
-        printf("%s\t", "UXOR");
+        pdump_instr("UXOR");
         pdump_reg(d); pdump_reg(d);
         break;
     case UNC_I_LNOT_L:
-        printf("%s\t", "LNOT");
+        pdump_instr("LNOT");
         pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_UPOS_L:
-        printf("%s\t", "UPOS");
+        pdump_instr("UPOS");
         pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_UNEG_L:
-        printf("%s\t", "UNEG");
+        pdump_instr("UNEG");
         pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_UXOR_L:
-        printf("%s\t", "UXOR");
+        pdump_instr("UXOR");
         pdump_reg(d); pdump_lit(d);
         break;
     case UNC_I_IFF:
-        printf("%s\t", "IFF");
+        pdump_instr("IFF");
         pdump_reg(d); pdump_jmp(d);
         break;
     case UNC_I_IFT:
-        printf("%s\t", "IFT");
+        pdump_instr("IFT");
         pdump_reg(d); pdump_jmp(d);
         break;
     case UNC_I_JMP:
-        printf("%s\t", "JMP");
+        pdump_instr("JMP");
         pdump_jmp(d);
         break;
     case UNC_I_FMAKE:
-        printf("%s\t", "FMAKE");
+        pdump_instr("FMAKE");
         pdump_reg(d);
         pdump_loff("FUN(%06lx)", d);
         break;
     case UNC_I_IITER:
-        printf("%s\t", "IITER");
+        pdump_instr("IITER");
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_INEXT:
-        printf("%s\t", "INEXT");
+        pdump_instr("INEXT");
         pdump_reg(d);
         pdump_reg(d);
         pdump_jmp(d);
         break;
     case UNC_I_INEXTS:
-        printf("%s\t", "INEXTS");
+        pdump_instr("INEXTS");
         pdump_reg(d);
         pdump_jmp(d);
         break;
     case UNC_I_RPUSH:
-        printf("%s\t", "RPUSH");
+        pdump_instr("RPUSH");
         break;
     case UNC_I_RPOP:
-        printf("%s\t", "RPOP");
+        pdump_instr("RPOP");
         break;
     case UNC_I_XPUSH:
-        printf("%s\t", "XPUSH");
+        pdump_instr("XPUSH");
         pdump_jmp(d);
         break;
     case UNC_I_XPOP:
-        printf("%s\t", "XPOP");
+        pdump_instr("XPOP");
         break;
     case UNC_I_EXIT:
-        printf("%s\t", "EXIT");
+        pdump_instr("EXIT");
         break;
     case UNC_I_MLIST:
-        printf("%s\t", "MLIST");
+        pdump_instr("MLIST");
         pdump_reg(d);
         break;
     case UNC_I_NDICT:
-        printf("%s\t", "NDICT");
+        pdump_instr("NDICT");
         pdump_reg(d);
         break;
     case UNC_I_LSPRS:
-        printf("%s\t", "LSPRS");
+        pdump_instr("LSPRS");
         pdump_reg(d);
         break;
     case UNC_I_LSPR:
-        printf("%s\t", "LSPR");
+        pdump_instr("LSPR");
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_MLISTP:
-        printf("%s\t", "MLISTP");
+        pdump_instr("MLISTP");
         pdump_reg(d);
         pdump_us(d);
         pdump_us(d);
         break;
     case UNC_I_CSTK:
-        printf("%s\t", "CSTK");
+        pdump_instr("CSTK");
         pdump_us(d);
         break;
     case UNC_I_CSTKG:
-        printf("%s\t", "CSTKG");
+        pdump_instr("CSTKG");
         pdump_us(d);
         break;
     case UNC_I_FBIND:
-        printf("%s\t", "FBIND");
+        pdump_instr("FBIND");
         pdump_reg(d);
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_WPUSH:
-        printf("%s\t", "WPUSH");
+        pdump_instr("WPUSH");
         break;
     case UNC_I_WPOP:
-        printf("%s\t", "WPOP");
+        pdump_instr("WPOP");
         break;
     case UNC_I_LDATTRF:
-        printf("%s\t", "LDATTRF");
+        pdump_instr("LDATTRF");
         pdump_reg(d);
         pdump_reg(d);
         pdump_loff("ID(%06lx)", d);
         break;
     case UNC_I_EXIT0:
-        printf("%s\t", "EXIT0");
+        pdump_instr("EXIT0");
         break;
     case UNC_I_EXIT1:
-        printf("%s\t", "EXIT1");
+        pdump_instr("EXIT1");
         pdump_reg(d);
         break;
     case UNC_I_FCALL:
-        printf("%s\t", "FCALL");
+        pdump_instr("FCALL");
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_FCALLS:
-        printf("%s\t", "FCALLS");
+        pdump_instr("FCALLS");
         pdump_reg(d);
         break;
     case UNC_I_FTAIL:
-        printf("%s\t", "FTAIL");
+        pdump_instr("FTAIL");
         pdump_reg(d);
         break;
     case UNC_I_DCALL:
-        printf("%s\t", "DCALL");
+        pdump_instr("DCALL");
         printf("#%-3u\t", *(*d)++);
         pdump_reg(d);
         pdump_reg(d);
         break;
     case UNC_I_DCALLS:
-        printf("%s\t", "DCALLS");
+        pdump_instr("DCALLS");
         printf("#%-3u\t", *(*d)++);
         pdump_reg(d);
         break;
     case UNC_I_DTAIL:
-        printf("%s\t", "DTAIL");
+        pdump_instr("DTAIL");
         printf("#%-3u\t", *(*d)++);
         pdump_reg(d);
         break;
     case UNC_I_DEL:
-        printf("%s\t", "---");
+        pdump_instr("---");
         jumpw = *(*d)++;
         jbase = *d;
         break;
@@ -743,7 +751,7 @@ static int uncilcfile(char *argv[], int fileat, int ofileat) {
 
 int print_help(int err) {
     if (!err)
-        printf("uncilc - Uncil bytecode compiler (%s)\n", UNCIL_VER_STRING);
+        puts("uncilc - Uncil bytecode compiler");
     puts("Usage: uncilc [OPTION]... file.unc");
     if (err) {
         printf("Try '%s --help' for more information.\n", myname);
@@ -756,8 +764,8 @@ int print_help(int err) {
         puts("  --version");
         puts("\t\tprints version information");
         puts("  -o [out]");
-        puts("\t\tsets the output file name (by default, the source file name");
-        puts("\t\twith the extension .cnu)");
+        puts("\t\tsets the output file name (by default, the source ");
+        puts("\t\tfile name with the extension .cnu)");
         puts("  -S");
         puts("\t\tdumps Uncil code into the console instead of compiling");
     }
@@ -767,7 +775,7 @@ int print_help(int err) {
 int main(int argc, char *argv[]) {
     int i;
     int argindex = 1, fileindex = 0, ofileindex = 0;
-    int flagok = 1;
+    int flagok = 1, version_query = 0;
     myname = argv[0];
 
     for (i = 1; i < argc; ++i) {
@@ -786,9 +794,8 @@ int main(int argc, char *argv[]) {
                 cflags |= UNCIL_FLAG_S;
             } else if (!strcmp(arg, "-?") || !strcmp(arg, "--help")) {
                 return print_help(UNCIL_EXIT_OK);
-            } else if (!strcmp(arg, "--version")) {
-                uncil_printversion();
-                return 0;
+            } else if (!strcmp(arg, "-v") || !strcmp(arg, "--version")) {
+                if (version_query < INT_MAX) ++version_query;
             } else {
                 /* unrecognized flag */
                 return print_help(UNCIL_EXIT_USE);
@@ -797,6 +804,11 @@ int main(int argc, char *argv[]) {
             if (!fileindex) fileindex = argindex;
             argv[argindex++] = arg;
         }
+    }
+
+    if (version_query) {
+        uncil_printversion(version_query - 1);
+        return 0;
     }
 
     if (!fileindex)

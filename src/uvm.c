@@ -25,7 +25,8 @@ SOFTWARE.
 *******************************************************************************/
 
 #include <limits.h>
-#include <stdlib.h>
+
+#include <setjmp.h>
 
 #define UNCIL_DEFINES
 
@@ -70,7 +71,7 @@ SOFTWARE.
 #define UNCIL_THREADED_VM 1
 
 /* in ulibcoro.h */
-extern Unc_View *unc0_corofinish(Unc_View *w, int *e);
+extern Unc_View *unc0_corofinish(Unc_View *w, Unc_RetVal *e);
 
 #define LITINT_SZ 2
 FORCEINLINE Unc_Int unc0_litint(Unc_View *w, const byte *pc) {
@@ -87,7 +88,7 @@ FORCEINLINE Unc_Size unc0_readjumpdst(Unc_View *w, const byte *pc) {
     return s;
 }
 
-int unc0_vmcheckpause(Unc_View *w) {
+Unc_RetVal unc0_vmcheckpause(Unc_View *w) {
     if (w->flow == UNC_VIEW_FLOW_PAUSE) {
         ATOMICSSET(w->paused, 1);
         UNC_PAUSED(w);
@@ -138,17 +139,18 @@ MAYBEINLINE void unc0_vmshrinksregheuristic(Unc_View *w, Unc_Size n) {
     if (UNLIKELY((c >> 2) > n)) unc0_vmshrinksreg(w);
 }
 
-FORCEINLINE int unc0_vmaddsreg(Unc_View *w, jmp_buf *env, Unc_Size n) {
+FORCEINLINE Unc_RetVal unc0_vmaddsreg(Unc_View *w, jmp_buf *env, Unc_Size n) {
     Unc_Value *rtop = w->sreg.top;
-    Unc_Size q = w->sreg.top - w->sreg.base + n, c = w->sreg.end - w->sreg.base;
+    Unc_Size q = w->sreg.top - w->sreg.base + n,
+             c = w->sreg.end - w->sreg.base;
     if (UNLIKELY(q > c)) {
-        int e = unc0_stackreserve(w, &w->sreg, n);
+        Unc_RetVal e = unc0_stackreserve(w, &w->sreg, n);
         if (UNLIKELY(e)) THROWERR(e);
         unc0_vmshrinksregheuristic(w, q);
         rtop = w->sreg.top;
     }
-    while (n--) VINITNULL(rtop++);
-    w->sreg.top = rtop;
+    VINITMANY(n, rtop);
+    w->sreg.top = rtop + n;
     return 0;
 }
 
@@ -211,8 +213,9 @@ MAYBEINLINE Unc_Frame *unc0_exitframe(Unc_View *w) {
         if (!regioncount) {
             unc0_vmrestoredepth(w, &w->sval, f->sval_r);
             {
-                int e;
+                Unc_RetVal e;
                 e = unc0_stackpushv(w, &w->sval, &w->regs[0]);
+                (void)e;
                 ASSERT(!e); /* we reserved the space, it should be there */
             }
             unc0_vmrestoredepth(w, &w->sreg, f->sreg_r);
@@ -270,18 +273,19 @@ MAYBEINLINE Unc_Frame *unc0_exitframe1(Unc_View *w, Unc_Value *wv) {
         /* unc0_vmshrinksregheuristic(w, f->sreg_r); */
         unc0_vmrestoredepth(w, &w->sval, f->sval_r);
     } else {
-        int e;
+        Unc_RetVal e;
         ASSERT(ft == Unc_FrameCallSpew || ft == Unc_FrameMain);
         unc0_vmrestoredepth(w, &w->sreg, f->sreg_r);
         /* unc0_vmshrinksregheuristic(w, f->sreg_r); */
         unc0_vmrestoredepth(w, &w->sval, f->sval_r);
         e = unc0_stackpushv(w, &w->sval, wv);
         ASSERT(!e); /* we reserved the space, it should be there */
+        (void)e;
     }
     return f;
 }
 
-FORCEINLINE void unc0_exitccall(Unc_View *w, Unc_Frame *f, int e) {
+FORCEINLINE void unc0_exitccall(Unc_View *w, Unc_Frame *f, Unc_RetVal e) {
     Unc_Size valuecount;
     switch (f->type) {
     case Unc_FrameCallC:
@@ -398,7 +402,7 @@ INLINE Unc_Frame *unc0_saveframe(Unc_View *w, jmp_buf *env, const byte *pc) {
 FORCEINLINE void unc0_vmfcall(Unc_View *w, jmp_buf *env, Unc_Function *fn,
             Unc_Size argc, int st, int fromc, int allowc,
             Unc_RegFast target, const byte **pc) {
-    int e;
+    Unc_RetVal e;
     Unc_Frame *f;
     ASSERT(!fromc || st);
     if (w->recurse >= w->recurselimit)
@@ -551,9 +555,9 @@ FORCEINLINE void unc0_vmfcall(Unc_View *w, jmp_buf *env, Unc_Function *fn,
     }
 }
 
-int unc0_fcall(Unc_View *w, Unc_Function *fn, Unc_Size argc, int st,
-               int fromc, int allowc, Unc_RegFast target) {
-    int e;
+Unc_RetVal unc0_fcall(Unc_View *w, Unc_Function *fn, Unc_Size argc, int st,
+                      int fromc, int allowc, Unc_RegFast target) {
+    Unc_RetVal e;
     jmp_buf env;
     if (fromc && !UNC_LOCKFQ(w->runlock))
         return UNCIL_ERR_LOGIC_CANNOTLOCK;
@@ -634,15 +638,15 @@ MAYBEINLINE void unc0_dotailpostc(Unc_View *w,
                                   Unc_FramePartial *p) {
 }
 
-int unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
-                int spew, int fromc, int allowc, Unc_RegFast x) {
+Unc_RetVal unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
+                       int spew, int fromc, int allowc, Unc_RegFast x) {
     switch (VGETTYPE(v)) {
     case Unc_TFunction:
         return unc0_fcall(w, LEFTOVER(Unc_Function, VGETENT(v)), argc,
                           spew, fromc, allowc, x);
     case Unc_TBoundFunction:
     {
-        int e;
+        Unc_RetVal e;
         Unc_FunctionBound *b = LEFTOVER(Unc_FunctionBound, VGETENT(v));
         e = unc0_stackinsertn(w, &w->sval, argc++, &b->boundto);
         if (e) return e;
@@ -654,7 +658,8 @@ int unc0_fcallv(Unc_View *w, Unc_Value *v, Unc_Size argc,
     case Unc_TOpaque:
     {
         Unc_Value o = UNC_BLANK;
-        int e, f;
+        Unc_RetVal e;
+        int f;
         e = unc0_stackinsertn(w, &w->sval, argc++, v);
         if (e) return e;
 unc0_fcallv_call_again:
@@ -730,7 +735,7 @@ FORCEINLINE void unc0_getpub(Unc_View *w, jmp_buf *env,
 
 FORCEINLINE void unc0_setpub(Unc_View *w, jmp_buf *env,
                             Unc_Size sl, const byte *sb, Unc_Value *v) {
-    int e;
+    Unc_RetVal e;
     Unc_Value *g;
     (void)UNC_LOCKFP(w, w->world->public_lock);
     e = unc0_puthtbls(w, w->import ? w->exports : w->pubs, sl, sb, &g);
@@ -744,7 +749,7 @@ FORCEINLINE void unc0_setpub(Unc_View *w, jmp_buf *env,
 
 INLINE void unc0_delpub(Unc_View *w, jmp_buf *env,
                         Unc_Size sl, const byte *sb) {
-    int e;
+    Unc_RetVal e;
     (void)UNC_LOCKFP(w, w->world->public_lock);
     if (w->import) {
         e = unc0_delhtbls(w, w->exports, sl, sb);
@@ -796,7 +801,7 @@ MAYBEINLINE void unc0_vmobadd(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobadd_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(add)),
                                             PASSSTRL(OPOVERLOAD(add2)));
@@ -847,7 +852,7 @@ MAYBEINLINE void unc0_vmobsub(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobsub_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(sub)),
                                             PASSSTRL(OPOVERLOAD(sub2)));
@@ -898,7 +903,7 @@ MAYBEINLINE void unc0_vmobmul(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobmul_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(mul)),
                                             PASSSTRL(OPOVERLOAD(mul2)));
@@ -950,7 +955,7 @@ static void unc0_vmobdiv(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobdiv_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(div)),
                                             PASSSTRL(OPOVERLOAD(div2)));
@@ -1003,7 +1008,7 @@ static void unc0_vmobidiv(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobidiv_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(idiv)),
                                             PASSSTRL(OPOVERLOAD(idiv2)));
@@ -1056,7 +1061,7 @@ static void unc0_vmobmod(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobmod_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(mod)),
                                             PASSSTRL(OPOVERLOAD(mod2)));
@@ -1094,7 +1099,7 @@ static void unc0_vmoband(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmoband_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(band)),
                                             PASSSTRL(OPOVERLOAD(band2)));
@@ -1132,7 +1137,7 @@ static void unc0_vmobbor(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobbor_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(bor)),
                                             PASSSTRL(OPOVERLOAD(bor2)));
@@ -1164,7 +1169,7 @@ static void unc0_vmobxor(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobxor_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(bxor)),
                                             PASSSTRL(OPOVERLOAD(bxor2)));
@@ -1196,7 +1201,7 @@ static void unc0_vmobshl(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobshl_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(shl)),
                                             PASSSTRL(OPOVERLOAD(shl2)));
@@ -1228,7 +1233,7 @@ static void unc0_vmobshr(Unc_View *w, jmp_buf *env,
     case Unc_TOpaque:
     unc0_vmobshr_o:
     {
-        int e;
+        Unc_RetVal e;
         Unc_Value vout;
         e = unc0_vovlbinary(w, a, b, &vout, PASSSTRL(OPOVERLOAD(shr)),
                                             PASSSTRL(OPOVERLOAD(shr2)));
@@ -1500,9 +1505,9 @@ static void unc0_vmouxor(Unc_View *w, jmp_buf *env,
     }
 }
 
-static int makestrcatss(Unc_View *w, Unc_Value *out,
-                        Unc_String *a, Unc_String *b) {
-    int e;
+static Unc_RetVal makestrcatss(Unc_View *w, Unc_Value *out,
+                               Unc_String *a, Unc_String *b) {
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TString);
     if (!en)
         return UNCIL_ERR_MEM;
@@ -1516,9 +1521,9 @@ static int makestrcatss(Unc_View *w, Unc_Value *out,
     return 0;
 }
 
-static int makestrcatsr(Unc_View *w, Unc_Value *out,
-                        Unc_String *a, Unc_Size bn, const byte *bb) {
-    int e;
+static Unc_RetVal makestrcatsr(Unc_View *w, Unc_Value *out,
+                               Unc_String *a, Unc_Size bn, const byte *bb) {
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TString);
     if (!en)
         return UNCIL_ERR_MEM;
@@ -1532,9 +1537,9 @@ static int makestrcatsr(Unc_View *w, Unc_Value *out,
     return 0;
 }
 
-static int makestrcatrs(Unc_View *w, Unc_Value *out,
-                        Unc_Size an, const byte *ab, Unc_String *b) {
-    int e;
+static Unc_RetVal makestrcatrs(Unc_View *w, Unc_Value *out,
+                               Unc_Size an, const byte *ab, Unc_String *b) {
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TString);
     if (!en)
         return UNCIL_ERR_MEM;
@@ -1548,10 +1553,10 @@ static int makestrcatrs(Unc_View *w, Unc_Value *out,
     return 0;
 }
 
-static int makestrcatrr(Unc_View *w, Unc_Value *out,
-                        Unc_Size an, const byte * RESTRICT ab,
-                        Unc_Size bn, const byte * RESTRICT bb) {
-    int e;
+static Unc_RetVal makestrcatrr(Unc_View *w, Unc_Value *out,
+                               Unc_Size an, const byte * RESTRICT ab,
+                               Unc_Size bn, const byte * RESTRICT bb) {
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TString);
     if (!en)
         return UNCIL_ERR_MEM;
@@ -1565,9 +1570,9 @@ static int makestrcatrr(Unc_View *w, Unc_Value *out,
     return 0;
 }
 
-static int makeblobcatss(Unc_View *w, Unc_Value *out,
-                         Unc_Blob *a, Unc_Blob *b) {
-    int e;
+static Unc_RetVal makeblobcatss(Unc_View *w, Unc_Value *out,
+                                Unc_Blob *a, Unc_Blob *b) {
+    Unc_RetVal e;
     byte *p;
     Unc_Entity *en = unc0_wake(w, Unc_TBlob);
     if (!en)
@@ -1584,10 +1589,10 @@ static int makeblobcatss(Unc_View *w, Unc_Value *out,
     return 0;
 }
 
-static int makearrcatss(Unc_View *w, Unc_Value *out,
-                        Unc_Array *a, Unc_Array *b) {
+static Unc_RetVal makearrcatss(Unc_View *w, Unc_Value *out,
+                               Unc_Array *a, Unc_Array *b) {
     
-    int e;
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TArray);
     if (!en)
         return UNCIL_ERR_MEM;
@@ -1605,7 +1610,7 @@ static void unc0_vmobcat(Unc_View *w, jmp_buf *env,
                          Unc_Value *tr, Unc_Value *a, Unc_Value *b,
                          const byte *vmpc) {
     Unc_Value out;
-    int e;
+    Unc_RetVal e;
     if (UNLIKELY(VGETTYPE(b) == Unc_TObject || VGETTYPE(b) == Unc_TOpaque))
         goto unc0_vmobcat_o;
     switch (VGETTYPE(a)) {
@@ -1703,7 +1708,7 @@ static void unc0_vmobcat(Unc_View *w, jmp_buf *env,
 
 INLINE void dofmake(Unc_View *w, jmp_buf *env, Unc_Value *tr,
                     Unc_Size offset, const byte *vmpc) {
-    int e;
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TFunction);
     if (!en) THROWERRVMPC(UNCIL_ERR_MEM);
     e = unc0_initfuncu(w, LEFTOVER(Unc_Function, en), w->program, offset, 0);
@@ -1716,7 +1721,7 @@ INLINE void dofmake(Unc_View *w, jmp_buf *env, Unc_Value *tr,
 
 INLINE void dofbind(Unc_View *w, jmp_buf *env, Unc_Value *tr,
                     Unc_Value *a, Unc_Value *b, const byte *vmpc) {
-    int e;
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TBoundFunction);
     if (!en) THROWERRVMPC(UNCIL_ERR_MEM);
     e = unc0_initbfunc(w, LEFTOVER(Unc_FunctionBound, en), a, b);
@@ -1735,7 +1740,7 @@ static void dofcall(Unc_View *w, jmp_buf *env, Unc_Size argc, int spew,
     switch (VGETTYPE(fn)) {
     case Unc_TBoundFunction:
     {
-        int e;
+        Unc_RetVal e;
         Unc_FunctionBound *b = LEFTOVER(Unc_FunctionBound, VGETENT(fn));
         e = unc0_stackinsertn(w, &w->sval, argc++, &b->boundto);
         if (UNLIKELY(e))
@@ -1757,7 +1762,7 @@ static void dofcall(Unc_View *w, jmp_buf *env, Unc_Size argc, int spew,
             Unc_Value v;
             unc0_fetchweak(w, fn, &v);
             if (spew) {
-                int e = unc0_stackpushv(w, &w->sval, &v);
+                Unc_RetVal e = unc0_stackpushv(w, &w->sval, &v);
                 if (UNLIKELY(e))
                     THROWERRSTPC(e);
             } else {
@@ -1777,7 +1782,8 @@ static void dofcall(Unc_View *w, jmp_buf *env, Unc_Size argc, int spew,
 INLINE void dofcall_o(Unc_View *w, jmp_buf *env, Unc_Size argc, int spew,
                     Unc_RegFast dst, Unc_Value *fn, const byte **pc) {
     Unc_Value o = UNC_BLANK;
-    int e, f;
+    Unc_RetVal e;
+    int f;
     e = unc0_stackinsertn(w, &w->sval, argc++, fn);
     if (e) THROWERRSTPC(e);
 dofcall_again:
@@ -1812,7 +1818,7 @@ dofcall_again:
     }
 }
 
-int unc0_vmrpush(Unc_View *w) {
+Unc_RetVal unc0_vmrpush(Unc_View *w) {
     if (w->region.top == w->region.end) {
         Unc_Size z = w->region.end - w->region.base, nz = z + 16;
         Unc_Size *p = TMREALLOC(Unc_Size, &w->world->alloc, 0,
@@ -1828,7 +1834,7 @@ int unc0_vmrpush(Unc_View *w) {
 
 INLINE void domlist(Unc_View *w, jmp_buf *env, Unc_Value *tr,
                     int pop, Unc_Size a, Unc_Size b, const byte *vmpc) {
-    int e;
+    Unc_RetVal e;
     Unc_Size argc;
     Unc_Entity *en = unc0_wake(w, Unc_TArray);
     ASSERT(w->region.top >= w->region.base ||
@@ -1870,7 +1876,7 @@ FORCEINLINE void checkstackge(Unc_View *w, jmp_buf *env, Unc_Size n,
 
 INLINE void dondict(Unc_View *w, jmp_buf *env, Unc_Value *tr,
                     const byte *vmpc) {
-    int e;
+    Unc_RetVal e;
     Unc_Entity *en = unc0_wake(w, Unc_TTable);
     if (!en) THROWERRVMPC(UNCIL_ERR_MEM);
     e = unc0_initdict(w, LEFTOVER(Unc_Dict, en));
@@ -1889,7 +1895,7 @@ static void dolspr(Unc_View *w, jmp_buf *env, int spew,
         Unc_Array *a = LEFTOVER(Unc_Array, VGETENT(list));
         UNC_LOCKL(a->lock);
         if (spew) {
-            int e = unc0_stackpush(w, &w->sval, a->size, a->data);
+            Unc_RetVal e = unc0_stackpush(w, &w->sval, a->size, a->data);
             if (UNLIKELY(e)) {
                 UNC_UNLOCKL(a->lock);
                 THROWERRVMPC(e);
@@ -2098,8 +2104,8 @@ void pcurinstrdump(Unc_View *w, const byte *pc);
 #define REFRESH() pc = rpc, regs = w->regs
 #define UNCOMMIT() pc = w->pc, regs = w->regs
 
-int unc0_run(Unc_View *w) {
-    int e;
+Unc_RetVal unc0_run(Unc_View *w) {
+    Unc_RetVal e;
     const Unc_View *origw = w;
     register const byte *pc = w->pc;
     Unc_Value *regs = w->regs;
@@ -2650,7 +2656,8 @@ nextinstr:
         if (w->region.top == w->region.end) {
             Unc_Size z = w->region.end - w->region.base, nz = z + 16, *p;
             CHECKPAUSE();
-            p = TMREALLOC(Unc_Size, &w->world->alloc, 0, w->region.base, z, nz);
+            p = TMREALLOC(Unc_Size, &w->world->alloc, 0,
+                          w->region.base, z, nz);
             if (!p) {
                 e = UNCIL_ERR_MEM;
                 goto vmerror;
@@ -3134,7 +3141,7 @@ vmerrormainctail:
     /* nope, sorry */
 vmexit:
     if (VGETTYPE(&w->coroutine) && w != origw) {
-        int pe = e;
+        Unc_RetVal pe = e;
         if (UNCIL_ERR_KIND(pe) == UNCIL_ERR_KIND_TRAMPOLINE)
             pe = 0;
         UNC_UNLOCKF(w->runlock);

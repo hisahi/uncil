@@ -27,18 +27,23 @@ SOFTWARE.
 #ifndef UNCIL_UUTF_H
 #define UNCIL_UUTF_H
 
+#include <limits.h>
+
 #include "udef.h"
 #include "utxt.h"
 
 #define UNC_UTF8_MAX_SIZE 4
 
 #if UNCIL_C99
+#include <stdint.h>
 typedef uint_least32_t Unc_UChar;
 #define UNC_UTF8_MAX_CHAR UINT32_C(0x110000)
 #else
 typedef unsigned long Unc_UChar;
 #define UNC_UTF8_MAX_CHAR 0x110000UL
 #endif
+
+#define UNC_UTF8_NO_CHAR ((Unc_UChar)(-1))
 
 Unc_Size unc0_utf8enc(Unc_UChar u, Unc_Size n, byte *out);
 Unc_UChar unc0_utf8dec(Unc_Size n, const byte **in);
@@ -68,6 +73,7 @@ const byte *unc0_utf8shiftaway(const byte *s, Unc_Size *n, Unc_Size i);
 #define UNC_RESHIFTBAD (~(Unc_Size)0)
 Unc_Size unc0_utf8reshift(const byte *s, Unc_Size z, Unc_Size n);
 Unc_Size unc0_utf8unshift(const byte *s, Unc_Size n);
+Unc_Size unc0_utf8reshiftlz(const byte *s, Unc_Size *n);
 void unc0_utf8rev(byte *b, const byte *s, Unc_Size n);
 
 #endif /* UNCIL_UUTF_H */

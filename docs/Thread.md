@@ -8,7 +8,8 @@ multithreading support.
 This module can usually be accessed with `require("thread")`.
 
 This module is disabled by default when Uncil is used as a library, but
-available on the standalone interpreter; see `mmask` in `API.md`.
+available on the standalone interpreter; see `mmask` in `API.md`. This module
+is not available if Uncil is compiled in sandboxed mode.
 
 ## thread.sleep()
 `thread.sleep(seconds)`

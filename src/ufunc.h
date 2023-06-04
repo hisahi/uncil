@@ -87,16 +87,17 @@ typedef struct Unc_FunctionBound {
     Unc_Value fn;
 } Unc_FunctionBound;
 
-int unc0_initfuncu(struct Unc_View *w, Unc_Function *fn,
-            struct Unc_Program *program, Unc_Size in_off, int fromc);
-int unc0_initfuncc(struct Unc_View *w, Unc_Function *fn, Unc_CFunc fc,
-            Unc_Size argcount, int flags, int cflags,
-            Unc_Size optcount, Unc_Value *defaults,
-            Unc_Size refcount, Unc_Value *initvalues,
-            Unc_Size refcopycount, Unc_Size *refcopies,
-            const char *fname, void *udata);
-int unc0_initbfunc(struct Unc_View *w, Unc_FunctionBound *bfn,
-            Unc_Value *fn, Unc_Value *boundto);
+Unc_RetVal unc0_initfuncu(struct Unc_View *w, Unc_Function *fn,
+                          struct Unc_Program *program, Unc_Size in_off,
+                          int fromc);
+Unc_RetVal unc0_initfuncc(struct Unc_View *w, Unc_Function *fn, Unc_CFunc fc,
+                          Unc_Size argcount, int flags, int cflags,
+                          Unc_Size optcount, Unc_Value *defaults,
+                          Unc_Size refcount, Unc_Value *initvalues,
+                          Unc_Size refcopycount, Unc_Size *refcopies,
+                          const char *fname, void *udata);
+Unc_RetVal unc0_initbfunc(struct Unc_View *w, Unc_FunctionBound *bfn,
+                          Unc_Value *fn, Unc_Value *boundto);
 
 /* function calling is in uvm.c */
 

@@ -32,6 +32,7 @@ SOFTWARE.
 #include "uarr.h"
 #include "ublob.h"
 #include "udebug.h"
+#include "uctype.h"
 #include "umodule.h"
 #include "uncil.h"
 #include "usort.h"
@@ -43,8 +44,9 @@ SOFTWARE.
 #include "uvop.h"
 #include "uvsio.h"
 
-#define MUST(cond) do { int e; if ((e = (cond))) return e; } while (0)
+#define MUST(cond) do { Unc_RetVal e; if ((e = (cond))) return e; } while (0)
 
+#if !UNCIL_SANDBOXED
 int unc0_g_print_out_(Unc_Size n, const byte *s, void *udata) {
     (void)udata;
     fwrite(s, 1, n, stdout);
@@ -64,8 +66,49 @@ Unc_RetVal unc0_g_print(Unc_View *w, Unc_Tuple args, void *udata) {
     return 0;
 }
 
+Unc_RetVal unc0_g_input(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
+    int c;
+    struct unc0_strbuf s;
+    Unc_Value out = UNC_BLANK;
+    (void)udata;
+
+    if (args.values[0].type) {
+        Unc_RetVal e;
+        Unc_Size sn;
+        const char *sp;
+        e = unc_getstring(w, &args.values[0], &sn, &sp);
+        if (e) return e;
+        fwrite(sp, 1, sn, stdout);
+        fflush(stdout);
+    }
+
+    unc0_strbuf_init(&s, &w->world->alloc, Unc_AllocString);
+    for (;;) {
+        c = getchar();
+        if (c < 0) {
+            if (!s.length) {
+                Unc_Value v = UNC_BLANK;
+                return unc_returnlocal(w, 0, &v);
+            } else {
+                break;
+            }
+        } else if (c == '\n') {
+            break;
+        }
+        if (unc0_strbuf_put1(&s, c)) goto memfail;
+    }
+
+    e = unc0_buftostring(w, &out, &s);
+    if (!e) return unc_returnlocal(w, 0, &out);
+memfail:
+    unc0_strbuf_free(&s);
+    return UNCIL_ERR_MEM;
+}
+#endif
+
 Unc_RetVal unc0_g_require(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const char *sp;
     Unc_Entity *en;
@@ -77,95 +120,45 @@ Unc_RetVal unc0_g_require(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, &args.values[0], &sn, &sp);
     if (e) return e;
     ov = unc0_gethtbls(w, cache, sn, (const byte *)sp);
-    if (ov)
-        return unc_push(w, 1, ov, NULL);
+    if (ov) return unc_push(w, 1, ov);
     e = unc0_puthtbls(w, cache, sn, (const byte *)sp, &ov);
     if (e) return UNCIL_ERR_MEM;
     VSETNULL(w, ov);
     en = unc0_wake(w, Unc_TObject);
-    if (!en) return UNCIL_ERR_MEM;
+    if (!en) {
+        e = UNCIL_ERR_MEM;
+        goto memfail;
+    }
     e = unc0_initobj(w, LEFTOVER(Unc_Object, en), NULL);
     if (e) {
         unc0_unwake(en, w);
-        return e;
+        goto memfail;
     }
     e = unc0_dorequire(w, sn, (const byte *)sp, LEFTOVER(Unc_Object, en));
     if (e) {
         unc0_hibernate(en, w);
-        return e;
+        goto memfail;
     }
 
     VINITENT(&v, Unc_TObject, en);
     VCOPY(w, ov, &v);
-    return unc_push(w, 1, &v, NULL);
-}
+    return unc_returnlocal(w, 0, &v);
 
-Unc_RetVal unc0_g_input(Unc_View *w, Unc_Tuple args, void *udata) {
-    int c;
-    byte *s = NULL;
-    Unc_Size sn = 0, sc = 0;
-    Unc_Allocator *alloc = &w->world->alloc;
-    (void)udata;
-
-    if (args.values[0].type) {
-        int e;
-        Unc_Size sn;
-        const char *sp;
-        e = unc_getstring(w, &args.values[0], &sn, &sp);
-        if (e) return e;
-        fwrite(sp, 1, sn, stdout);
-        fflush(stdout);
-    }
-
-    for (;;) {
-        c = getchar();
-        if (c < 0) {
-            if (!sc) {
-                Unc_Value v = UNC_BLANK;
-                return unc_pushmove(w, &v, NULL);
-            } else {
-                break;
-            }
-        } else if (c == '\n') {
-            break;
-        }
-        if (unc0_sstrput(alloc, &s, &sn, &sc, 6, c)) {
-            unc0_mfree(alloc, s, sc);
-            return UNCIL_ERR_MEM;
-        }
-    }
-
-    s = unc0_mrealloc(alloc, Unc_AllocString, s, sc, sn);
-    {
-        int e;
-        Unc_Value v;
-        Unc_Entity *en = unc0_wake(w, Unc_TString);
-        if (!en) {
-            unc0_mfree(alloc, s, sn);
-            return UNCIL_ERR_MEM;
-        }
-        e = unc0_initstringmove(alloc, LEFTOVER(Unc_String, en), sn, s);
-        if (e) {
-            unc0_unwake(en, w);
-            unc0_mfree(alloc, s, sn);
-            return UNCIL_ERR_MEM;
-        }
-        VINITENT(&v, Unc_TString, en);
-        return unc_push(w, 1, &v, NULL);
-    }
+memfail:
+    unc0_delhtbls(w, cache, sn, (const byte *)sp);
+    return e;
 }
 
 Unc_RetVal unc0_g_type(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     const char *sp = unc0_getvaluetypename(unc_gettype(w, &args.values[0]));
     Unc_Value v = UNC_BLANK;
     e = unc_newstringc(w, &v, sp);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_g_throw(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, sn2;
     const char *sp, *sp2;
     int msg;
@@ -252,11 +245,12 @@ Unc_RetVal unc0_g_bool(Unc_View *w, Unc_Tuple args, void *udata) {
     int e = unc0_vcvt2bool(w, &args.values[0]);
     if (UNCIL_IS_ERR(e)) return e;
     VINITBOOL(&v, e);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_g_object(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, freeze;
+    Unc_RetVal e;
+    int freeze;
     Unc_Value v = UNC_BLANK;
     switch (args.values[0].type) {
     case Unc_TNull:
@@ -303,98 +297,79 @@ Unc_RetVal unc0_g_object(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 unc0_g_object_exit:
     if (freeze) unc0_ofreeze(w, LEFTOVER(Unc_Object, VGETENT(&v)));
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_g_getprototype(Unc_View *w, Unc_Tuple args, void *udata) {
     switch (args.values[0].type) {
     case Unc_TObject:
         return unc_push(w, 1,
-            &LEFTOVER(Unc_Object, VGETENT(&args.values[0]))->prototype, NULL);
+            &LEFTOVER(Unc_Object, VGETENT(&args.values[0]))->prototype);
     case Unc_TOpaque:
         return unc_push(w, 1,
-            &LEFTOVER(Unc_Opaque, VGETENT(&args.values[0]))->prototype, NULL);
+            &LEFTOVER(Unc_Opaque, VGETENT(&args.values[0]))->prototype);
     default:
         return UNCIL_ERR_TYPE_NOTOBJECT;
     }
 }
 
-Unc_RetVal unc0_g_weakref(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
-    Unc_Value v;
-    e = unc0_makeweak(w, &args.values[0], &v);
-    if (e) return e;
-    return unc_push(w, 1, &v, NULL);
+Unc_RetVal unc0_g_getversion(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_Value v[3] = UNC_BLANKS;
+    (void)udata;
+
+    VINITINT(&v[0], UNCIL_VER_MAJOR);
+    VINITINT(&v[1], UNCIL_VER_MINOR);
+    VINITINT(&v[2], UNCIL_VER_PATCH);
+    return unc_push(w, 3, v);
 }
 
-struct temp_string {
-    Unc_Allocator *alloc;
-    byte *b;
-    Unc_Size n;
-    Unc_Size c;
-};
+Unc_RetVal unc0_g_weakref(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
+    Unc_Value v;
+    e = unc0_makeweak(w, &args.values[0], &v);
+    return unc_returnlocal(w, e, &v);
+}
 
 Unc_RetVal unc0_g_int(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value sv = UNC_BLANK;
     e = unc0_vcvt2int(w, &sv, &args.values[1]);
-    if (e) return e;
-    return unc_push(w, 1, &sv, NULL);
+    return unc_returnlocal(w, e, &sv);
 }
 
 Unc_RetVal unc0_g_float(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value sv = UNC_BLANK;
     e = unc0_vcvt2flt(w, &sv, &args.values[1]);
-    if (e) return e;
-    return unc_push(w, 1, &sv, NULL);
+    return unc_returnlocal(w, e, &sv);
 }
 
 int unc0_g_str_out_(Unc_Size n, const byte *s, void *udata) {
-    struct temp_string *bstr = (struct temp_string *)udata;
-    return unc0_strputn(bstr->alloc, &bstr->b, &bstr->n, &bstr->c,
-                        6, n, s);
+    struct unc0_strbuf *bstr = (struct unc0_strbuf *)udata;
+    return unc0_strbuf_putn(bstr, n, s);
 }
 
 Unc_RetVal unc0_g_str(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
-    struct temp_string sbuf;
-    Unc_Value sv;
-    Unc_Entity *en;
+    Unc_RetVal e;
+    struct unc0_strbuf sbuf;
+    Unc_Value sv = UNC_BLANK;
 
     (void)udata;
-    sbuf.alloc = &w->world->alloc;
-    sbuf.b = NULL;
-    sbuf.n = 0;
-    sbuf.c = 0;
+    unc0_strbuf_init(&sbuf, &w->world->alloc, Unc_AllocString);
 
     e = unc0_vcvt2str(w, &args.values[1], &unc0_g_str_out_, &sbuf);
-    if (e) {
-        unc0_mfree(sbuf.alloc, sbuf.b, sbuf.c);
-        return e;
-    }
+    if (e) goto memfail;
 
-    sbuf.b = unc0_mrealloc(sbuf.alloc, Unc_AllocString, sbuf.b, sbuf.c, sbuf.n);
-    en = unc0_wake(w, Unc_TString);
-    if (!en) {
-        unc0_mfree(sbuf.alloc, sbuf.b, sbuf.n);
-        return UNCIL_ERR_MEM;
-    }
+    e = unc0_buftostring(w, &sv, &sbuf);
+    if (!e) return unc_returnlocal(w, 0, &sv);
 
-    e = unc0_initstringmove(sbuf.alloc, LEFTOVER(Unc_String, en),
-                            sbuf.n, sbuf.b);
-    if (e) {
-        unc0_mfree(sbuf.alloc, sbuf.b, sbuf.n);
-        unc0_unwake(en, w);
-        return UNCIL_ERR_MEM;
-    }
-
-    VINITENT(&sv, Unc_TString, en);
-    return unc_push(w, 1, &sv, NULL);
+memfail:
+    unc0_strbuf_free(&sbuf);
+    return UNCIL_ERR_MEM;
 }
 
 Unc_RetVal unc0_g_blob(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
     Unc_Int ui;
@@ -408,13 +383,13 @@ Unc_RetVal unc0_g_blob(Unc_View *w, Unc_Tuple args, void *udata) {
     sn = (Unc_Size)ui;
     e = unc_newblob(w, &v, sn, &sp);
     if (e) return e;
-    unc0_memset(sp, 0, sn);
+    unc0_mbzero(sp, sn);
     unc_unlock(w, &v);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_g_array(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value arr = UNC_BLANK;
     Unc_Value iter = UNC_BLANK;
     Unc_Pile pile;
@@ -423,40 +398,34 @@ Unc_RetVal unc0_g_array(Unc_View *w, Unc_Tuple args, void *udata) {
 
     e = unc0_vgetiter(w, &iter, &args.values[1]);
     if (e) return e;
-    unc_incref(w, &iter);
     e = unc_newarrayempty(w, &arr);
-    if (e) {
-        unc_decref(w, &iter);
-        return e;
-    }
+    if (e) goto fail;
 
     a = LEFTOVER(Unc_Array, VGETENT(&arr));
     do {
         e = unc_call(w, &iter, 0, &pile);
-        if (e) {
-            unc_decref(w, &iter);
-            unc_decref(w, &arr);
-            return e;
-        }
+        if (e) goto fail;
         unc_returnvalues(w, &pile, &tuple);
         if (tuple.count) {
             e = unc0_arraypush(w, a, &tuple.values[0]);
             if (e) {
-                unc_decref(w, &iter);
-                unc_decref(w, &arr);
                 unc_discard(w, &pile);
-                return e;
+                goto fail;
             }
         }
         unc_discard(w, &pile);
     } while (tuple.count);
 
-    unc_decref(w, &iter);
-    return unc_pushmove(w, &arr, NULL);
+    VCLEAR(w, &iter);
+    return unc_returnlocal(w, 0, &arr);
+fail:
+    VCLEAR(w, &iter);
+    VCLEAR(w, &arr);
+    return e;
 }
 
 Unc_RetVal unc0_g_table(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Value tbl = UNC_BLANK;
     Unc_Value iter = UNC_BLANK;
     Unc_Pile pile;
@@ -465,47 +434,40 @@ Unc_RetVal unc0_g_table(Unc_View *w, Unc_Tuple args, void *udata) {
 
     e = unc0_vgetiter(w, &iter, &args.values[1]);
     if (e) return e;
-    unc_incref(w, &iter);
     e = unc_newtable(w, &tbl);
-    if (e) {
-        unc_decref(w, &iter);
-        return e;
-    }
+    if (e) goto fail;
 
     a = LEFTOVER(Unc_Dict, VGETENT(&tbl));
     do {
         e = unc_call(w, &iter, 0, &pile);
-        if (e) {
-            unc_decref(w, &iter);
-            unc_decref(w, &tbl);
-            return e;
-        }
+        if (e) goto fail;
         unc_returnvalues(w, &pile, &tuple);
         if (tuple.count == 1) {
-            unc_decref(w, &iter);
-            unc_decref(w, &tbl);
             unc_discard(w, &pile);
-            return unc0_throwexc(w, "value", "iterator returned only 1 value, "
-                                             "but table expected 2");
+            e = unc0_throwexc(w, "value", 
+                "iterator returned only 1 value, but table expected 2");
+            goto fail;
         }
         if (tuple.count) {
             e = unc0_dsetindx(w, a, &tuple.values[0], &tuple.values[1]);
             if (e) {
-                unc_decref(w, &iter);
-                unc_decref(w, &tbl);
                 unc_discard(w, &pile);
-                return e;
+                goto fail;
             }
         }
         unc_discard(w, &pile);
     } while (tuple.count);
 
-    unc_decref(w, &iter);
-    return unc_pushmove(w, &tbl, NULL);
+    VCLEAR(w, &iter);
+    return unc_returnlocal(w, 0, &tbl);
+fail:
+    VCLEAR(w, &iter);
+    VCLEAR(w, &tbl);
+    return e;
 }
 
 Unc_RetVal unc0_gs_size(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const char *sp;
     Unc_Int ui;
@@ -517,11 +479,11 @@ Unc_RetVal unc0_gs_size(Unc_View *w, Unc_Tuple args, void *udata) {
     ui = (Unc_Int)sn;
     
     VINITINT(&v, ui);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_length(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const char *sp;
     Unc_Int ui;
@@ -533,11 +495,11 @@ Unc_RetVal unc0_gs_length(Unc_View *w, Unc_Tuple args, void *udata) {
     ui = (Unc_Int)unc0_utf8unshift((const byte *)sp, sn);
     
     VINITINT(&v, ui);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_find(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, sn2;
     const byte *sp, *sp2;
     Unc_Int ui;
@@ -564,11 +526,11 @@ Unc_RetVal unc0_gs_find(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         VINITINT(&v, -1);
     
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, sn2;
     const byte *sp, *sp2;
     Unc_Int ui;
@@ -598,11 +560,11 @@ Unc_RetVal unc0_gs_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         VINITINT(&v, -1);
     
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_sub(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const byte *sp;
     Unc_Int ui1, ui2;
@@ -634,12 +596,11 @@ Unc_RetVal unc0_gs_sub(Unc_View *w, Unc_Tuple args, void *udata) {
         }
     } else
         e = unc_newstring(w, &v, sn, (const char *)sp);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_gs_charcode(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const byte *sp;
     Unc_Int ui = 0;
@@ -661,11 +622,11 @@ Unc_RetVal unc0_gs_charcode(Unc_View *w, Unc_Tuple args, void *udata) {
         return unc0_throwexc(w, "value", "string is empty");
     ui = unc0_utf8decd(sp);
     VINITINT(&v, ui);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_char(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte buf[UNC_UTF8_MAX_SIZE];
     Unc_Int ui = 0;
@@ -677,12 +638,11 @@ Unc_RetVal unc0_gs_char(Unc_View *w, Unc_Tuple args, void *udata) {
         return unc0_throwexc(w, "value", "code point out of range");
     sn = unc0_utf8enc((Unc_UChar)ui, sizeof(buf), buf);
     e = unc_newstring(w, &v, sn, (const char *)buf);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_gs_reverse(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const byte *sp;
     byte *buf;
@@ -693,32 +653,32 @@ Unc_RetVal unc0_gs_reverse(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, &args.values[0], &sn, (const char **)&sp);
     if (e) return e;
     
-    buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn);
+    buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn + 1);
     if (!buf) {
         return UNCIL_ERR_MEM;
     }
     
     en = unc0_wake(w, Unc_TString);
     if (!en) {
-        unc0_mfree(&w->world->alloc, buf, sn);
+        unc0_mfree(&w->world->alloc, buf, sn + 1);
         return UNCIL_ERR_MEM;
     }
     
     unc0_utf8rev(buf, sp, sn);
-
+    buf[sn] = 0;
     e = unc0_initstringmove(&w->world->alloc,
                             LEFTOVER(Unc_String, en), sn, buf);
     if (e) {
-        unc0_mfree(&w->world->alloc, buf, sn);
+        unc0_mfree(&w->world->alloc, buf, sn + 1);
         unc0_unwake(en, w);
         return e;
     }
     VINITENT(&v, Unc_TString, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_asciilower(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, i;
     const byte *sp;
     byte *buf, c;
@@ -729,37 +689,38 @@ Unc_RetVal unc0_gs_asciilower(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, &args.values[0], &sn, (const char **)&sp);
     if (e) return e;
     
-    buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn);
+    buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn + 1);
     if (!buf) {
         return UNCIL_ERR_MEM;
     }
     
     en = unc0_wake(w, Unc_TString);
     if (!en) {
-        unc0_mfree(&w->world->alloc, buf, sn);
+        unc0_mfree(&w->world->alloc, buf, sn + 1);
         return UNCIL_ERR_MEM;
     }
     
     for (i = 0; i < sn; ++i) {
         c = sp[i];
-        if ('A' <= c && c <= 'Z')
-            c |= 0x20;
+        if (unc0_isalpha(c))
+            c = unc0_tolower(c);
         buf[i] = c;
     }
+    buf[sn] = 0;
 
     e = unc0_initstringmove(&w->world->alloc,
                             LEFTOVER(Unc_String, en), sn, buf);
     if (e) {
-        unc0_mfree(&w->world->alloc, buf, sn);
+        unc0_mfree(&w->world->alloc, buf, sn + 1);
         unc0_unwake(en, w);
         return e;
     }
     VINITENT(&v, Unc_TString, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_asciiupper(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, i;
     const byte *sp;
     byte *buf, c;
@@ -770,37 +731,38 @@ Unc_RetVal unc0_gs_asciiupper(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, &args.values[0], &sn, (const char **)&sp);
     if (e) return e;
     
-    buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn);
+    buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn + 1);
     if (!buf) {
         return UNCIL_ERR_MEM;
     }
     
     en = unc0_wake(w, Unc_TString);
     if (!en) {
-        unc0_mfree(&w->world->alloc, buf, sn);
+        unc0_mfree(&w->world->alloc, buf, sn + 1);
         return UNCIL_ERR_MEM;
     }
     
     for (i = 0; i < sn; ++i) {
         c = sp[i];
-        if ('a' <= c && c <= 'z')
-            c &= ~0x20;
+        if (unc0_isalpha(c))
+            c = unc0_toupper(c);
         buf[i] = c;
     }
+    buf[sn] = 0;
 
     e = unc0_initstringmove(&w->world->alloc,
                             LEFTOVER(Unc_String, en), sn, buf);
     if (e) {
-        unc0_mfree(&w->world->alloc, buf, sn);
+        unc0_mfree(&w->world->alloc, buf, sn + 1);
         unc0_unwake(en, w);
         return e;
     }
     VINITENT(&v, Unc_TString, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gs_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     const byte *sp;
     byte *buf;
@@ -818,7 +780,7 @@ Unc_RetVal unc0_gs_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
                     "cannot repeat a negative number of times");
     
     if (ui) {
-        buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn * ui);
+        buf = unc0_malloc(&w->world->alloc, Unc_AllocString, sn * ui + 1);
         if (!buf) {
             return UNCIL_ERR_MEM;
         }
@@ -827,100 +789,83 @@ Unc_RetVal unc0_gs_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
     
     en = unc0_wake(w, Unc_TString);
     if (!en) {
-        unc0_mfree(&w->world->alloc, buf, sn * ui);
+        unc0_mfree(&w->world->alloc, buf, sn * ui + 1);
         return UNCIL_ERR_MEM;
     }
     
     for (ut = 0; ut < ui; ++ut)
         unc0_memcpy(buf + ut * sn, sp, sn);
+    buf[sn * ui] = 0;
 
     e = unc0_initstringmove(&w->world->alloc,
                             LEFTOVER(Unc_String, en), sn * ui, buf);
     if (e) {
-        unc0_mfree(&w->world->alloc, buf, sn * ui);
+        unc0_mfree(&w->world->alloc, buf, sn * ui + 1);
         unc0_unwake(en, w);
         return e;
     }
     VINITENT(&v, Unc_TString, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-struct join_buf {
-    Unc_Allocator *alloc;
-    byte *s;
-    Unc_Size n;
-    Unc_Size c;
-};
-
 int unc0_gs_join_out_(Unc_Size n, const byte *s, void *udata) {
-    struct join_buf *buf = udata;
-    return unc0_strpush(buf->alloc, &buf->s, &buf->n, &buf->c, 6, n, s);
+    struct unc0_strbuf *buf = udata;
+    return unc0_strbuf_putn(buf, n, s);
 }
 
 Unc_RetVal unc0_gs_join(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, addsep = 0;
+    Unc_RetVal e;
+    int addsep = 0;
     Unc_Value v = UNC_BLANK;
     Unc_Value iter = UNC_BLANK;
     Unc_Pile pile;
     Unc_Tuple tuple;
     Unc_Size sepn;
     const byte *sep;
-    struct join_buf buf;
+    struct unc0_strbuf buf;
 
     e = unc0_vgetiter(w, &iter, &args.values[1]);
     if (e) return e;
-    unc_incref(w, &iter);
-
-    buf.alloc = &w->world->alloc;
-    buf.s = NULL;
-    buf.n = 0;
-    buf.c = 0;
 
     e = unc_getstring(w, &args.values[0], &sepn, (const char **)&sep);
     if (e) return e;
+    
+    unc0_strbuf_init(&buf, &w->world->alloc, Unc_AllocString);
 
     do {
         e = unc_call(w, &iter, 0, &pile);
-        if (e) {
-            unc_decref(w, &iter);
-            if (buf.s) unc0_mmfree(buf.alloc, buf.s);
-            return e;
-        }
+        if (e) goto fail;
         unc_returnvalues(w, &pile, &tuple);
         if (tuple.count) {
             if (!addsep)
                 addsep = 1;
             else
-                e = unc0_strpush(buf.alloc, &buf.s, &buf.n, &buf.c,
-                                 6, sepn, sep);
+                e = unc0_strbuf_putn(&buf, sepn, sep);
             if (!e)
                 e = unc0_vcvt2str(w, &tuple.values[0],
                                   &unc0_gs_join_out_, &buf);
-            if (e) {
-                unc_decref(w, &iter);
-                if (buf.s) unc0_mmfree(buf.alloc, buf.s);
-                return e;
-            }
+            if (e) goto fail;
         }
         unc_discard(w, &pile);
     } while (tuple.count);
 
-    unc_decref(w, &iter);
-    e = unc_newstringmove(w, &v, buf.n, (char *)buf.s);
-    if (e) {
-        if (buf.s) unc0_mmfree(buf.alloc, buf.s);
-        return e;
-    }
-    return unc_pushmove(w, &v, NULL);
+    VCLEAR(w, &iter);
+    e = unc0_buftostring(w, &v, &buf);
+    if (!e) return unc_returnlocal(w, 0, &v);
+
+fail:
+    VCLEAR(w, &iter);
+    unc0_strbuf_free(&buf);
+    return e;
 }
 
 Unc_RetVal unc0_gs_replace(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, dir = 0;
+    Unc_RetVal e;
+    int dir = 0;
     Unc_Value v = UNC_BLANK;
-    Unc_Allocator *alloc = &w->world->alloc;
     Unc_Size srcn, findn, dstn, maxrepl;
     const byte *src, *find, *dst;
-    struct join_buf buf;
+    struct unc0_strbuf buf;
 
     e = unc_getstring(w, &args.values[0], &srcn, (const char **)&src);
     if (e) return e;
@@ -944,17 +889,13 @@ Unc_RetVal unc0_gs_replace(Unc_View *w, Unc_Tuple args, void *udata) {
         maxrepl = UNC_SIZE_MAX;
 
     if (!maxrepl)
-        return unc_push(w, 1, &args.values[0], NULL);
+        return unc_returnlocal(w, 0, &args.values[0]);
 
-    buf.alloc = alloc;
-    buf.s = NULL;
-    buf.n = 0;
-    buf.c = 0;
+    unc0_strbuf_init(&buf, &w->world->alloc, Unc_AllocString);
 
     if (!findn) {
         if (dir) {
-            e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                dstn, dst);
+            e = unc0_strbuf_putn_rv(&buf, dstn, dst);
             if (e) goto unc0_gs_replace_fail;
             while (srcn && --maxrepl) {
                 const byte *se = src + srcn,
@@ -962,41 +903,34 @@ Unc_RetVal unc0_gs_replace(Unc_View *w, Unc_Tuple args, void *udata) {
                 if (!srcp)
                     srcn = 0;
                 else {
-                    e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                        se - srcp, srcp);
+                    e = unc0_strbuf_putn_rv(&buf, se - srcp, srcp);
                     if (e) goto unc0_gs_replace_fail;
                     srcn = srcp - src;
                 }
-                e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                    dstn, dst);
+                e = unc0_strbuf_putn_rv(&buf, dstn, dst);
                 if (e) goto unc0_gs_replace_fail;
             }
             if (srcn) {
-                e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                    srcn, src);
+                e = unc0_strbuf_putn_rv(&buf, srcn, src);
                 if (e) goto unc0_gs_replace_fail;
             }
-            unc0_memrev(buf.s, buf.n);
+            unc0_memrev(buf.buffer, buf.length);
         } else {
-            e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6,
-                             dstn, dst);
+            e = unc0_strbuf_putn(&buf, dstn, dst);
             if (e) goto unc0_gs_replace_fail;
             while (srcn && --maxrepl) {
                 const byte *se = src + srcn,
                            *srcp = unc0_utf8scanforw(src, se, 1);
                 if (!srcp) srcp = se;
-                e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                    srcp - src, src);
+                e = unc0_strbuf_putn(&buf, srcp - src, src);
                 if (e) goto unc0_gs_replace_fail;
                 srcn -= srcp - src;
                 src = srcp;
-                e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                 dstn, dst);
+                e = unc0_strbuf_putn(&buf, dstn, dst);
                 if (e) goto unc0_gs_replace_fail;
             }
             if (srcn) {
-                e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                 srcn, src);
+                e = unc0_strbuf_putn(&buf, srcn, src);
                 if (e) goto unc0_gs_replace_fail;
             }
         }
@@ -1008,55 +942,49 @@ Unc_RetVal unc0_gs_replace(Unc_View *w, Unc_Tuple args, void *udata) {
                            *sr;
                 if (!sq) break;
                 sr = sq + findn;
-                e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                    se - sr, sr);
+                e = unc0_strbuf_putn_rv(&buf, se - sr, sr);
                 if (e) goto unc0_gs_replace_fail;
-                e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                    dstn, dst);
+                e = unc0_strbuf_putn_rv(&buf, dstn, dst);
                 if (e) goto unc0_gs_replace_fail;
                 srcn = sq - src;
                 --maxrepl;
             }
             if (srcn) {
-                e = unc0_strpushrv(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                    srcn, src);
+                e = unc0_strbuf_putn_rv(&buf, srcn, src);
                 if (e) goto unc0_gs_replace_fail;
             }
-            unc0_memrev(buf.s, buf.n);
+            unc0_memrev(buf.buffer, buf.length);
         } else {
             while (srcn && maxrepl) {
                 const byte *sq = unc0_strsearch(src, srcn, find, findn), *sr;
                 if (!sq) break;
                 sr = sq + findn;
-                e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6,
-                                 sq - src, src);
+                e = unc0_strbuf_putn(&buf, sq - src, src);
                 if (e) goto unc0_gs_replace_fail;
-                e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6, dstn, dst);
+                e = unc0_strbuf_putn(&buf, dstn, dst);
                 if (e) goto unc0_gs_replace_fail;
                 srcn -= sr - src;
                 src = sr;
                 --maxrepl;
             }
             if (srcn) {
-                e = unc0_strpush(alloc, &buf.s, &buf.n, &buf.c, 6, srcn, src);
+                e = unc0_strbuf_putn(&buf, srcn, src);
                 if (e) goto unc0_gs_replace_fail;
             }
         }
     }
 
-    e = unc_newstringmove(w, &v, buf.n, (char *)buf.s);
-    if (e) {
-        if (buf.s) unc0_mmfree(buf.alloc, buf.s);
-        return e;
-    }
-    return unc_pushmove(w, &v, NULL);
+    e = unc0_buftostring(w, &v, &buf);
+    if (!e) return unc_returnlocal(w, 0, &v);
+
 unc0_gs_replace_fail:
-    if (buf.s) unc0_mmfree(buf.alloc, buf.s);
+    unc0_strbuf_free(&buf);
     return e;
 }
 
 Unc_RetVal unc0_gs_split(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, dir = 0;
+    Unc_RetVal e;
+    int dir = 0;
     Unc_Value arr = UNC_BLANK, v = UNC_BLANK;
     Unc_Size srcn, findn, dstn, maxrepl;
     const byte *src, *find;
@@ -1171,27 +1099,21 @@ Unc_RetVal unc0_gs_split(Unc_View *w, Unc_Tuple args, void *udata) {
         }
     }
 
-    if (dir) { /* reverse array */
-        Unc_Value *a = dst, *b = dst + dstn - 1;
-        while (a < b) {
-            Unc_Value tmp = *a;
-            *a++ = *b;
-            *b-- = tmp;
-        }
-    }
+    if (dir) /* reverse array */
+        unc0_reversevalues(dst, dstn);
 
-    unc_clear(w, &v);
+    VCLEAR(w, &v);
     unc_unlock(w, &arr);
-    return unc_pushmove(w, &arr, NULL);
+    return unc_returnlocal(w, 0, &arr);
 unc0_gs_split_fail:
-    unc_clear(w, &v);
+    VCLEAR(w, &v);
     unc_unlock(w, &arr);
     unc_decref(w, &arr);
     return e;
 }
 
 Unc_RetVal unc0_gb_new(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
     Unc_Int ui;
@@ -1205,13 +1127,13 @@ Unc_RetVal unc0_gb_new(Unc_View *w, Unc_Tuple args, void *udata) {
     sn = (Unc_Size)ui;
     e = unc_newblob(w, &v, sn, &sp);
     if (e) return e;
-    unc0_memset(sp, 0, sn);
+    unc0_mbzero(sp, sn);
     unc_unlock(w, &v);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gb_from(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, i;
     byte *sp;
     Unc_Int ui;
@@ -1222,8 +1144,7 @@ Unc_RetVal unc0_gb_from(Unc_View *w, Unc_Tuple args, void *udata) {
         if (e) return e;
         e = unc_newblobfrom(w, &v, sn, sp);
         unc_unlock(w, &args.values[0]);
-        if (e) return e;
-        return unc_pushmove(w, &v, NULL);
+        return unc_returnlocal(w, e, &v);
     } else if (args.count == 1 && args.values[0].type == Unc_TArray) {
         Unc_Value *ap;
         e = unc_lockarray(w, &args.values[0], &sn, &ap);
@@ -1252,9 +1173,9 @@ Unc_RetVal unc0_gb_from(Unc_View *w, Unc_Tuple args, void *udata) {
         }
         unc_unlock(w, &v);
         unc_unlock(w, &args.values[0]);
-        return unc_pushmove(w, &v, NULL);
+        return unc_returnlocal(w, 0, &v);
     } else if (args.count == 1 && args.values[0].type == Unc_TObject) {
-        /* might be iterable? */
+        /* TODO: might be iterable? */
         return UNCIL_ERR_ARG_NOTITERABLE;
     } else {
         sn = args.count;
@@ -1276,12 +1197,12 @@ Unc_RetVal unc0_gb_from(Unc_View *w, Unc_Tuple args, void *udata) {
             sp[i] = (byte)ui;
         }
         unc_unlock(w, &v);
-        return unc_pushmove(w, &v, NULL);
+        return unc_returnlocal(w, 0, &v);
     }
 }
 
 Unc_RetVal unc0_gb_copy(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
     Unc_Value v = UNC_BLANK;
@@ -1290,12 +1211,11 @@ Unc_RetVal unc0_gb_copy(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
     e = unc_newblobfrom(w, &v, sn, sp);
     unc_unlock(w, &args.values[0]);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_gb_size(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value v;
 
@@ -1303,11 +1223,11 @@ Unc_RetVal unc0_gb_size(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getblobsize(w, &args.values[0], &sn);
     if (e) return e;
     VINITINT(&v, sn);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gb_find(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, sn2;
     byte *sp, *sp2;
     Unc_Int ui;
@@ -1342,11 +1262,11 @@ Unc_RetVal unc0_gb_find(Unc_View *w, Unc_Tuple args, void *udata) {
     
     unc_unlock(w, &args.values[1]);
     unc_unlock(w, &args.values[0]);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gb_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, sn2;
     byte *sp, *sp2;
     Unc_Int ui;
@@ -1381,33 +1301,24 @@ Unc_RetVal unc0_gb_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
     
     unc_unlock(w, &args.values[1]);
     unc_unlock(w, &args.values[0]);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gb_reverse(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
 
     ASSERT(args.count == 1);
     e = unc_lockblob(w, &args.values[0], &sn, &sp);
     if (e) return e;
-    
-    {
-        byte *sa = sp, *sb = sp + sn - 1, tmp;
-        while (sa < sb) {
-            tmp = *sa;
-            *sa++ = *sb;
-            *sb-- = tmp;
-        }
-    }
-
+    unc0_memrev(sp, sn);
     unc_unlock(w, &args.values[0]);
     return 0;
 }
 
 Unc_RetVal unc0_gb_sub(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
     Unc_Int ui1, ui2;
@@ -1446,12 +1357,11 @@ Unc_RetVal unc0_gb_sub(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         e = unc_newblobfrom(w, &v, sn, sp);
     unc_unlock(w, &args.values[0]);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_gb_fill(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp, f;
     Unc_Int ui1, ui2;
@@ -1482,19 +1392,19 @@ Unc_RetVal unc0_gb_fill(Unc_View *w, Unc_Tuple args, void *udata) {
         }
         if (ui2 >= 0) {
             if (ui2 > ui1)
-                unc0_memsetv(sp, f, ui2 - ui1);
+                unc0_memset(sp, f, ui2 - ui1);
         } else {
             if (sn > -ui2)
-                unc0_memsetv(sp, f, sn + ui2);
+                unc0_memset(sp, f, sn + ui2);
         }
     } else
-        unc0_memsetv(sp, f, sn);
+        unc0_memset(sp, f, sn);
     unc_unlock(w, &args.values[0]);
     return 0;
 }
 
 Unc_RetVal unc0_gb_resize(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
     Unc_Int ui;
@@ -1515,7 +1425,7 @@ Unc_RetVal unc0_gb_resize(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_gb_push(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size bn, sn, i;
     byte *bp;
     Unc_Int ui;
@@ -1525,53 +1435,40 @@ Unc_RetVal unc0_gb_push(Unc_View *w, Unc_Tuple args, void *udata) {
     if (args.count == 2 && args.values[1].type == Unc_TBlob) {
         byte *sp;
         e = unc_lockblob(w, &args.values[1], &sn, &sp);
-        if (e) {
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
+        if (e) goto bfail0;
         e = unc_resizeblob(w, &args.values[0], bn + sn, &bp);
-        if (e) {
-            unc_unlock(w, &args.values[1]);
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
+        if (e) goto bfail1;
         unc0_memcpy(bp + bn, sp, sn);
+bfail1:
         unc_unlock(w, &args.values[1]);
+bfail0:
         unc_unlock(w, &args.values[0]);
-        return 0;
+        return e;
     } else if (args.count == 2 && args.values[1].type == Unc_TArray) {
         Unc_Value *ap;
         e = unc_lockarray(w, &args.values[1], &sn, &ap);
-        if (e) {
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
+        if (e) goto afail0;
         e = unc_resizeblob(w, &args.values[0], bn + sn, &bp);
-        if (e) {
-            unc_unlock(w, &args.values[1]);
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
+        if (e) goto afail1;
         for (i = 0; i < sn; ++i) {
             e = unc_getint(w, &ap[i], &ui);
             if (e) {
-                unc_unlock(w, &args.values[1]);
                 unc_resizeblob(w, &args.values[0], bn, &bp);
-                unc_unlock(w, &args.values[0]);
-                return e;
+                goto afail1;
             }
             if (ui < -128 || ui > 255) {
-                unc_unlock(w, &args.values[1]);
                 unc_resizeblob(w, &args.values[0], bn, &bp);
-                unc_unlock(w, &args.values[0]);
-                return unc0_throwexc(w, "value",
+                e = unc0_throwexc(w, "value",
                     "blob values must be valid bytes");
+                goto afail1;
             }
             bp[bn + i] = (byte)ui;
         }
+afail1:
         unc_unlock(w, &args.values[1]);
+afail0:
         unc_unlock(w, &args.values[0]);
-        return 0;
+        return e;
     } else if (args.count == 2 && args.values[1].type == Unc_TObject) {
         /* might be iterable? */
         unc_unlock(w, &args.values[0]);
@@ -1584,24 +1481,24 @@ Unc_RetVal unc0_gb_push(Unc_View *w, Unc_Tuple args, void *udata) {
             e = unc_getint(w, &args.values[1 + i], &ui);
             if (e) {
                 unc_resizeblob(w, &args.values[0], bn, &bp);
-                unc_unlock(w, &args.values[0]);
-                return e;
+                goto pfail;
             }
             if (ui < -128 || ui > 255) {
                 unc_resizeblob(w, &args.values[0], bn, &bp);
-                unc_unlock(w, &args.values[0]);
-                return unc0_throwexc(w, "value",
+                e = unc0_throwexc(w, "value",
                     "blob values must be valid bytes");
+                goto pfail;
             }
             bp[bn + i] = (byte)ui;
         }
+pfail:
         unc_unlock(w, &args.values[0]);
-        return 0;
+        return e;
     }
 }
 
 Unc_RetVal unc0_gb_insert(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size bn, sn, i, j;
     byte *bp;
     Unc_Int ui, indx;
@@ -1621,7 +1518,7 @@ Unc_RetVal unc0_gb_insert(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     j = (Unc_Size)indx;
     if (args.count == 3 && args.values[2].type == Unc_TBlob) {
-        int e;
+        Unc_RetVal e;
         unc_lockblob(w, &args.values[2], &bn, &bp);
         e = unc0_blobinsf(&w->world->alloc,
                              LEFTOVER(Unc_Blob, VGETENT(&args.values[0])),
@@ -1633,42 +1530,34 @@ Unc_RetVal unc0_gb_insert(Unc_View *w, Unc_Tuple args, void *udata) {
     } else if (args.count == 3 && args.values[2].type == Unc_TArray) {
         Unc_Value *ap;
         e = unc_lockarray(w, &args.values[2], &sn, &ap);
-        if (e) {
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
+        if (e) goto afail0;
         e = unc_resizeblob(w, &args.values[0], bn + sn, &bp);
-        if (e) {
-            unc_unlock(w, &args.values[2]);
-            unc_unlock(w, &args.values[0]);
-            return e;
-        }
+        if (e) goto afail2;
         if (j < bn)
             unc0_memmove(bp + j + sn, bp + j, bn - j);
         for (i = 0; i < sn; ++i) {
             e = unc_getint(w, &ap[i], &ui);
             if (e) {
-                unc_unlock(w, &args.values[2]);
                 if (j < bn)
                     unc0_memmove(bp + j, bp + j + sn, bn - j);
                 unc_resizeblob(w, &args.values[0], bn, &bp);
-                unc_unlock(w, &args.values[0]);
-                return e;
+                goto afail2;
             }
             if (ui < -128 || ui > 255) {
-                unc_unlock(w, &args.values[2]);
                 if (j < bn)
                     unc0_memmove(bp + j, bp + j + sn, bn - j);
                 unc_resizeblob(w, &args.values[0], bn, &bp);
-                unc_unlock(w, &args.values[0]);
-                return unc0_throwexc(w, "value",
+                e = unc0_throwexc(w, "value",
                     "blob values must be valid bytes");
+                goto afail2;
             }
             bp[j + i] = (byte)ui;
         }
+afail2:
         unc_unlock(w, &args.values[2]);
+afail0:
         unc_unlock(w, &args.values[0]);
-        return 0;
+        return e;
     } else if (args.count == 3 && args.values[2].type == Unc_TObject) {
         /* might be iterable? */
         unc_unlock(w, &args.values[0]);
@@ -1707,7 +1596,7 @@ Unc_RetVal unc0_gb_insert(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_gb_remove(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size bn;
     byte *bp;
     Unc_Int indx, cnt;
@@ -1748,7 +1637,7 @@ Unc_RetVal unc0_gb_remove(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_gb_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     byte *sp;
     byte *buf;
@@ -1798,11 +1687,11 @@ Unc_RetVal unc0_gb_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
         return e;
     }
     VINITENT(&v, Unc_TBlob, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_ga_new(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Int ui;
     Unc_Value v;
@@ -1831,11 +1720,11 @@ Unc_RetVal unc0_ga_new(Unc_View *w, Unc_Tuple args, void *udata) {
             VIMPOSE(w, &av[i], &args.values[1]);
         unc_unlock(w, &v);
     }
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_ga_copy(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
     Unc_Value v = UNC_BLANK;
@@ -1844,23 +1733,22 @@ Unc_RetVal unc0_ga_copy(Unc_View *w, Unc_Tuple args, void *udata) {
     if (e) return e;
     e = unc_newarrayfrom(w, &v, sn, sp);
     unc_unlock(w, &args.values[0]);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_ga_length(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value v;
 
     e = unc_getarraysize(w, &args.values[0], &sn);
     if (e) return e;
     VINITINT(&v, (Unc_Int)sn);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_ga_clear(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
 
@@ -1873,7 +1761,7 @@ Unc_RetVal unc0_ga_clear(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_ga_find(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size i, sn;
     Unc_Value *sp;
     Unc_Int ui;
@@ -1908,11 +1796,11 @@ Unc_RetVal unc0_ga_find(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 
     unc_unlock(w, &args.values[0]);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_ga_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size i, sn;
     Unc_Value *sp;
     Unc_Int ui;
@@ -1951,11 +1839,11 @@ Unc_RetVal unc0_ga_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
     } while (i);
 
     unc_unlock(w, &args.values[0]);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_ga_push(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
 
@@ -1968,26 +1856,24 @@ Unc_RetVal unc0_ga_push(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_ga_extend(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, sn2;
     Unc_Value *sp, *sp2;
 
     e = unc_lockarray(w, &args.values[0], &sn, &sp);
     if (e) return e;
     e = unc_lockarray(w, &args.values[1], &sn2, &sp2);
-    if (e) {
-        unc_unlock(w, &args.values[0]);
-        return e;
-    }
+    if (e) goto fail0;
     e = unc0_arraycat(w, LEFTOVER(Unc_Array, VGETENT(&args.values[0])),
                          LEFTOVER(Unc_Array, VGETENT(&args.values[1])));
     unc_unlock(w, &args.values[1]);
+fail0:
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
 Unc_RetVal unc0_ga_pop(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
 
@@ -1998,14 +1884,14 @@ Unc_RetVal unc0_ga_pop(Unc_View *w, Unc_Tuple args, void *udata) {
         return unc0_throwexc(w, "value", "array is empty");
     }
 
-    e = unc_pushmove(w, &sp[sn - 1], NULL);
+    e = unc_pushmove(w, &sp[sn - 1]);
     if (!e) LEFTOVER(Unc_Array, VGETENT(&args.values[0]))->size--;
     unc_unlock(w, &args.values[0]);
     return e;
 }
 
 Unc_RetVal unc0_ga_insert(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, j;
     Unc_Value *sp;
     Unc_Int indx;
@@ -2031,7 +1917,7 @@ Unc_RetVal unc0_ga_insert(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_ga_remove(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
     Unc_Int indx, cnt;
@@ -2074,7 +1960,7 @@ Unc_RetVal unc0_ga_remove(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_ga_sub(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
     Unc_Int ui1, ui2;
@@ -2113,12 +1999,11 @@ Unc_RetVal unc0_ga_sub(Unc_View *w, Unc_Tuple args, void *udata) {
     } else
         e = unc_newarrayfrom(w, &v, sn, sp);
     unc_unlock(w, &args.values[0]);
-    if (e) return e;
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, e, &v);
 }
 
 Unc_RetVal unc0_ga_sort(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
     int hascomp = args.values[1].type;
@@ -2131,7 +2016,7 @@ Unc_RetVal unc0_ga_sort(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_ga_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn, s;
     Unc_Value v, *sp, *dp;
     Unc_Int ui, ut;
@@ -2173,11 +2058,11 @@ Unc_RetVal unc0_ga_repeat(Unc_View *w, Unc_Tuple args, void *udata) {
     unc_unlock(w, &args.values[0]);
 
     VINITENT(&v, Unc_TArray, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_ga_reverse(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size sn;
     Unc_Value *sp;
 
@@ -2185,15 +2070,7 @@ Unc_RetVal unc0_ga_reverse(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_lockarray(w, &args.values[0], &sn, &sp);
     if (e) return e;
     
-    {
-        Unc_Value *sa = sp, *sb = sp + sn - 1, tmp;
-        while (sa < sb) {
-            tmp = *sa;
-            *sa++ = *sb;
-            *sb-- = tmp;
-        }
-    }
-
+    unc0_reversevalues(sp, sn);
     unc_unlock(w, &args.values[0]);
     return 0;
 }
@@ -2203,12 +2080,13 @@ Unc_RetVal unc0_gd_length(Unc_View *w, Unc_Tuple args, void *udata) {
 
     if (args.values[0].type != Unc_TTable)
         return UNCIL_ERR_TYPE_NOTDICT;
-    VINITINT(&v, LEFTOVER(Unc_Dict, VGETENT(&args.values[0]))->data.entries);
-    return unc_push(w, 1, &v, NULL);
+    VINITINT(&v, unc0_dgetsize(w,
+            LEFTOVER(Unc_Dict, VGETENT(&args.values[0]))));
+    return unc_returnlocal(w, 0, &v);
 }
 
 Unc_RetVal unc0_gd_copy(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+    Unc_RetVal e;
     Unc_Size i;
     Unc_Value v;
     Unc_Dict *d, *dict;
@@ -2229,7 +2107,7 @@ Unc_RetVal unc0_gd_copy(Unc_View *w, Unc_Tuple args, void *udata) {
         while (!nx) {
             if (++i >= dict->data.capacity) {
                 UNC_UNLOCKL(dict->lock);
-                return unc_pushmove(w, &v, NULL);
+                return unc_returnlocal(w, 0, &v);
             }
             nx = dict->data.buckets[i];
         }
@@ -2244,7 +2122,8 @@ Unc_RetVal unc0_gd_copy(Unc_View *w, Unc_Tuple args, void *udata) {
 }
 
 Unc_RetVal unc0_gd_prune(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e, pruned = 0;
+    Unc_RetVal e;
+    int pruned = 0;
     Unc_Size gen, i;
     Unc_Dict *dict;
     Unc_HTblV_V *nx, **prev = NULL;
@@ -2270,9 +2149,9 @@ Unc_RetVal unc0_gd_prune(Unc_View *w, Unc_Tuple args, void *udata) {
         {
             Unc_Pile pile;
             Unc_Tuple tuple;
-            e = unc_push(w, 1, &nx->key, NULL);
+            e = unc_push(w, 1, &nx->key);
             if (e) return e;
-            e = unc_push(w, 1, &nx->val, NULL);
+            e = unc_push(w, 1, &nx->val);
             if (e) return e;
             e = unc_call(w, &args.values[1], 2, &pile);
             if (e) return e;
@@ -2303,7 +2182,7 @@ Unc_RetVal unc0_gd_prune(Unc_View *w, Unc_Tuple args, void *udata) {
 Unc_RetVal unc0_iter_string(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value *arr, *indx;
     Unc_Int i;
-    int e;
+    Unc_RetVal e;
     Unc_Size s;
     const char *ss;
 
@@ -2318,8 +2197,8 @@ Unc_RetVal unc0_iter_string(Unc_View *w, Unc_Tuple args, void *udata) {
         Unc_Value v = unc_blank;
         e = unc_getindex(w, arr, indx, &v);
         if (!e) {
-            e = unc_pushmove(w, &v, NULL);
-            if (!e) e = unc_push(w, 1, indx, NULL);
+            e = unc_returnlocal(w, e, &v);
+            if (!e) e = unc_push(w, 1, indx);
             unc_setint(w, indx, i + 1);
         }
     }
@@ -2330,7 +2209,7 @@ Unc_RetVal unc0_iter_string(Unc_View *w, Unc_Tuple args, void *udata) {
 Unc_RetVal unc0_iter_blob(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value *arr, *indx;
     Unc_Int i;
-    int e;
+    Unc_RetVal e;
     Unc_Size s;
 
     (void)udata;
@@ -2344,8 +2223,8 @@ Unc_RetVal unc0_iter_blob(Unc_View *w, Unc_Tuple args, void *udata) {
         Unc_Value v = unc_blank;
         e = unc_getindex(w, arr, indx, &v);
         if (!e) {
-            e = unc_pushmove(w, &v, NULL);
-            if (!e) e = unc_push(w, 1, indx, NULL);
+            e = unc_returnlocal(w, e, &v);
+            if (!e) e = unc_push(w, 1, indx);
             unc_setint(w, indx, i + 1);
         }
     }
@@ -2356,7 +2235,7 @@ Unc_RetVal unc0_iter_blob(Unc_View *w, Unc_Tuple args, void *udata) {
 Unc_RetVal unc0_iter_array(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value *arr, *indx;
     Unc_Int i;
-    int e;
+    Unc_RetVal e;
     Unc_Size s;
 
     (void)udata;
@@ -2370,8 +2249,8 @@ Unc_RetVal unc0_iter_array(Unc_View *w, Unc_Tuple args, void *udata) {
         Unc_Value v = unc_blank;
         e = unc_getindex(w, arr, indx, &v);
         if (!e) {
-            e = unc_pushmove(w, &v, NULL);
-            if (!e) e = unc_push(w, 1, indx, NULL);
+            e = unc_returnlocal(w, e, &v);
+            if (!e) e = unc_push(w, 1, indx);
             unc_setint(w, indx, i + 1);
         }
     }
@@ -2383,7 +2262,7 @@ Unc_RetVal unc0_iter_table(Unc_View *w, Unc_Tuple args, void *udata) {
     Unc_Value *tbl;
     Unc_Int bucket, gen;
     Unc_Dict *dict;
-    int e;
+    Unc_RetVal e;
     void *vp;
 
     (void)udata;
@@ -2416,9 +2295,9 @@ Unc_RetVal unc0_iter_table(Unc_View *w, Unc_Tuple args, void *udata) {
 
     {
         Unc_HTblV_V *dp = (Unc_HTblV_V *)vp;
-        e = unc_push(w, 1, &dp->key, NULL);
+        e = unc_push(w, 1, &dp->key);
         if (e) return e;
-        e = unc_push(w, 1, &dp->val, NULL);
+        e = unc_push(w, 1, &dp->val);
         if (e) return e;
         vp = dp->next;
     }
@@ -2426,51 +2305,13 @@ Unc_RetVal unc0_iter_table(Unc_View *w, Unc_Tuple args, void *udata) {
     return 0;
 }
 
-static int unc0_l_setpublic(Unc_View *w, Unc_Size nl, const char *name,
-                            Unc_Value *value) {
-    Unc_Value *ptr;
-    int e;
-    e = unc0_puthtbls(w, w->pubs, nl, (const byte *)name, &ptr);
-    if (e) return e;
-    VIMPOSE(w, ptr, value);
-    return 0;
-}
-
-static int unc0_l_addpublic(Unc_View *v, Unc_Size sn, const char *sb,
-            Unc_Size argcount, Unc_Size optcount, int ellipsis,
-            int cflags, Unc_CFunc fp) {
-    Unc_Value f = unc_blank;
-    int e = unc_newcfunction(v, &f, fp, cflags, argcount, ellipsis, 
-                             optcount, NULL, 0, NULL, 0, NULL, sb, NULL);
-    if (e) return e;
-    e = unc0_l_setpublic(v, sn, sb, &f);
-    if (e) return e;
-    unc_clear(v, &f);
-    return e;
-}
-
-static int unc0_l_addattr(Unc_View *v, Unc_Value *o,
-            Unc_Size sn, const char *sb,
-            Unc_Size argcount, Unc_Size optcount, int ellipsis,
-            int cflags, Unc_CFunc fp) {
-    Unc_Value f = unc_blank;
-    int e = unc_newcfunction(v, &f, fp, cflags, argcount, ellipsis,
-                             optcount, NULL, 0, NULL, 0, NULL, sb, NULL);
-    if (e) return e;
-    e = unc0_osetattrs(v, LEFTOVER(Unc_Object, VGETENT(o)),
-                       sn, (const byte *)sb, &f);
-    if (e) return e;
-    unc_clear(v, &f);
-    return e;
-}
-
-static int unc0_newcallableobject(Unc_View *v, Unc_Value *o, const char *sn,
-            Unc_Size argcount, Unc_Size optcount, int ellipsis,
-            int cflags, Unc_CFunc fp) {
+static Unc_RetVal unc0_newcallableobject(Unc_View *v, Unc_Value *o,
+            const char *sn, Unc_Size argcount, Unc_Size optcount,
+            int ellipsis, int cflags, Unc_CFunc fp) {
     Unc_Value f = unc_blank;
     Unc_Value p = unc_blank;
-    int e = unc_newcfunction(v, &f, fp, cflags, argcount, ellipsis,
-                             optcount, NULL, 0, NULL, 0, NULL, sn, NULL);
+    Unc_RetVal e = unc_newcfunction(v, &f, fp, argcount, optcount, ellipsis,
+                             cflags, NULL, 0, NULL, 0, NULL, sn, NULL);
     if (e) return e;
     e = unc_newobject(v, &p, NULL);
     if (e) return e;
@@ -2478,8 +2319,8 @@ static int unc0_newcallableobject(Unc_View *v, Unc_Value *o, const char *sn,
                        PASSSTRL(OPOVERLOAD(call)), &f);
     if (e) return e;
     e = unc_newobject(v, o, &p);
-    unc_clear(v, &f);
-    unc_clear(v, &p);
+    VCLEAR(v, &f);
+    VCLEAR(v, &p);
     return e;
 }
 
@@ -2490,194 +2331,169 @@ INLINE Unc_Float get_trueeps(void) {
     return uf;
 }
 
-int unc0_stdlibinit(Unc_World *w, Unc_View *v) {
+static const Unc_ModuleCFunc lib_g[] = {
+#if !UNCIL_SANDBOXED
+    { &unc0_g_print,        "print",        1, 0, 1, UNC_CFUNC_DEFAULT },
+    { &unc0_g_input,        "input",        0, 1, 0, UNC_CFUNC_DEFAULT },
+#endif
+    { &unc0_g_require,      "require",      1, 0, 0, UNC_CFUNC_DEFAULT },
+    { &unc0_g_type,         "type",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_g_throw,        "throw",        1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_g_bool,         "bool",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_g_object,       "object",       0, 3, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_g_weakref,      "weakref",      1, 0, 0, UNC_CFUNC_DEFAULT },
+    { &unc0_g_getprototype, "getprototype", 1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_g_getversion,   "getversion",   0, 0, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_g_str[] = {
+    { &unc0_gs_length,      "length",       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_size,        "size",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_find,        "find",         2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_findlast,    "findlast",     2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_sub,         "sub",          2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_charcode,    "charcode",     1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_char,        "char",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_reverse,     "reverse",      1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_repeat,      "repeat",       2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_asciilower,  "asciilower",   1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_asciiupper,  "asciiupper",   1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_join,        "join",         2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_replace,     "replace",      3, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gs_split,       "split",        2, 1, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_g_blob[] = {
+    { &unc0_gb_new,         "new",          1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_from,        "from",         0, 0, 1, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_copy,        "copy",         5, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_size,        "length",       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_size,        "size",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_find,        "find",         2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_findlast,    "findlast",     2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_sub,         "sub",          2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_resize,      "resize",       2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_reverse,     "reverse",      1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_fill,        "fill",         2, 2, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_repeat,      "repeat",       2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_push,        "push",         1, 0, 1, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_insert,      "insert",       3, 0, 1, UNC_CFUNC_CONCURRENT },
+    { &unc0_gb_remove,      "remove",       2, 1, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_g_arr[] = {
+    { &unc0_ga_new,         "new",          1, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_copy,        "copy",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_length,      "length",       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_clear,       "clear",        1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_push,        "push",         1, 0, 1, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_extend,      "extend",       2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_pop,         "pop",          1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_find,        "find",         2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_findlast,    "findlast",     2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_sub,         "sub",          2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_insert,      "insert",       3, 0, 1, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_remove,      "remove",       2, 1, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_reverse,     "reverse",      1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_repeat,      "repeat",       2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_ga_sort,        "sort",         1, 1, 0, UNC_CFUNC_CONCURRENT },
+};
+
+static const Unc_ModuleCFunc lib_g_table[] = {
+    { &unc0_gd_length,      "length",       1, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gd_prune,       "prune",        2, 0, 0, UNC_CFUNC_CONCURRENT },
+    { &unc0_gd_copy,        "copy",         1, 0, 0, UNC_CFUNC_CONCURRENT },
+};
+
+Unc_RetVal unc0_stdlibinit(Unc_World *ww, Unc_View *w) {
     /* unc_blank? good boy! */
     Unc_Value met_str = UNC_BLANK;
     Unc_Value met_blob = UNC_BLANK;
     Unc_Value met_arr = UNC_BLANK;
-    Unc_Value met_dict = UNC_BLANK;
+    Unc_Value met_table = UNC_BLANK;
 
-    MUST(unc0_newcallableobject(v, &met_str, "string", 2, 0, 0,
+    MUST(unc0_newcallableobject(w, &met_str, "string", 2, 0, 0,
                                 UNC_CFUNC_CONCURRENT, &unc0_g_str));
-    MUST(unc0_newcallableobject(v, &met_blob, "blob", 2, 0, 0,
+    MUST(unc0_newcallableobject(w, &met_blob, "blob", 2, 0, 0,
                                 UNC_CFUNC_CONCURRENT, &unc0_g_blob));
-    MUST(unc0_newcallableobject(v, &met_arr, "array", 2, 0, 0,
+    MUST(unc0_newcallableobject(w, &met_arr, "array", 2, 0, 0,
                                 UNC_CFUNC_CONCURRENT, &unc0_g_array));
-    MUST(unc0_newcallableobject(v, &met_dict, "table", 2, 0, 0,
+    MUST(unc0_newcallableobject(w, &met_table, "table", 2, 0, 0,
                                 UNC_CFUNC_CONCURRENT, &unc0_g_table));
-    
-    v->met_str = met_str;
-    v->met_blob = met_blob;
-    v->met_arr = met_arr;
-    v->met_dict = met_dict;
-    
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("length"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_length));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("size"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_size));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("find"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_find));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("findlast"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_findlast));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("sub"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_sub));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("charcode"),
-                1, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_charcode));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("char"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_char));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("reverse"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_reverse));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("repeat"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_repeat));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("asciilower"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_asciilower));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("asciiupper"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_asciiupper));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("join"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_join));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("replace"),
-                3, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_replace));
-    MUST(unc0_l_addattr(v, &met_str, PASSSTRLC("split"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gs_split));
 
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("new"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_new));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("from"),
-                0, 0, 1, UNC_CFUNC_CONCURRENT, &unc0_gb_from));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("copy"),
-                5, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_copy));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("length"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_size));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("size"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_size));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("find"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_find));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("findlast"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_findlast));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("sub"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_sub));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("resize"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_resize));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("reverse"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_reverse));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("fill"),
-                2, 2, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_fill));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("repeat"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_repeat));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("push"),
-                1, 0, 1, UNC_CFUNC_CONCURRENT, &unc0_gb_push));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("insert"),
-                3, 0, 1, UNC_CFUNC_CONCURRENT, &unc0_gb_insert));
-    MUST(unc0_l_addattr(v, &met_blob, PASSSTRLC("remove"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_gb_remove));
+    w->met_str = met_str;
+    w->met_blob = met_blob;
+    w->met_arr = met_arr;
+    w->met_table = met_table;
 
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("new"),
-                1, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_new));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("copy"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_copy));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("length"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_length));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("clear"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_clear));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("push"),
-                1, 0, 1, UNC_CFUNC_CONCURRENT, &unc0_ga_push));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("extend"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_extend));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("pop"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_pop));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("find"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_find));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("findlast"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_findlast));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("sub"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_sub));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("insert"),
-                3, 0, 1, UNC_CFUNC_CONCURRENT, &unc0_ga_insert));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("remove"),
-                2, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_remove));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("reverse"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_reverse));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("repeat"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_repeat));
-    MUST(unc0_l_addattr(v, &met_arr, PASSSTRLC("sort"),
-                1, 1, 0, UNC_CFUNC_CONCURRENT, &unc0_ga_sort));
+    MUST(unc_attrcfunctions(w, &met_str, PASSARRAY(lib_g_str),
+                            0, NULL, NULL));
+    MUST(unc_attrcfunctions(w, &met_blob, PASSARRAY(lib_g_blob),
+                            0, NULL, NULL));
+    MUST(unc_attrcfunctions(w, &met_arr, PASSARRAY(lib_g_arr),
+                            0, NULL, NULL));
+    MUST(unc_attrcfunctions(w, &met_table, PASSARRAY(lib_g_table),
+                            0, NULL, NULL));
 
-    MUST(unc0_l_addattr(v, &met_dict, PASSSTRLC("length"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gd_length));
-    MUST(unc0_l_addattr(v, &met_dict, PASSSTRLC("prune"),
-                2, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gd_prune));
-    MUST(unc0_l_addattr(v, &met_dict, PASSSTRLC("copy"),
-                1, 0, 0, UNC_CFUNC_CONCURRENT, &unc0_gd_copy));
-
-    MUST(unc0_l_setpublic(v, PASSSTRLC("string"), &met_str));
-    MUST(unc0_l_setpublic(v, PASSSTRLC("blob"), &met_blob));
-    MUST(unc0_l_setpublic(v, PASSSTRLC("array"), &met_arr));
-    MUST(unc0_l_setpublic(v, PASSSTRLC("table"), &met_dict));
-
-    MUST(unc0_l_addpublic(v, PASSSTRLC("print"), 1, 0, 1,
-                            UNC_CFUNC_DEFAULT, &unc0_g_print));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("require"), 1, 0, 0,
-                            UNC_CFUNC_DEFAULT, &unc0_g_require));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("input"), 0, 1, 0,
-                            UNC_CFUNC_DEFAULT, &unc0_g_input));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("type"), 1, 0, 0,
-                            UNC_CFUNC_CONCURRENT, &unc0_g_type));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("throw"), 1, 1, 0,
-                            UNC_CFUNC_CONCURRENT, &unc0_g_throw));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("bool"), 1, 0, 0,
-                            UNC_CFUNC_CONCURRENT, &unc0_g_bool));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("object"), 0, 3, 0,
-                            UNC_CFUNC_CONCURRENT, &unc0_g_object));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("weakref"), 1, 0, 0,
-                            UNC_CFUNC_DEFAULT, &unc0_g_weakref));
-    MUST(unc0_l_addpublic(v, PASSSTRLC("getprototype"), 1, 0, 0,
-                            UNC_CFUNC_CONCURRENT, &unc0_g_getprototype));
+    MUST(unc_setpublic(w, PASSSTRLC("string"), &met_str));
+    MUST(unc_setpublic(w, PASSSTRLC("blob"), &met_blob));
+    MUST(unc_setpublic(w, PASSSTRLC("array"), &met_arr));
+    MUST(unc_setpublic(w, PASSSTRLC("table"), &met_table));
 
     {
         Unc_Value q = UNC_BLANK;
         Unc_Value tv;
         Unc_Object *obj;
-        MUST(unc0_newcallableobject(v, &q, "int", 2, 0, 0,
+        MUST(unc0_newcallableobject(w, &q, "int", 2, 0, 0,
                        UNC_CFUNC_CONCURRENT, &unc0_g_int));
         obj = LEFTOVER(Unc_Object, VGETENT(&q));
 
         VINITINT(&tv, UNC_INT_MIN);
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("min"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("min"), &tv));
 
         VINITINT(&tv, UNC_INT_MAX);
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("max"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("max"), &tv));
 
-        MUST(unc0_l_setpublic(v, PASSSTRLC("int"), &q));
+        MUST(unc_setpublic(w, PASSSTRLC("int"), &q));
+        VCLEAR(w, &q);
     }
 
     {
         Unc_Value q = UNC_BLANK;
         Unc_Value tv;
         Unc_Object *obj;
-        MUST(unc0_newcallableobject(v, &q, "float", 2, 0, 0,
+        MUST(unc0_newcallableobject(w, &q, "float", 2, 0, 0,
                        UNC_CFUNC_CONCURRENT, &unc0_g_float));
         obj = LEFTOVER(Unc_Object, VGETENT(&q));
 
         VINITFLT(&tv, -UNC_FLOAT_MAX);
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("min"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("min"), &tv));
 
         VINITFLT(&tv, UNC_FLOAT_MAX);
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("max"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("max"), &tv));
 
         VINITFLT(&tv, get_trueeps());
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("eps"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("eps"), &tv));
 
         VINITFLT(&tv, unc0_finfty());
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("inf"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("inf"), &tv));
 
         VINITFLT(&tv, unc0_fnan());
-        MUST(unc0_osetattrs(v, obj, PASSSTRL("nan"), &tv));
+        MUST(unc0_osetattrs(w, obj, PASSSTRL("nan"), &tv));
 
-        MUST(unc0_l_setpublic(v, PASSSTRLC("float"), &q));
+        MUST(unc_setpublic(w, PASSSTRLC("float"), &q));
+        VCLEAR(w, &q);
     }
 
-    MUST(unc0_adddefaultencs(v, &w->encs));
-    v->entityload = 0;
+    MUST(unc_exportcfunctions(w, PASSARRAY(lib_g), 0, NULL, NULL));
+
+    MUST(unc0_adddefaultencs(w, &ww->encs));
+
+    VSETNULL(w, &met_str);
+    VSETNULL(w, &met_blob);
+    VSETNULL(w, &met_arr);
+    VSETNULL(w, &met_table);
+    w->entityload = 0;
 
     return 0;
 }

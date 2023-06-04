@@ -1,6 +1,6 @@
 /*******************************************************************************
  
-Uncil -- Uncil version information formatter header
+Uncil -- C standard detection definitions
 
 Copyright (c) 2021-2023 Sampo Hippeläinen (hisahi)
 
@@ -24,10 +24,41 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#ifndef UNCIL_UNCVER_H
-#define UNCIL_UNCVER_H
+#ifndef UNCIL_UCSTD_H
+#define UNCIL_UCSTD_H
 
-extern const char *UNCIL_COPYRIGHT;
-void uncil_printversion(int detail);
+#if !defined(__STDC__) && !defined(_MSC_VER)
+#error Uncil requires compliance to the ANSI C standard
+#endif
 
-#endif /* UNCIL_UNCVER_H */
+#if defined(__STDC_VERSION__)
+
+/* C99? */
+#if __STDC_VERSION__ >= 199901L
+#define UNCIL_C99 1
+#else
+#define UNCIL_C99 0
+#endif
+
+/* C11? */
+#if __STDC_VERSION__ >= 201112L
+#define UNCIL_C11 1
+#define __STDC_WANT_LIB_EXT1__ 1
+#else
+#define UNCIL_C11 0
+#endif
+
+/* C23? */
+#if __STDC_VERSION__ >= 202311L
+#define UNCIL_C23 1
+#else
+#define UNCIL_C23 0
+#endif
+
+#endif /* defined(__STDC_VERSION__) */
+
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 0
+#define UNCIL_NOLIBC 1
+#endif
+
+#endif /* UNCIL_UCSTD_H */

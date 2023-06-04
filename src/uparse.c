@@ -24,8 +24,6 @@ SOFTWARE.
 
 *******************************************************************************/
 
-#include <string.h>
-
 #define UNCIL_DEFINES
 
 #include "uarithm.h"
@@ -39,7 +37,7 @@ SOFTWARE.
 #define UNCIL_ERR_KIND_SYNTAXL 4
 #define UNCIL_ERR_SYNTAXL_ASSIGNOP 0x0401
 
-#define MUST(val) do { int _e; if ((_e = (val))) return _e; } while (0)
+#define MUST(val) do { Unc_RetVal _e; if ((_e = (val))) return _e; } while (0)
 #define UNCIL_ERR(x) UNCIL_ERR_##x
 
 #if DEBUGPRINT_PARSE0
@@ -199,7 +197,7 @@ static void lrestore(Unc_ParserContext *c, Unc_Save *s) {
     c->out.lineno = s->lineno;
 }
 
-INLINE union Unc_QInstr_Data qdatanone() {
+INLINE union Unc_QInstr_Data qdatanone(void) {
     union Unc_QInstr_Data u = { 0 };
     return u;
 }
@@ -224,7 +222,7 @@ INLINE union Unc_QInstr_Data qdataf(Unc_Float uf) {
 
 #define CHECK_UNSIGNED_OVERFLOW(x) if (!~(x)) return UNCIL_ERR(SYNTAX_TOODEEP);
 
-INLINE int tmpalloc(Unc_ParserContext *c, Unc_Dst *out) {
+INLINE Unc_RetVal tmpalloc(Unc_ParserContext *c, Unc_Dst *out) {
     Unc_Dst u = c->tmpnext;
     CHECK_UNSIGNED_OVERFLOW(u);
     if (!c->quiet) {
@@ -235,7 +233,7 @@ INLINE int tmpalloc(Unc_ParserContext *c, Unc_Dst *out) {
     return 0;
 }
 
-INLINE int localloc(Unc_ParserContext *c, Unc_Dst *out) {
+INLINE Unc_RetVal localloc(Unc_ParserContext *c, Unc_Dst *out) {
     Unc_Dst u = c->locnext;
     CHECK_UNSIGNED_OVERFLOW(u);
     if (!c->quiet) ++c->locnext;
@@ -243,7 +241,7 @@ INLINE int localloc(Unc_ParserContext *c, Unc_Dst *out) {
     return 0;
 }
 
-INLINE int lblalloc(Unc_ParserContext *c, Unc_Size *out, int z) {
+INLINE Unc_RetVal lblalloc(Unc_ParserContext *c, Unc_Size *out, int z) {
     if (c->lb_n + z > c->lb_c) {
         Unc_Size z = c->lb_c, nz = z + 16;
         Unc_Size *nlb = TMREALLOC(Unc_Size, c->c.alloc, 0, c->lb, z, nz);
@@ -256,7 +254,7 @@ INLINE int lblalloc(Unc_ParserContext *c, Unc_Size *out, int z) {
     return 0;
 }
 
-/*INLINE int rauxalloc(Unc_ParserContext *c, Unc_Dst *out) {
+/*INLINE Unc_RetVal rauxalloc(Unc_ParserContext *c, Unc_Dst *out) {
     Unc_Dst u = c->c.next_aux;
     CHECK_UNSIGNED_OVERFLOW(u);
     if (!c->quiet) ++c->c.next_aux;
@@ -264,7 +262,7 @@ INLINE int lblalloc(Unc_ParserContext *c, Unc_Size *out, int z) {
     return 0;
 }*/
 
-INLINE int auxpush(Unc_ParserContext *c, Unc_QOperand o) {
+INLINE Unc_RetVal auxpush(Unc_ParserContext *c, Unc_QOperand o) {
     if (c->aux_n == c->aux_c) {
         Unc_Size z = c->aux_c, nz = c->aux_c + 8;
         Unc_QOperand *naux =
@@ -282,7 +280,7 @@ INLINE void auxpop(Unc_ParserContext *c, Unc_QOperand *o) {
     *o = c->aux[--c->aux_n];
 }
 
-INLINE int plbpush(Unc_ParserContext *c, Unc_Size s) {
+INLINE Unc_RetVal plbpush(Unc_ParserContext *c, Unc_Size s) {
     if (c->plb_n == c->plb_c) {
         Unc_Size z = c->plb_c, nz = c->plb_c + 8;
         Unc_Size *nplb = TMREALLOC(Unc_Size, c->c.alloc, 0, c->plb, z, nz);
@@ -534,11 +532,12 @@ INLINE void configure3x(Unc_ParserContext *c, byte op,
     c->next.o2data = d2;
 }
 
-INLINE int pushins(Unc_ParserContext *c, Unc_QInstr *instr) {
+INLINE Unc_RetVal pushins(Unc_ParserContext *c, Unc_QInstr *instr) {
     if (!c->quiet) {
         if (c->cd_n >= c->cd_c) {
             Unc_Size z = c->cd_c, nz = z + 32;
-            Unc_QInstr *np = TMREALLOC(Unc_QInstr, c->c.alloc, 0, c->cd, z, nz);
+            Unc_QInstr *np = TMREALLOC(Unc_QInstr, c->c.alloc, 0,
+                                       c->cd, z, nz);
             if (!np)
                 return UNCIL_ERR(MEM);
             c->cd_c = nz;
@@ -593,7 +592,7 @@ INLINE int fitsliteral(int t, union Unc_QInstr_Data data) {
     return t == UNC_QOPER_TYPE_INT && -32768 <= data.ui && data.ui <= 32767;
 }
 
-INLINE int bewvar(Unc_ParserContext *c, Unc_QOperand *dst) {
+INLINE Unc_RetVal bewvar(Unc_ParserContext *c, Unc_QOperand *dst) {
     switch (dst->type) {
     case UNC_QOPER_TYPE_TMP:
     case UNC_QOPER_TYPE_LOCAL:
@@ -606,11 +605,13 @@ INLINE int bewvar(Unc_ParserContext *c, Unc_QOperand *dst) {
     }
 }
 
-INLINE int emitre(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0);
+INLINE Unc_RetVal emitre(Unc_ParserContext *c, byte t0,
+                         union Unc_QInstr_Data d0);
 
-static int push(Unc_ParserContext *c);
+static Unc_RetVal push(Unc_ParserContext *c);
 
-static int retarget(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
+static Unc_RetVal retarget(Unc_ParserContext *c, byte t0,
+                           union Unc_QInstr_Data d0) {
     if (!c->next.op)
         return 0;
 
@@ -739,7 +740,8 @@ static int retarget(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
 }
 
 /* wrap source operand in temp register, temporary index */
-static int wraptreg(Unc_ParserContext *c, Unc_QOperand *op, Unc_Dst tr) {
+static Unc_RetVal wraptreg(Unc_ParserContext *c, Unc_QOperand *op,
+                           Unc_Dst tr) {
     switch (op->type) {
     case UNC_QOPER_TYPE_TMP:
         break;
@@ -819,7 +821,7 @@ static int wraptreg(Unc_ParserContext *c, Unc_QOperand *op, Unc_Dst tr) {
 }
 
 /* wrap source operand in register, temporary index */
-static int wrapreg(Unc_ParserContext *c, Unc_QOperand *op, Unc_Dst tr) {
+static Unc_RetVal wrapreg(Unc_ParserContext *c, Unc_QOperand *op, Unc_Dst tr) {
     switch (op->type) {
     case UNC_QOPER_TYPE_TMP:
     case UNC_QOPER_TYPE_LOCAL:
@@ -839,7 +841,7 @@ INLINE void seto2(Unc_ParserContext *c, Unc_QOperand o) {
     c->next.o2data = o.data;
 }
 
-static int push(Unc_ParserContext *c) {
+static Unc_RetVal push(Unc_ParserContext *c) {
     switch (c->next.op) {
     case UNC_QINSTR_OP_DELETE:
         break;
@@ -1022,7 +1024,7 @@ static int push(Unc_ParserContext *c) {
     return pushins(c, &c->next);
 }
 
-INLINE int emit0(Unc_ParserContext *c, byte op) {
+INLINE Unc_RetVal emit0(Unc_ParserContext *c, byte op) {
     c->next.op = op;
     c->next.o0type = 0, c->next.o1type = 0, c->next.o2type = 0;
     c->next.o0data = 0;
@@ -1031,8 +1033,8 @@ INLINE int emit0(Unc_ParserContext *c, byte op) {
     return push(c);
 }
 
-INLINE int emit1(Unc_ParserContext *c, byte op,
-        byte t0, union Unc_QInstr_Data d0) {
+INLINE Unc_RetVal emit1(Unc_ParserContext *c, byte op,
+                        byte t0, union Unc_QInstr_Data d0) {
     c->next.op = op;
     c->next.o1type = 0, c->next.o2type = 0;
     c->next.o1data = qdatanone();
@@ -1041,9 +1043,9 @@ INLINE int emit1(Unc_ParserContext *c, byte op,
     return push(c);
 }
 
-INLINE int emit2(Unc_ParserContext *c, byte op,
-        byte t0, union Unc_QInstr_Data d0,
-        byte t1, union Unc_QInstr_Data d1) {
+INLINE Unc_RetVal emit2(Unc_ParserContext *c, byte op,
+                        byte t0, union Unc_QInstr_Data d0,
+                        byte t1, union Unc_QInstr_Data d1) {
     c->next.op = op;
     c->next.o1type = t1, c->next.o2type = 0;
     c->next.o1data = d1;
@@ -1052,10 +1054,10 @@ INLINE int emit2(Unc_ParserContext *c, byte op,
     return push(c);
 }
 
-INLINE int emit3(Unc_ParserContext *c, byte op,
-        byte t0, union Unc_QInstr_Data d0,
-        byte t1, union Unc_QInstr_Data d1,
-        byte t2, union Unc_QInstr_Data d2) {
+INLINE Unc_RetVal emit3(Unc_ParserContext *c, byte op,
+                        byte t0, union Unc_QInstr_Data d0,
+                        byte t1, union Unc_QInstr_Data d1,
+                        byte t2, union Unc_QInstr_Data d2) {
     c->next.op = op;
     c->next.o1type = t1, c->next.o2type = t2;
     c->next.o1data = d1;
@@ -1065,19 +1067,21 @@ INLINE int emit3(Unc_ParserContext *c, byte op,
 }
 
 /*
-INLINE int emitre0(Unc_ParserContext *c, byte t0, Unc_Dst d0) {
+INLINE Unc_RetVal emitre0(Unc_ParserContext *c, byte t0, Unc_Dst d0) {
     c->next.o0type = t0;
     c->next.o0data = d0;
     return push(c);
 }
 */
 
-INLINE int emitre(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
+INLINE Unc_RetVal emitre(Unc_ParserContext *c, byte t0,
+                         union Unc_QInstr_Data d0) {
     MUST(retarget(c, t0, d0));
     return push(c);
 }
 
-INLINE int unwrapwr(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
+INLINE Unc_RetVal unwrapwr(Unc_ParserContext *c, byte t0,
+                           union Unc_QInstr_Data d0) {
     if (c->cd_n && unc0_qcode_iswrite0op(c->cd[c->cd_n - 1].op)
                 && c->cd[c->cd_n - 1].o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].o0type == t0
@@ -1087,7 +1091,8 @@ INLINE int unwrapwr(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
     return 0;
 }
 
-INLINE int unwrapmov(Unc_ParserContext *c, byte t0, union Unc_QInstr_Data d0) {
+INLINE Unc_RetVal unwrapmov(Unc_ParserContext *c, byte t0,
+                            union Unc_QInstr_Data d0) {
     if (c->cd_n && unc0_qcode_ismov(c->cd[c->cd_n - 1].op)
                 && c->cd[c->cd_n - 1].o0type == UNC_QOPER_TYPE_TMP
                 && c->cd[c->cd_n - 1].o0type == t0
@@ -1123,8 +1128,8 @@ INLINE Unc_QInstr make_sbind_exh(Unc_Dst u, Unc_Dst tmp, Unc_Size lineno) {
     return in;
 }
 
-static int dobloat(Unc_Allocator *alloc, Unc_ParserParent *p, Unc_Size i,
-                   Unc_Size qu, Unc_Size qd) {
+static Unc_RetVal dobloat(Unc_Allocator *alloc, Unc_ParserParent *p,
+                          Unc_Size i, Unc_Size qu, Unc_Size qd) {
     Unc_Size add = qu + qd, rem;
     if (*p->cd_n + add > *p->cd_c) {
         Unc_Size z = *p->cd_c, nz = z + 32;
@@ -1146,8 +1151,8 @@ static int dobloat(Unc_Allocator *alloc, Unc_ParserParent *p, Unc_Size i,
     return 0;
 }
 
-static int loctoexh_code(Unc_Allocator *alloc, Unc_ParserParent *p,
-                         Unc_Dst l, Unc_Dst u, int shift) {
+static Unc_RetVal loctoexh_code(Unc_Allocator *alloc, Unc_ParserParent *p,
+                                Unc_Dst l, Unc_Dst u, int shift) {
     Unc_Size i, e = *p->cd_n;
     Unc_QInstr *qi, *qc = *p->cd;
     Unc_Dst tmp = *p->tmphigh, tr, th = tmp;
@@ -1186,7 +1191,7 @@ static int loctoexh_code(Unc_Allocator *alloc, Unc_ParserParent *p,
         if (!qu && !qd) continue;
 
         {
-            int err = dobloat(alloc, p, i, qu, qd);
+            Unc_RetVal err = dobloat(alloc, p, i, qu, qd);
             if (err) return err;
             qc = *p->cd;
         }
@@ -1230,19 +1235,20 @@ static int loctoexh_code(Unc_Allocator *alloc, Unc_ParserParent *p,
 }
 
 /* shift other local variables down */
-static int loctoexh_vars_iter(Unc_Size key, Unc_BTreeRecord *value, void *u) {
+static Unc_RetVal loctoexh_vars_iter(Unc_Size key, Unc_BTreeRecord *value,
+                                     void *u) {
     if (value->first == UNC_QOPER_TYPE_LOCAL && value->second > *(Unc_Dst *)u)
         --value->second;
     return 0;
 }
 
-static int loctoexh_vars(Unc_BTree *b, Unc_Dst l, Unc_Dst u) {
+static Unc_RetVal loctoexh_vars(Unc_BTree *b, Unc_Dst l, Unc_Dst u) {
     (void)u;
     return unc0_iterbtreerecords(b, &loctoexh_vars_iter, &l);
 }
 
-static int inhalloc(Unc_ParserContext *c, Unc_Size depth,
-                        Unc_Dst *out, Unc_QOperand o) {
+static Unc_RetVal inhalloc(Unc_ParserContext *c, Unc_Size depth,
+                           Unc_Dst *out, Unc_QOperand o) {
     Unc_ParserParent *pp;
     Unc_Dst u;
     ASSERT(depth <= c->pframes_n);
@@ -1271,7 +1277,8 @@ static int inhalloc(Unc_ParserContext *c, Unc_Size depth,
 }
 
 /* convert local to exhale */
-static int dobind(Unc_ParserContext *c, Unc_Size key, Unc_BTreeRecord *rec) {
+static Unc_RetVal dobind(Unc_ParserContext *c, Unc_Size key,
+                         Unc_BTreeRecord *rec) {
     Unc_ParserParent *p;
     Unc_BTreeRecord *br, tmp;
     Unc_Dst ex = 0;
@@ -1314,19 +1321,18 @@ static int dobind(Unc_ParserContext *c, Unc_Size key, Unc_BTreeRecord *rec) {
     }
 }
 
-static int addstr(Unc_Allocator *alloc, byte **buf, Unc_Size *buf_z,
-                  Unc_Size n, const byte *c) {
+static Unc_RetVal addstr(Unc_Allocator *alloc, byte **buf, Unc_Size *buf_z,
+                         Unc_Size n, const byte *c) {
     Unc_Size z = *buf_z;
-    Unc_Size l = unc0_utf8patdownl(n, c);
+    Unc_Size l = unc0_utf8patdownl(n, c), ll;
     byte lb[UNC_VLQ_SIZE_MAXLEN];
     Unc_Size ln = unc0_vlqencz(l, sizeof(lb), lb);
     byte *p = unc0_mrealloc(alloc, 0, *buf, z, z + ln + l);
     if (!p) return UNCIL_ERR(MEM);
     unc0_memcpy(p + z, lb, ln);
-    {
-        Unc_Size l2 = unc0_utf8patdown(n, p + z + ln, c);
-        ASSERT(l == l2);
-    }
+    ll = unc0_utf8patdown(n, p + z + ln, c);
+    ASSERT(l == ll);
+    (void)ll;
     *buf = p;
     *buf_z += ln + l;
     return 0;
@@ -1338,11 +1344,11 @@ void scanstrs(Unc_Size *out, const byte *in, Unc_Size n, Unc_Size c) {
     while (n--) {
         ASSERT(p <= in + c);
         *out++ = p - in;
-        p += strlen((const char *)p) + 1;
+        p += unc0_strlen((const char *)p) + 1;
     }
 }
 
-int copystrs(Unc_ParserContext *c, int sub) {
+Unc_RetVal copystrs(Unc_ParserContext *c, int sub) {
     /* check for used but non-saved strings */
     int flag = sub ? STFLAG_USED_SUB : STFLAG_USED_MAIN,
         mask = STFLAG_SAVED | flag;
@@ -1350,7 +1356,7 @@ int copystrs(Unc_ParserContext *c, int sub) {
     for (i = 0; i < n; ++i) {
         if ((c->st_status[i] & mask) == flag) {
             const byte *se = &c->lex.st[c->st_offset[i]];
-            const byte *xe = se + strlen((const char *)se);
+            const byte *xe = se + unc0_strlen((const char *)se);
             c->st_offset[i] = c->out.st_sz;
             c->st_status[i] |= STFLAG_SAVED;
             MUST(addstr(c->c.alloc, &c->st, &c->out.st_sz, xe - se, se));
@@ -1388,7 +1394,7 @@ INLINE int ismoveid(byte t) {
     }
 }
 
-int copyids(Unc_ParserContext *c, int sub) {
+Unc_RetVal copyids(Unc_ParserContext *c, int sub) {
     /* check for used but non-saved strings */
     int flag = sub ? STFLAG_USED_SUB : STFLAG_USED_MAIN,
         mask = STFLAG_SAVED | flag;
@@ -1396,7 +1402,7 @@ int copyids(Unc_ParserContext *c, int sub) {
     for (i = 0; i < n; ++i) {
         if ((c->id_status[i] & mask) == flag) {
             const byte *se = &c->lex.id[c->id_offset[i]];
-            const byte *xe = se + strlen((const char *)se);
+            const byte *xe = se + unc0_strlen((const char *)se);
             c->id_offset[i] = c->out.st_sz;
             c->id_status[i] |= STFLAG_SAVED;
             MUST(addstr(c->c.alloc, &c->st, &c->out.st_sz, xe - se, se));
@@ -1429,7 +1435,7 @@ int copyids(Unc_ParserContext *c, int sub) {
     return 0;
 }
 
-static int startstack(Unc_ParserContext *c, int always) {
+static Unc_RetVal startstack(Unc_ParserContext *c, int always) {
     if (always || !c->pushfs) {
         /* set up stack region */
         Unc_QInstr instr;
@@ -1451,12 +1457,12 @@ static void endstack(Unc_ParserContext *c) {
     --c->pushfs;
 }
 
-static int dokillstack(Unc_ParserContext *c) {
+static Unc_RetVal dokillstack(Unc_ParserContext *c) {
     endstack(c);
     return emit0(c, UNC_QINSTR_OP_POPF);
 }
 
-static int tostack(Unc_ParserContext *c) {
+static Unc_RetVal tostack(Unc_ParserContext *c) {
     switch (c->valtype) {
     case VALTYPE_NONE:
         MUST(startstack(c, 0));
@@ -1478,7 +1484,7 @@ static int tostack(Unc_ParserContext *c) {
     }
 }
 
-static int holdval(Unc_ParserContext *c, int *s) {
+static Unc_RetVal holdval(Unc_ParserContext *c, int *s) {
     switch (c->valtype) {
     case VALTYPE_NONE:
     case VALTYPE_HOLD:
@@ -1496,7 +1502,7 @@ static int holdval(Unc_ParserContext *c, int *s) {
     return 0;
 }
 
-static int capture(Unc_ParserContext *c, Unc_QOperand op) {
+static Unc_RetVal capture(Unc_ParserContext *c, Unc_QOperand op) {
     switch (c->valtype) {
     case VALTYPE_NONE:
         break;
@@ -1516,13 +1522,13 @@ static int capture(Unc_ParserContext *c, Unc_QOperand op) {
 }
 
 /* holdval + holdend should work */
-static int holdend(Unc_ParserContext *c, int s) {
+static Unc_RetVal holdend(Unc_ParserContext *c, int s) {
     if (s)
         MUST(dokillstack(c));
     return 0;
 }
 
-static int killstack(Unc_ParserContext *c) {
+static Unc_RetVal killstack(Unc_ParserContext *c) {
     if (c->valtype == VALTYPE_STACK) {
         MUST(dokillstack(c));
         c->valtype = VALTYPE_NONE;
@@ -1530,7 +1536,7 @@ static int killstack(Unc_ParserContext *c) {
     return 0;
 }
 
-static int killvalue(Unc_ParserContext *c) {
+static Unc_RetVal killvalue(Unc_ParserContext *c) {
     switch (c->valtype) {
     case VALTYPE_NONE:
         break;
@@ -1546,12 +1552,12 @@ static int killvalue(Unc_ParserContext *c) {
     return 0;
 }
 
-static int eatexpr(Unc_ParserContext *c, int prec);
-static int eatelist(Unc_ParserContext *c, int stack, Unc_Size *pushed);
-static int eatfunc(Unc_ParserContext *c, int ftype);
-static int eatobjdef(Unc_ParserContext *c, Unc_Dst tr);
+static Unc_RetVal eatexpr(Unc_ParserContext *c, int prec);
+static Unc_RetVal eatelist(Unc_ParserContext *c, int stack, Unc_Size *pushed);
+static Unc_RetVal eatfunc(Unc_ParserContext *c, int ftype);
+static Unc_RetVal eatobjdef(Unc_ParserContext *c, Unc_Dst tr);
 
-static int wrapmov(Unc_ParserContext *c, Unc_QOperand *op) {
+static Unc_RetVal wrapmov(Unc_ParserContext *c, Unc_QOperand *op) {
     if (!c->fence && c->next.op == UNC_QINSTR_OP_MOV) {
         *op = makeoperand(c->next.o1type, c->next.o1data);
     } else {
@@ -1657,7 +1663,8 @@ int allowlocals(const Unc_ParserContext *c) {
     return !c->quiet && (!c->c.extend || c->pframes_n);
 }
 
-int symboltolocal(Unc_ParserContext *c, Unc_Size z, Unc_BTreeRecord **rec, int cond) {
+Unc_RetVal symboltolocal(Unc_ParserContext *c, Unc_Size z,
+                         Unc_BTreeRecord **rec, int cond) {
     if (allowlocals(c) && cond) {
         int created;
         MUST(unc0_putbtree(c->book, z, &created, rec));
@@ -1675,7 +1682,7 @@ int symboltolocal(Unc_ParserContext *c, Unc_Size z, Unc_BTreeRecord **rec, int c
 }
 
 /* write = -1 for delete, 0 for read, 1 for write */
-INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
+INLINE Unc_RetVal eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
     int writable = 1;
     int nc = peek(c);
     switch (nc) {
@@ -1864,6 +1871,7 @@ INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
             {
                 /* function call */
                 Unc_Size argc, pushfo;
+                if (!++c->allownl) return UNCIL_ERR(SYNTAX_TOODEEP);
                 MUST(startstack(c, 1));
                 pushfo = c->cd_n - 1;
                 o = pq;
@@ -1892,11 +1900,13 @@ INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
                 } else {
                     o.type = UNC_QOPER_TYPE_FUNCSTACK;
                 }
+                --c->allownl;
                 writable = 0;
                 arrow = 0;
                 break;
             }
             case ULT_SBracketL:
+                if (!++c->allownl) return UNCIL_ERR(SYNTAX_TOODEEP);
                 if (!tr2)
                     MUST(tmpalloc(c, &tr2));
                 MUST(eatexpr(c, 0));
@@ -1905,6 +1915,7 @@ INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
                 o.data = qdataz(tr2);
                 if (consume(c) != ULT_SBracketR)
                     return UNCIL_ERR(SYNTAX);
+                --c->allownl;
                 writable = 1;
                 arrow = 0;
                 break;
@@ -1944,27 +1955,28 @@ INLINE int eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
     return 0;
 }
 
-INLINE int eatatomr(Unc_ParserContext *c, Unc_QOperand *op) {
+INLINE Unc_RetVal eatatomr(Unc_ParserContext *c, Unc_QOperand *op) {
     return eatatomx(c, op, 0);
 }
 
-static int eatatomw(Unc_ParserContext *c, Unc_QOperand *op) {
-    int e;
+static Unc_RetVal eatatomw(Unc_ParserContext *c, Unc_QOperand *op) {
+    Unc_RetVal e;
     Unc_QInstr nx = c->next;
     e = eatatomx(c, op, 1);
     c->next = nx;
     return e;
 }
 
-static int eatatomdel(Unc_ParserContext *c, Unc_QOperand *op) {
-    int e;
+static Unc_RetVal eatatomdel(Unc_ParserContext *c, Unc_QOperand *op) {
+    Unc_RetVal e;
     Unc_QInstr nx = c->next;
     e = eatatomx(c, op, -1);
     c->next = nx;
     return e;
 }
 
-static int startfunc(Unc_ParserContext *c, Unc_Size *findex, Unc_Size parent) {
+static Unc_RetVal startfunc(Unc_ParserContext *c, Unc_Size *findex,
+                            Unc_Size parent) {
     Unc_QFunc *nfn, *fn;
     if (c->quiet) {
         *findex = c->out.fn_sz;
@@ -2119,8 +2131,8 @@ INLINE void ufold(Unc_ParserContext *c) {
     }
 }
 
-static int eatunary(Unc_ParserContext *c, const byte *l0, const byte *l,
-                    Unc_QOperand *opp) {
+static Unc_RetVal eatunary(Unc_ParserContext *c, const byte *l0, const byte *l,
+                           Unc_QOperand *opp) {
     byte opc;
     Unc_QOperand op = makeoperand(QOPER_NONE());
     ASSERT(c->next.op == UNC_QINSTR_OP_MOV);
@@ -2296,7 +2308,7 @@ static int relnext(Unc_ParserContext *c) {
 }
 
 /* for handling short-circuiting and/or */
-static int eatcexpr(Unc_ParserContext *c, int prec) {
+static Unc_RetVal eatcexpr(Unc_ParserContext *c, int prec) {
     int s = 0;
     Unc_Size l;
     Unc_Dst t;
@@ -2341,7 +2353,7 @@ INLINE void swap12(Unc_ParserContext *c) {
 }
 
 /* for handling comparison operators */
-static int eatrexpr(Unc_ParserContext *c, int prec, Unc_QOperand op) {
+static Unc_RetVal eatrexpr(Unc_ParserContext *c, int prec, Unc_QOperand op) {
     int q = 0;
     Unc_Dst t = 0;
     if (c->next.op != UNC_QINSTR_OP_MOV)
@@ -2436,15 +2448,15 @@ static int eatrexpr(Unc_ParserContext *c, int prec, Unc_QOperand op) {
 #define BLOCK_KIND_WHILE 5
 #define BLOCK_KIND_FUNCTION 6
 
-static int eatblock(Unc_ParserContext *c, int kind);
+static Unc_RetVal eatblock(Unc_ParserContext *c, int kind);
 
-static int eatdoblk(Unc_ParserContext *c) {
+static Unc_RetVal eatdoblk(Unc_ParserContext *c) {
     MUST(eatblock(c, BLOCK_KIND_DO));
     MUST(killvalue(c));
     return 0;
 }
 
-static int eatifblk(Unc_ParserContext *c, int expr) {
+static Unc_RetVal eatifblk(Unc_ParserContext *c, int expr) {
     Unc_Size jelse, jend;
     Unc_Dst tr;
     BOOL r = 0, had_else = 0;
@@ -2524,7 +2536,7 @@ exit_if:
     return 0;
 }
 
-static int eattryblk(Unc_ParserContext *c) {
+static Unc_RetVal eattryblk(Unc_ParserContext *c) {
     Unc_Size jcatch;
     Unc_QOperand dst;
     MUST(lblalloc(c, &jcatch, 2));
@@ -2558,8 +2570,8 @@ static int eattryblk(Unc_ParserContext *c) {
     return 0;
 }
 
-static int eatforblk_cond(Unc_ParserContext *c, Unc_QOperand dst,
-                          byte relop, Unc_Dst tr1) {
+static Unc_RetVal eatforblk_cond(Unc_ParserContext *c, Unc_QOperand dst,
+                                 byte relop, Unc_Dst tr1) {
     switch (relop) {
     case ULT_OCEq:
         MUST(emit3(c, UNC_QINSTR_OP_CEQ, QOPER_TMP(0), dst.type, dst.data,
@@ -2590,7 +2602,7 @@ static int eatforblk_cond(Unc_ParserContext *c, Unc_QOperand dst,
     }
 }
 
-static int eatforblk(Unc_ParserContext *c, int expr) {
+static Unc_RetVal eatforblk(Unc_ParserContext *c, int expr) {
     Unc_Size jstart;
     int func, ellipsis = 0;
     Unc_Dst tr1, tr2;
@@ -2714,7 +2726,8 @@ static int eatforblk(Unc_ParserContext *c, int expr) {
                 MUST(eatexpr(c, 0));
                 MUST(killvalue(c));
             }
-            MUST(emit2(c, UNC_QINSTR_OP_IITER, QOPER_TMP(tr1), QOPER_TMP(tr1)));
+            MUST(emit2(c, UNC_QINSTR_OP_IITER, QOPER_TMP(tr1),
+                                               QOPER_TMP(tr1)));
         }
         
         if (peek(c) != ULT_Kdo)
@@ -2797,7 +2810,8 @@ static int eatforblk(Unc_ParserContext *c, int expr) {
     }
 
     if (!func) {
-        MUST(emit2(c, UNC_QINSTR_OP_JMP, QOPER_TMP(0), QOPER_JUMP(jstart + 3)));
+        MUST(emit2(c, UNC_QINSTR_OP_JMP, QOPER_TMP(0),
+                                         QOPER_JUMP(jstart + 3)));
         SETLABEL(c, jstart + 2);
     }
 
@@ -2839,7 +2853,7 @@ static int eatforblk(Unc_ParserContext *c, int expr) {
     return 0;
 }
 
-static int eatwhileblk(Unc_ParserContext *c) {
+static Unc_RetVal eatwhileblk(Unc_ParserContext *c) {
     Unc_Size tmp, jstart;
     Unc_Size anchor = c->withbanchor;
     MUST(lblalloc(c, &jstart, 2));
@@ -2882,7 +2896,7 @@ static int eatwhileblk(Unc_ParserContext *c) {
     return 0;
 }
 
-static int eatwithblk(Unc_ParserContext *c) {
+static Unc_RetVal eatwithblk(Unc_ParserContext *c) {
     Unc_Save save;
     size_t s = 0;
 
@@ -3003,7 +3017,7 @@ eatwithblk_do:
 }
 
 /* ends with leftovers in c->next */
-static int eatexpr(Unc_ParserContext *c, int prec) {
+static Unc_RetVal eatexpr(Unc_ParserContext *c, int prec) {
     Unc_QOperand op;
 
     if (prec == 0) {
@@ -3137,7 +3151,7 @@ static int eatexpr(Unc_ParserContext *c, int prec) {
     return 0;
 }
 
-static int eatelist(Unc_ParserContext *c, int stack, Unc_Size *pushed) {
+static Unc_RetVal eatelist(Unc_ParserContext *c, int stack, Unc_Size *pushed) {
     Unc_Dst ctr = 0, tr;
     int noctr = 0;
     if (stack)
@@ -3165,7 +3179,8 @@ static int eatelist(Unc_ParserContext *c, int stack, Unc_Size *pushed) {
     return 0;
 }
 
-static int eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save, int comma) {
+static Unc_RetVal eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save,
+                                    int comma) {
     Unc_Save save2;
     /* we are assigning. do preliminary read of assignables */
     Unc_QOperand shell, wrapper;
@@ -3286,7 +3301,8 @@ static int eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save, int comma) {
         lsave(c, &save2);
         lrestore(c, &save);
 
-        MUST(emit2(c, UNC_QINSTR_OP_STKGE, QOPER_NONE(), QOPER_UNSIGN(pushed)));
+        MUST(emit2(c, UNC_QINSTR_OP_STKGE, QOPER_NONE(),
+                                           QOPER_UNSIGN(pushed)));
         for (pn = 0; pn < pushed; ++pn) {
             if (pn > 0)
                 if (consume(c) != ULT_SComma) return UNCIL_ERR(SYNTAX);
@@ -3352,7 +3368,7 @@ static int eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save, int comma) {
     return 0;
 }
 
-static int eateqlist(Unc_ParserContext *c) {
+static Unc_RetVal eateqlist(Unc_ParserContext *c) {
     Unc_Save save;
     /* check for equals */
     char flags = 0;
@@ -3361,7 +3377,7 @@ static int eateqlist(Unc_ParserContext *c) {
     lsave(c, &save);
     qpause(c);
     for (;;) {
-        int e;
+        Unc_RetVal e;
         e = eatexpr(c, 0);
         if (e == UNCIL_ERR_SYNTAXL_ASSIGNOP) {
             /* compound assignment */
@@ -3515,13 +3531,15 @@ static int eateqlist(Unc_ParserContext *c) {
                                 MARK_ID_USED(c, z);
                                 MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
                                             UNC_QOPER_TYPE_PUBLIC, qdataz(z),
-                                            QOPER_UNSIGN(pn), QOPER_UNSIGN(0)));
+                                            QOPER_UNSIGN(pn),
+                                            QOPER_UNSIGN(0)));
                             } else {
                                 if (rec->first == UNC_QOPER_TYPE_BINDABLE)
                                     MUST(dobind(c, z, rec));
                                 MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
                                             rec->first, qdataz(rec->second),
-                                            QOPER_UNSIGN(pn), QOPER_UNSIGN(0)));
+                                            QOPER_UNSIGN(pn),
+                                            QOPER_UNSIGN(0)));
                             }
                         }
                     }
@@ -3596,7 +3614,7 @@ static int eateqlist(Unc_ParserContext *c) {
     return 0;
 }
 
-static int eatpublist(Unc_ParserContext *c) {
+static Unc_RetVal eatpublist(Unc_ParserContext *c) {
     int comma = 0;
     for (;;) {
         int created, ok;
@@ -3643,7 +3661,7 @@ static int eatpublist(Unc_ParserContext *c) {
     }
 }
 
-static int eatdellist(Unc_ParserContext *c) {
+static Unc_RetVal eatdellist(Unc_ParserContext *c) {
     Unc_QOperand shell;
     for (;;) {
         MUST(eatatomdel(c, &shell));
@@ -3689,7 +3707,7 @@ static int eatdellist(Unc_ParserContext *c) {
     }
 }
 
-static int eatobjdef(Unc_ParserContext *c, Unc_Dst tr) {
+static Unc_RetVal eatobjdef(Unc_ParserContext *c, Unc_Dst tr) {
     Unc_Dst tr2, tr3 = 0;
     Unc_QOperand op;
     MUST(tmpalloc(c, &tr2));
@@ -3760,7 +3778,7 @@ eatobjdef_gotvalue:
     }
 }
 
-static int eatblock(Unc_ParserContext *c, int kind) {
+static Unc_RetVal eatblock(Unc_ParserContext *c, int kind) {
     Unc_Dst ud = c->tmpnext;
     if (kind == BLOCK_KIND_MAIN) {
         Unc_Size s;
@@ -3939,7 +3957,7 @@ static int eatblock(Unc_ParserContext *c, int kind) {
     }
 }
 
-static int allocparent(Unc_ParserContext *c, Unc_ParserParent **pp) {
+static Unc_RetVal allocparent(Unc_ParserContext *c, Unc_ParserParent **pp) {
     if (c->pframes_n == c->pframes_c) {
         Unc_Size z = c->pframes_c, nz = z + 4;
         Unc_ParserParent *npf = TMREALLOC(Unc_ParserParent, c->c.alloc, 0,
@@ -3952,7 +3970,8 @@ static int allocparent(Unc_ParserContext *c, Unc_ParserParent **pp) {
     return 0;
 }
 
-static int setupbinds(Unc_Size key, Unc_BTreeRecord *value, void *udata) {
+static Unc_RetVal setupbinds(Unc_Size key, Unc_BTreeRecord *value,
+                             void *udata) {
     Unc_BTree *newtree = udata;
     switch (value->first) {
     case UNC_QOPER_TYPE_LOCAL:
@@ -3998,7 +4017,7 @@ static void patchjumps(Unc_ParserContext *c, Unc_Size base) {
     }
 }
 
-static int patchboundargs(Unc_ParserContext *c) {
+static Unc_RetVal patchboundargs(Unc_ParserContext *c) {
     Unc_Size i, ba = 0;
     for (i = 0; i < c->argc; ++i)
         ba += c->arg_exh[i] != 0;
@@ -4006,7 +4025,8 @@ static int patchboundargs(Unc_ParserContext *c) {
         Unc_Size j = 0;
         if (c->cd_n + ba >= c->cd_c) {
             Unc_Size z = c->cd_c, nz = c->cd_n + ba;
-            Unc_QInstr *np = TMREALLOC(Unc_QInstr, c->c.alloc, 0, c->cd, z, nz);
+            Unc_QInstr *np = TMREALLOC(Unc_QInstr, c->c.alloc, 0,
+                                       c->cd, z, nz);
             if (!np)
                 return UNCIL_ERR(MEM);
             c->cd_c = nz;
@@ -4042,8 +4062,8 @@ static int patchboundargs(Unc_ParserContext *c) {
     return 0;
 }
 
-static int eatfunc(Unc_ParserContext *c, int ftype) {
-    int e;
+static Unc_RetVal eatfunc(Unc_ParserContext *c, int ftype) {
+    Unc_RetVal e;
     Unc_Size fnindex;
     Unc_Save pre;
     Unc_QInstr cnx;
@@ -4145,7 +4165,7 @@ static int eatfunc(Unc_ParserContext *c, int ftype) {
         }
     } else {
         if (ftype == FUNCTYPE_DICT)
-            return UNCIL_ERR_SYNTAX_FUNCTABLEUNNAMED;
+            return UNCIL_ERR_SYNTAX_TBLNONAMEFUNC;
         configure2x(c, UNC_QINSTR_OP_FMAKE, QOPER_FUNCTION(c->out.fn_sz - 1));
         if (ftype != FUNCTYPE_EXPR) {
             c->valtype = VALTYPE_HOLD;
@@ -4366,11 +4386,11 @@ nextparam:
 }
 
 /* warning: clobbers lex */
-int unc0_parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
+Unc_RetVal unc0_parsec1(Unc_Context *cxt, Unc_QCode *out, Unc_LexOut *lex) {
     Unc_ParserContext c;
     Unc_Allocator *alloc = cxt->alloc;
     Unc_QCode s = { 1, 0, NULL, 0, NULL };
-    int e;
+    Unc_RetVal e;
     Unc_Size sumidstr_n = lex->st_n + lex->id_n;
     Unc_BTree book;
 

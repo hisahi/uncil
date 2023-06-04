@@ -31,6 +31,6 @@ SOFTWARE.
 #include "uops.h"
 #include "uparse.h"
 
-int unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc);
+Unc_RetVal unc0_parsec2(Unc_Context *cxt, Unc_Program *out, Unc_QCode *qc);
 
 #endif /* UNCIL_UCOMP_H */

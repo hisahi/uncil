@@ -46,7 +46,7 @@ typedef struct Unc_Program {
 
 Unc_Program *unc0_newprogram(Unc_Allocator *alloc);
 void unc0_initprogram(Unc_Program *program);
-int unc0_upgradeprogram(Unc_Program *program, Unc_Allocator *alloc);
+Unc_RetVal unc0_upgradeprogram(Unc_Program *program, Unc_Allocator *alloc);
 void unc0_dropprogram(Unc_Program *program, Unc_Allocator *alloc);
 void unc0_freeprogram(Unc_Program *program, Unc_Allocator *alloc);
 

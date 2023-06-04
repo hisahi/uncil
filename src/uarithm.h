@@ -27,6 +27,8 @@ SOFTWARE.
 #ifndef UNCIL_UARITHM_H
 #define UNCIL_UARITHM_H
 
+#include <float.h>
+
 #include "udef.h"
 
 Unc_Int unc0_shiftl(Unc_Int a, Unc_Int b);
@@ -53,6 +55,39 @@ Unc_Float unc0_adjexp10(Unc_Float x, long p);
 
 Unc_Float unc0_fnan(void);
 Unc_Float unc0_finfty(void);
+
+#if UNCIL_C99
+#define UNC_FLOATMAX_LONG 1
+typedef long double Unc_FloatMax;
+#define UNCF_DIG            LDBL_DIG
+#define UNCF_MANT_DIG       LDBL_MANT_DIG
+#define UNCF_MIN_EXP        LDBL_MIN_EXP
+#define UNCF_MIN_10_EXP     LDBL_MIN_10_EXP
+#define UNCF_MAX_EXP        LDBL_MAX_EXP
+#define UNCF_MAX_10_EXP     LDBL_MAX_10_EXP
+#define UNCF_MAX            LDBL_MAX
+#define UNCF_EPSILON        LDBL_EPSILON
+#define UNCF_MIN            LDBL_MIN
+#else
+#define UNC_FLOATMAX_LONG 0
+typedef double Unc_FloatMax;
+#define UNCF_DIG            DBL_DIG
+#define UNCF_MANT_DIG       DBL_MANT_DIG
+#define UNCF_MIN_EXP        DBL_MIN_EXP
+#define UNCF_MIN_10_EXP     DBL_MIN_10_EXP
+#define UNCF_MAX_EXP        DBL_MAX_EXP
+#define UNCF_MAX_10_EXP     DBL_MAX_10_EXP
+#define UNCF_MAX            DBL_MAX
+#define UNCF_EPSILON        DBL_EPSILON
+#define UNCF_MIN            DBL_MIN
+#endif
+
+Unc_FloatMax unc0_mfrexp(Unc_FloatMax num, int *exp);
+Unc_FloatMax unc0_mldexp(Unc_FloatMax num, int exp);
+Unc_FloatMax unc0_mpow10(Unc_Int exp);
+Unc_FloatMax unc0_mpow10n(Unc_Int exp);
+Unc_FloatMax unc0_mmodf(Unc_FloatMax num, Unc_FloatMax *iptr);
+intmax_t unc0_malog10f(Unc_Float num);
 
 int unc0_fisfinite(Unc_Float x);
 

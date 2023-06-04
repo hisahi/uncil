@@ -24,26 +24,21 @@ SOFTWARE.
 
 *******************************************************************************/
 
+#include <float.h>
 #include <limits.h>
 #include <stddef.h>
-#if UNCIL_C99
-#include <tgmath.h>
-#else
-#include <math.h>
-#endif
 
 #define UNCIL_DEFINES
 #define UNCIL_NODEFINE_SIZE_MAX 1
 
 #include "uarithm.h"
+#include "ucstd.h"
 #include "uctype.h"
 #include "uxscanf.h"
 
-#define EOF -1
-
 /* based on <https://github.com/hisahi/scanf> */
 
-#if __STDC_VERSION__ >= 199901L
+#if UNCIL_C99
 #ifndef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS 1
 #include <stdint.h>
@@ -64,7 +59,7 @@ SOFTWARE.
 #endif
 #else
 /* (u)intmax_t, (U)INTMAX_(MIN_MAX) */
-#if __STDC_VERSION__ >= 199901L
+#if UNCIL_C99
 #ifndef intmax_t
 #define intmax_t long long int
 #endif
@@ -97,11 +92,6 @@ SOFTWARE.
 #define UINTMAX_MAX ULONG_MAX
 #endif
 #endif
-#endif
-
-/* maximum precision floating point type */
-#ifndef floatmax_t
-#define floatmax_t long double
 #endif
 
 /* try to map size_t to unsigned long long, unsigned long, or int */
@@ -291,7 +281,6 @@ INLINE uintmax_t clampu_(uintmax_t m0, uintmax_t v, uintmax_t m1) {
 
 /* EOF check */
 #define IS_EOF(c) ((c) < 0)
-#define GCEOF EOF
 
 #undef GOT_EOF
 #define GOT_EOF() (IS_EOF(next))
@@ -380,17 +369,17 @@ INLINE BOOL iaton_(int (*getch)(void *p), void *p, int *nextc,
     hex: whether in hex mode
     negative: whether there was a - sign
     zero: if no digits, allow zero (i.e. read zero before iatof_)
-    dest: floatmax_t*, where result is stored
+    dest: Unc_FloatMax*, where result is stored
 
     return value: 1 if conversion OK, 0 if not
                   (if 0, dest guaranteed to not be modified)
 */
 INLINE BOOL iatof_(int (*getch)(void *p), void *p, int *nextc,
                        size_t *readin, size_t maxlen, BOOL hex, BOOL negative,
-                       BOOL zero, floatmax_t *dest) {
+                       BOOL zero, Unc_FloatMax *dest) {
     int next = *nextc;
     size_t nowread = *readin;
-    floatmax_t r = 0, pr = 0;
+    Unc_FloatMax r = 0, pr = 0;
     /* saw dot? saw digit? was there an overflow? */
     BOOL dot = 0, digit = 0, ovf = 0;
     /* exponent, offset (with decimals, etc.) */
@@ -468,28 +457,16 @@ INLINE BOOL iatof_(int (*getch)(void *p), void *p, int *nextc,
         if (r != 0) {
             if (exp > 0) {
                 if (exp > (hex ? LDBL_MAX_EXP : LDBL_MAX_10_EXP))
-#if UNCIL_C99
-                    r = INFINITY;
-#else
-                    r = HUGE_VAL;
-#endif
+                    r = unc0_finfty();
                 else if (hex)
-#if UNCIL_C99
-                    r = ldexpl(r, exp);
-#else
-                    r = ldexp(r, exp);
-#endif
+                    r = unc0_mldexp(r, exp);
                 else
                     r = unc0_adjexp10(r, (long)exp);
             } else if (exp < 0) {
                 if (exp < (hex ? LDBL_MIN_EXP : LDBL_MIN_10_EXP))
                     r = 0;
                 else if (hex)
-#if UNCIL_C99
-                    r = ldexpl(r, exp);
-#else
-                    r = ldexp(r, exp);
-#endif
+                    r = unc0_mldexp(r, exp);
                 else
                     r = unc0_adjexp10(r, (long)exp);
             }
@@ -588,7 +565,7 @@ enum dlength { LN_, LN_hh, LN_h, LN_l, LN_ll, LN_L, LN_j, LN_z, LN_t };
 #define vLN_(x) vLNa_(x)
 
 #if PTRDIFF_MAX_COMPUTE
-static const int signed_padding_div_ = (int)(                                  \
+CONSTEXPR int signed_padding_div_ = (int)(                                     \
         (sizeof(ptrdiff_t) > sizeof(uintmax_t) ? 1 :                           \
             INT_MAX < UINTMAX_MAX ?                                            \
                 ((uintmax_t)1 << (CHAR_BIT * sizeof(int)))                     \
@@ -596,7 +573,7 @@ static const int signed_padding_div_ = (int)(                                  \
             SHRT_MAX < UINTMAX_MAX ?                                           \
                 ((uintmax_t)1 << (CHAR_BIT * sizeof(short)))                   \
                     / ((uintmax_t)SHRT_MAX + 1) : 2));
-static const ptrdiff_t ptrdiff_max_ = (ptrdiff_t)                              \
+CONSTEXPR ptrdiff_t ptrdiff_max_ = (ptrdiff_t)                                 \
         (sizeof(ptrdiff_t) > sizeof(intmax_t) ? 0 :                            \
             sizeof(ptrdiff_t) == sizeof(intmax_t)                              \
                 ? INTMAX_MAX                                                   \
@@ -604,7 +581,7 @@ static const ptrdiff_t ptrdiff_max_ = (ptrdiff_t)                              \
                     * 2 + 1) / signed_padding_div_ + UINTMAX_MAX));
 #endif
 #if PTRDIFF_MIN_COMPUTE
-static const ptrdiff_t ptrdiff_min_ = (ptrdiff_t)                              \
+CONSTEXPR ptrdiff_t ptrdiff_min_ = (ptrdiff_t)                                 \
         (sizeof(ptrdiff_t) > sizeof(intmax_t) ? 0 :                            \
             sizeof(ptrdiff_t) == sizeof(intmax_t)                              \
                 ? INTMAX_MIN                                                   \
@@ -612,10 +589,10 @@ static const ptrdiff_t ptrdiff_min_ = (ptrdiff_t)                              \
                     ? -PTRDIFF_MAX : -PTRDIFF_MAX + ~(intmax_t)0);
 #endif
 
-static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
-                       void *p, const char *ff, va_list va) {
+static size_t iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
+                      void *p, const char *ff, va_list va) {
     /* fields = number of fields successfully read; this is the return value */
-    int fields = 0;
+    size_t fields = 0;
     /* next = the "next" character to be processed */
     int next;
     /* total characters read, returned by %n */
@@ -648,7 +625,7 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
             /* nostore is %*, prevents a value from being stored */
             BOOL nostore;
             /* nowread = characters read for this format specifier
-               maxlen = maximum number of characters to be read "field width" */
+               maxlen = maximum number of chars to be read "field width" */
             size_t nowread = 0, maxlen = 0;
             /* length specifier (l, ll, h, hh...) */
             enum dlength dlen = LN_;
@@ -664,8 +641,8 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
                 nostore = 0;
                 dst = va_arg(va, void *);
                 /* A pointer to any incomplete or object type may be converted
-                   to a pointer to void and back again; the result shall compare
-                   equal to the original pointer. */
+                   to a pointer to void and back again; the result shall
+                   compare equal to the original pointer. */
             }
 
             /* width specifier => maxlen */
@@ -853,7 +830,7 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
                                 NEXT_CHAR(nowread);
                                 /* zero = 1. "0x" should be read as 0, because
                                    0 is a valid strtol input, but we cannot
-                                   unread x at this point, so it'll stay read */
+                                   unread x at this point, so it stays read */
                             } else if (KEEP_READING() &&
                                                   ICASEEQ(next, 'B', 'b')) {
                                 if (base == 10)
@@ -974,7 +951,7 @@ static int iscanf_(int (*getch)(void *p), void (*ungetch)(int c, void *p),
             case 'a': case 'A': /* hex format float */
                 /* all treated equal by scanf, but not by printf */
             { /* =========== READ FLOAT =========== */
-                floatmax_t r;
+                Unc_FloatMax r;
                 /* negative? allow zero? hex mode? */
                 BOOL negative = 0, zero = 0, hex = 0;
                 if (!maxlen) maxlen = SIZE_MAX;
@@ -1161,20 +1138,46 @@ read_failure:
     /* if we have a leftover character, put it back into the stream */
     if (!GOT_EOF() && ungetch)
         ungetch(next, p);
-    return tryconv && noconv ? EOF : fields;
+    return tryconv && noconv ? UNC_SCANF_EOF : fields;
 }
 
-int unc0_vxscanf(int (*getch)(void *data), void (*ungetch)(int c, void *data),
-                void *data, const char *format, va_list arg) {
+size_t unc0_vxscanf(int (*getch)(void *data),
+                    void (*ungetch)(int c, void *data),
+                    void *data, const char *format, va_list arg) {
     return iscanf_(getch, ungetch, data, format, arg);
 }
 
-int unc0_xscanf(int (*getch)(void *data), void (*ungetch)(int c, void *data),
-                void *data, const char *format, ...) {
-    int r;
+size_t unc0_xscanf(int (*getch)(void *data),
+                   void (*ungetch)(int c, void *data),
+                   void *data, const char *format, ...) {
+    size_t r;
     va_list va;
     va_start(va, format);
     r = unc0_vxscanf(getch, ungetch, data, format, va);
+    va_end(va);
+    return r;
+}
+
+struct unc0_snscanf_buf {
+    const char *s;
+    size_t n;
+};
+
+static int unc0_snscanf_getch(void *data) {
+    struct unc0_snscanf_buf *buf = data;
+    if (!buf->n) return -1;
+    --buf->n;
+    return (unsigned char)*buf->s++;
+}
+
+size_t unc0_snscanf(const char *s, size_t n, const char *format, ...) {
+    size_t r;
+    struct unc0_snscanf_buf buf;
+    va_list va;
+    va_start(va, format);
+    buf.s = s;
+    buf.n = n;
+    r = unc0_vxscanf(&unc0_snscanf_getch, NULL, &buf, format, va);
     va_end(va);
     return r;
 }

@@ -39,7 +39,8 @@ typedef struct Unc_Blob {
     UNC_LOCKLIGHT(lock)
 } Unc_Blob;
 
-int unc0_initblob(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b);
+int unc0_initblob(Unc_Allocator *alloc, Unc_Blob *q,
+                  Unc_Size n, const byte *b);
 int unc0_initblobraw(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, byte **b);
 int unc0_initblobmove(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, byte *b);
 int unc0_blobadd(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n, const byte *b);
@@ -48,7 +49,8 @@ int unc0_blobaddf(Unc_Allocator *alloc, Unc_Blob *q, const Unc_Blob *q2);
 int unc0_blobaddn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size n);
 int unc0_blobins(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i,
                                     Unc_Size n, const byte *b);
-int unc0_blobinsf(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, const Unc_Blob *q2);
+int unc0_blobinsf(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i,
+                                    const Unc_Blob *q2);
 int unc0_blobinsn(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n);
 int unc0_blobdel(Unc_Allocator *alloc, Unc_Blob *q, Unc_Size i, Unc_Size n);
 void unc0_dropblob(Unc_Allocator *alloc, Unc_Blob *q);

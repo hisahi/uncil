@@ -125,6 +125,23 @@ eventually be added:
 * `"latin1"`: ISO-8859-1 aka Latin 1
 * `"ascii"`: ASCII (low 7 bits only)
 
+## convert.format
+`convert.format(format, ...)`
+
+Formats a list of values using the given format string `format`. It uses a
+C printf-like syntax where format specifiers are prefixed with `%`. All
+the standard specifiers from C99 are supported except:
+* the wide character `l` specifier, which is ignored.
+* `%n` is not supported
+* `%p` is not supported
+* `*` in widths or precisions is not allowed
+* POSIX positional arguments are supported (e.g. `%1$s`). Unlike in POSIX,
+  it is possible to only have the second parameter be read, not just the
+  first. If unnumbered specifiers follow numbered ones, they continue
+  from where the previous parameter left off.
+
+Note that string width and precision applies to Unicode codepoints.
+
 ## convert.fromhex
 `convert.fromhex(str)`
 

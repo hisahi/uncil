@@ -91,7 +91,7 @@ static Unc_Size unc0_gccollect_root(Unc_World *w) {
     y += unc0_gccollect_root_val(&w->met_str);
     y += unc0_gccollect_root_val(&w->met_blob);
     y += unc0_gccollect_root_val(&w->met_arr);
-    y += unc0_gccollect_root_val(&w->met_dict);
+    y += unc0_gccollect_root_val(&w->met_table);
     y += unc0_gccollect_root_val(&w->io_file);
     y += unc0_gccollect_root_val(&w->exc_oom);
     y += unc0_gccollect_root_val(&w->modulepaths);
@@ -105,7 +105,7 @@ static Unc_Size unc0_gccollect_root(Unc_World *w) {
         y += unc0_gccollect_root_val(&v->met_str);
         y += unc0_gccollect_root_val(&v->met_blob);
         y += unc0_gccollect_root_val(&v->met_arr);
-        y += unc0_gccollect_root_val(&v->met_dict);
+        y += unc0_gccollect_root_val(&v->met_table);
         y += unc0_gccollect_root_val(&v->fmain);
         y += unc0_gccollect_root_val(&v->exc);
         y += unc0_gccollect_root_val(&v->coroutine);
@@ -165,7 +165,7 @@ INLINE Unc_Size unc0_gccollect_mark_o(Unc_Object *e, int depth) {
          + unc0_gccollect_mark_val(&e->prototype, depth);
 }
 
-INLINE Unc_Size unc0_gccollect_mark_opaq(Unc_Opaque *e, int depth) {
+INLINE Unc_Size unc0_gccollect_mark_q(Unc_Opaque *e, int depth) {
     Unc_Size i, refc = e->refc,
              y = unc0_gccollect_mark_val(&e->prototype, depth);
     for (i = 0; i < refc; ++i)
@@ -173,7 +173,7 @@ INLINE Unc_Size unc0_gccollect_mark_opaq(Unc_Opaque *e, int depth) {
     return y;
 }
 
-INLINE Unc_Size unc0_gccollect_mark_fn(Unc_Function *e, int depth) {
+INLINE Unc_Size unc0_gccollect_mark_f(Unc_Function *e, int depth) {
     Unc_Size y = 0, i, oargc = e->argc - e->rargc, refc = e->refc;
     for (i = 0; i < oargc; ++i)
         y += unc0_gccollect_mark_val(&e->defaults[i], depth);
@@ -182,7 +182,7 @@ INLINE Unc_Size unc0_gccollect_mark_fn(Unc_Function *e, int depth) {
     return y;
 }
 
-INLINE Unc_Size unc0_gccollect_mark_bfn(Unc_FunctionBound *e, int depth) {
+INLINE Unc_Size unc0_gccollect_mark_fb(Unc_FunctionBound *e, int depth) {
     return unc0_gccollect_mark_val(&e->boundto, depth)
          + unc0_gccollect_mark_val(&e->fn, depth);
 }
@@ -222,13 +222,13 @@ static Unc_Size unc0_gccollect_mark_ent(Unc_Entity *e, int depth) {
             y += unc0_gccollect_mark_o(LEFTOVER(Unc_Object, e), depth);
             break;
         case Unc_TFunction:
-            y += unc0_gccollect_mark_fn(LEFTOVER(Unc_Function, e), depth);
+            y += unc0_gccollect_mark_f(LEFTOVER(Unc_Function, e), depth);
             break;
         case Unc_TOpaque:
-            y += unc0_gccollect_mark_opaq(LEFTOVER(Unc_Opaque, e), depth);
+            y += unc0_gccollect_mark_q(LEFTOVER(Unc_Opaque, e), depth);
             break;
         case Unc_TBoundFunction:
-            y += unc0_gccollect_mark_bfn(LEFTOVER(Unc_FunctionBound, e), depth);
+            y += unc0_gccollect_mark_fb(LEFTOVER(Unc_FunctionBound, e), depth);
             break;
         default:
             NEVER_();

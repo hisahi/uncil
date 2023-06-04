@@ -34,8 +34,8 @@ SOFTWARE.
 #include "uvali.h"
 #include "uvlq.h"
 
-Unc_RetVal unc0_lib_sys_forget(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_sys_forget(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Size sn;
     const char *sp;
     Unc_Value *ov;
@@ -51,11 +51,11 @@ Unc_RetVal unc0_lib_sys_forget(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_setbool(w, &v, 1);
     } else
         unc_setbool(w, &v, 0);
-    return unc_pushmove(w, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
+Unc_RetVal uncl_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_RetVal e;
     Unc_Size sn, fsn = 0;
     const char *sp, *fsp = NULL;
     Unc_Entity *en;
@@ -83,40 +83,30 @@ Unc_RetVal unc0_lib_sys_loaddl(Unc_View *w, Unc_Tuple args, void *udata) {
     }
 
     VINITENT(&v, Unc_TObject, en);
-    return unc_push(w, 1, &v, NULL);
+    return unc_returnlocal(w, 0, &v);
 }
 
-Unc_RetVal unc0_lib_sys_version(Unc_View *w, Unc_Tuple args, void *udata) {
-    int e;
-    Unc_Value v;
+Unc_RetVal uncl_sys_version(Unc_View *w, Unc_Tuple args, void *udata) {
+    Unc_Value v[3] = UNC_BLANKS;
     (void)udata;
 
-    VINITINT(&v, UNCIL_VER_MAJOR);
-    e = unc_push(w, 1, &v, NULL);
-    if (e) return e;
-
-    VINITINT(&v, UNCIL_VER_MINOR);
-    e = unc_push(w, 1, &v, NULL);
-    if (e) return e;
-
-    VINITINT(&v, UNCIL_VER_PATCH);
-    e = unc_push(w, 1, &v, NULL);
-    if (e) return e;
-
-    return 0;
+    VINITINT(&v[0], UNCIL_VER_MAJOR);
+    VINITINT(&v[1], UNCIL_VER_MINOR);
+    VINITINT(&v[2], UNCIL_VER_PATCH);
+    return unc_push(w, 3, v);
 }
 
 static const char *endianstrings[] = { "other", "little", "big" };
 
 Unc_RetVal uncilmain_sys(Unc_View *w) {
     Unc_RetVal e;
-    e = unc_exportcfunction(w, "loaddl", &unc0_lib_sys_loaddl,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 1, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunction(w, "loaddl", &uncl_sys_loaddl,
+                            1, 1, 0, UNC_CFUNC_DEFAULT, NULL,
+                            0, NULL, 0, NULL, NULL);
     if (e) return e;
-    e = unc_exportcfunction(w, "forget", &unc0_lib_sys_forget,
-                            UNC_CFUNC_DEFAULT,
-                            1, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunction(w, "forget", &uncl_sys_forget,
+                            1, 0, 0, UNC_CFUNC_DEFAULT, NULL,
+                            0, NULL, 0, NULL, NULL);
     if (e) return e;
     e = unc_setpublicc(w, "path", &w->world->modulepaths);
     if (e) return e;
@@ -188,9 +178,8 @@ Unc_RetVal uncilmain_sys(Unc_View *w) {
         e = unc_setpublicc(w, "canloaddl", &v);
         if (e) return e;
     }
-    e = unc_exportcfunction(w, "version", &unc0_lib_sys_version,
-                            UNC_CFUNC_DEFAULT,
-                            0, 0, 0, NULL, 0, NULL, 0, NULL, NULL);
+    e = unc_exportcfunction(w, "version", &uncl_sys_version, 0, 0, 0,
+                            UNC_CFUNC_DEFAULT, NULL, 0, NULL, 0, NULL, NULL);
     if (e) return e;
     {
         Unc_Value v = UNC_BLANK;
@@ -198,7 +187,7 @@ Unc_RetVal uncilmain_sys(Unc_View *w) {
         if (e) return e;
         e = unc_setpublicc(w, "versiontext", &v);
         if (e) return e;
-        unc_clear(w, &v);
+        VCLEAR(w, &v);
     }
     return 0;
 }
