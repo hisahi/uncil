@@ -122,7 +122,7 @@ SOFTWARE.
 /* assign null values to uninitialized buffer */
 #define VINITMANY(n, p)  do {   Unc_Size i;                                    \
                                 for (i = 0; i < n; ++i)                        \
-                                    VINITNULL(&(p)[i]); } while (0)
+                                    VINITNULL((p) + i); } while (0)
 
 #define STRINGIFY(s) #s
 #define EVALSTRINGIFY(s) STRINGIFY(s)
