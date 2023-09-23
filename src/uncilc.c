@@ -781,24 +781,46 @@ int main(int argc, char *argv[]) {
     for (i = 1; i < argc; ++i) {
         char *arg = argv[i];
         if (flagok && arg[0] == '-' && argv[i][1]) {
-            if (!strcmp(arg, "--")) {
-                flagok = 0;
-            } else if (!strcmp(arg, "-o")) {
-                ++i;
-                if (i < argc) {
-                    ofileindex = i;
+            char *arg = argv[i];
+            char buf[2], fchr;
+            const char *fptr;
+
+            if (argv[i][1] == '-') {
+                const char *fstr = &argv[i][2];
+                buf[1] = 0;
+                if (!*fstr) {
+                    flagok = 0;
+                } else if (!strcmp(fstr, "help")) {
+                    buf[0] = '?';  /* --help => -? */
+                } else if (!strcmp(fstr, "version")) {
+                    buf[0] = 'v';  /* --version => -v */
                 } else {
+                    /* unrecognized flag */
                     return print_help(UNCIL_EXIT_USE);
                 }
-            } else if (!strcmp(arg, "-S")) {
-                cflags |= UNCIL_FLAG_S;
-            } else if (!strcmp(arg, "-?") || !strcmp(arg, "--help")) {
-                return print_help(UNCIL_EXIT_OK);
-            } else if (!strcmp(arg, "-v") || !strcmp(arg, "--version")) {
-                if (version_query < INT_MAX) ++version_query;
+                fptr = &buf[0];
             } else {
-                /* unrecognized flag */
-                return print_help(UNCIL_EXIT_USE);
+                fptr = &argv[i][1];
+            }
+
+            while ((fchr = *fptr++)) {
+                if (fchr == 'o') {
+                    ++i;
+                    if (i < argc) {
+                        ofileindex = i;
+                    } else {
+                        return print_help(UNCIL_EXIT_USE);
+                    }
+                } else if (fchr == 'S') {
+                    cflags |= UNCIL_FLAG_S;
+                } else if (fchr == '?') {
+                    return print_help(UNCIL_EXIT_OK);
+                } else if (fchr == 'v') {
+                    if (version_query < INT_MAX) ++version_query;
+                } else {
+                    /* unrecognized flag */
+                    return print_help(UNCIL_EXIT_USE);
+                }
             }
         } else {
             if (!fileindex) fileindex = argindex;

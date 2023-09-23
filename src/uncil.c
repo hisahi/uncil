@@ -852,17 +852,38 @@ int main(int argc, char *argv[]) {
     for (i = 1; i < argc; ++i) {
         if (flagok && argv[i][0] == '-' && argv[i][1]) {
             char *arg = argv[i];
-            if (!strcmp(arg, "--")) {
-                flagok = 0;
-            } else if (!strcmp(arg, "-i")) {
-                interactive = 1;
-            } else if (!strcmp(arg, "-?") || !strcmp(arg, "--help")) {
-                return print_help(UNCIL_EXIT_OK);
-            } else if (!strcmp(arg, "-v") || !strcmp(arg, "--version")) {
-                if (version_query < INT_MAX) ++version_query;
+            char buf[2], fchr;
+            const char *fptr;
+
+            if (argv[i][1] == '-') {
+                const char *fstr = &argv[i][2];
+                buf[1] = 0;
+                if (!*fstr) {
+                    flagok = 0;
+                } else if (!strcmp(fstr, "help")) {
+                    buf[0] = '?';  /* --help => -? */
+                } else if (!strcmp(fstr, "version")) {
+                    buf[0] = 'v';  /* --version => -v */
+                } else {
+                    /* unrecognized flag */
+                    return print_help(UNCIL_EXIT_USE);
+                }
+                fptr = &buf[0];
             } else {
-                /* unrecognized flag */
-                return print_help(UNCIL_EXIT_USE);
+                fptr = &argv[i][1];
+            }
+
+            while ((fchr = *fptr++)) {
+                if (fchr == 'i') {
+                    interactive = 1;
+                } else if (fchr == '?') {
+                    return print_help(UNCIL_EXIT_OK);
+                } else if (fchr == 'v') {
+                    if (version_query < INT_MAX) ++version_query;
+                } else {
+                    /* unrecognized flag */
+                    return print_help(UNCIL_EXIT_USE);
+                }
             }
         } else {
             if (!fileindex) {
