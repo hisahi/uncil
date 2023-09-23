@@ -2333,7 +2333,7 @@ INLINE Unc_Float get_trueeps(void) {
 
 static const Unc_ModuleCFunc lib_g[] = {
 #if !UNCIL_SANDBOXED
-    { &unc0_g_print,        "print",        1, 0, 1, UNC_CFUNC_DEFAULT },
+    { &unc0_g_print,        "print",        0, 0, 1, UNC_CFUNC_DEFAULT },
     { &unc0_g_input,        "input",        0, 1, 0, UNC_CFUNC_DEFAULT },
 #endif
     { &unc0_g_require,      "require",      1, 0, 0, UNC_CFUNC_DEFAULT },

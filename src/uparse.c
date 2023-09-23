@@ -3507,7 +3507,7 @@ static Unc_RetVal eateqlist(Unc_ParserContext *c) {
             lrestore(c, &save);
 
             MUST(emit2(c, UNC_QINSTR_OP_STKGE,
-                    QOPER_NONE(), QOPER_UNSIGN(pushed)));
+                    QOPER_NONE(), QOPER_UNSIGN(pushed - !!ellipsis)));
             ellipsis = 0;
             for (pn = 0; pn < pushed; ++pn) {
                 if (pn > 0)
