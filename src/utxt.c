@@ -234,27 +234,27 @@ static int unc0_cconv_utf8read(Unc_CConv_In in, void *in_data,
 }
 
 INLINE void enc_u16le(byte *buf, Unc_UChar u) {
-    buf[0] = u & 0xFF;
-    buf[1] = (u >> 8) & 0xFF;
+    buf[0] = (byte)(u & 0xFF);
+    buf[1] = (byte)((u >> 8) & 0xFF);
 }
 
 INLINE void enc_u16be(byte *buf, Unc_UChar u) {
-    buf[0] = (u >> 8) & 0xFF;
-    buf[1] = u & 0xFF;
+    buf[0] = (byte)((u >> 8) & 0xFF);
+    buf[1] = (byte)(u & 0xFF);
 }
 
 INLINE void enc_u32le(byte *buf, Unc_UChar u) {
-    buf[0] = u & 0xFF;
-    buf[1] = (u >> 8) & 0xFF;
-    buf[2] = (u >> 16) & 0xFF;
-    buf[3] = (u >> 24) & 0xFF;
+    buf[0] = (byte)(u & 0xFF);
+    buf[1] = (byte)((u >> 8) & 0xFF);
+    buf[2] = (byte)((u >> 16) & 0xFF);
+    buf[3] = (byte)((u >> 24) & 0xFF);
 }
 
 INLINE void enc_u32be(byte *buf, Unc_UChar u) {
-    buf[0] = (u >> 24) & 0xFF;
-    buf[1] = (u >> 16) & 0xFF;
-    buf[2] = (u >> 8) & 0xFF;
-    buf[3] = u & 0xFF;
+    buf[0] = (byte)((u >> 24) & 0xFF);
+    buf[1] = (byte)((u >> 16) & 0xFF);
+    buf[2] = (byte)((u >> 8) & 0xFF);
+    buf[3] = (byte)(u & 0xFF);
 }
 
 int unc0_cconv_utf16le_enc(Unc_CConv_In in, void *in_data,
@@ -371,7 +371,7 @@ int unc0_cconv_ascii_enc(Unc_CConv_In in, void *in_data,
         e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (u >= 0x80UL) return -1;
-        buf = u;
+        buf = (byte)u;
         e = (*out)(out_data, 1, &buf);
         if (e) return e < 0 ? e : 0;
     }
@@ -386,7 +386,7 @@ int unc0_cconv_latin1_enc(Unc_CConv_In in, void *in_data,
         e = unc0_cconv_utf8read(in, in_data, &u);
         if (e) return e < 0 ? e : 0;
         if (u >= 0x100UL) return -1;
-        buf = u;
+        buf = (byte)u;
         e = (*out)(out_data, 1, &buf);
         if (e) return e < 0 ? e : 0;
     }

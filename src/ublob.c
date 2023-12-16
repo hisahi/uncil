@@ -241,7 +241,7 @@ int unc0_blgetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, int permissive,
     UNC_LOCKL(a->lock);
     if (i < 0)
         i += a->size;
-    if (i < 0 || i >= a->size) {
+    if (i < 0 || (Unc_UInt)i >= a->size) {
         UNC_UNLOCKL(a->lock);
         if (permissive) {
             VSETNULL(w, out);
@@ -249,7 +249,7 @@ int unc0_blgetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, int permissive,
         }
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
-    VSETINT(w, out, a->data[i]);
+    VSETINT(w, out, a->data[(Unc_UInt)i]);
     UNC_UNLOCKL(a->lock);
     return 0;
 }
@@ -266,7 +266,7 @@ int unc0_blsetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, Unc_Value *v) {
         UNC_UNLOCKL(a->lock);
         i += a->size;
     }
-    if (i < 0 || i >= a->size) {
+    if (i < 0 || (Unc_UInt)i >= a->size) {
         UNC_UNLOCKL(a->lock);
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
@@ -279,7 +279,7 @@ int unc0_blsetbyte(Unc_View *w, Unc_Blob *a, Unc_Value *indx, Unc_Value *v) {
         UNC_UNLOCKL(a->lock);
         return UNCIL_ERR_CONVERT_TOINT;
     }
-    a->data[i] = (byte)i2;
+    a->data[(Unc_UInt)i] = (byte)i2;
     UNC_UNLOCKL(a->lock);
     return 0;
 }

@@ -517,12 +517,12 @@ int unc0_io_fwrite_convnl(struct Unc_View *w, struct ulib_io_file *file,
                           const byte *b, Unc_Size *pn) {
     Unc_Size n = *pn;
     const byte *s = b, *x, *d = s + n;
-    while ((n = memchr(s, '\n', d - s))) {
-        if (unc0_io_fwrite_p(w, file, s, n - s))
+    while ((x = memchr(s, '\n', d - s))) {
+        if (unc0_io_fwrite_p(w, file, s, x - s))
             return 1;
         if (unc0_io_fwrite_p(w, file, (const byte *)newline, 2))
             return 1;
-        s = n + 1;
+        s = x + 1;
         *++pn;
     }
     return unc0_io_fwrite_p(w, file, s, d - s);
@@ -560,7 +560,7 @@ static int uncdec_out_wrapper(void *data, Unc_Size n, const byte *b) {
     return 0;
 }
 
-enum uncl_io_rw_mode { UNC0_RW_BUF, UNC0_RW_LINE, UNC0_RW_ALL };
+enum uncl_io_rw_mode { UNC0_RW_BUF = 0, UNC0_RW_LINE, UNC0_RW_ALL };
 
 static Unc_RetVal uncl_io_file_read_do(Unc_View *w, Unc_Value *fp,
                                        struct ulib_io_file *file,
@@ -746,8 +746,8 @@ static Unc_RetVal uncl_io_file_write_do(Unc_View *w, Unc_Value *fp,
         }
         if (mode == UNC0_RW_LINE) {
 #if UNCIL_CONVERT_CRLF
-            if (unc0_io_fwrite_convnl(w, file, (const byte *)newline,
-                                        sizeof(newline) - 1)) {
+            if (unc0_io_fwrite_p(w, file, (const byte *)newline,
+                                            sizeof(newline) - 1)) {
                 unc_unlock(w, fp);
                 return unc0_io_makeerr(w, "I/O write", errno);
             }
@@ -793,8 +793,8 @@ static Unc_RetVal uncl_io_file_write_do(Unc_View *w, Unc_Value *fp,
                 }
             } else if (mode == UNC0_RW_LINE) {
 #if UNCIL_CONVERT_CRLF
-                if (unc0_io_fwrite_conv(w, file, (const byte *)newline,
-                                            sizeof(newline) - 1)) {
+                if (unc0_io_fwrite_p(w, file, (const byte *)newline,
+                                                sizeof(newline) - 1)) {
                     unc_unlock(w, fp);
                     return unc0_io_makeerr(w, "I/O write", errno);
                 }

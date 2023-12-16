@@ -33,7 +33,7 @@ SOFTWARE.
 #include "uvm.h"
 
 enum unc_coroutine_status {
-    UNC_CORO_ST_INIT,
+    UNC_CORO_ST_INIT = 0,
     UNC_CORO_ST_RUN,
     UNC_CORO_ST_YIELD,
     UNC_CORO_ST_DONE,

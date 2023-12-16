@@ -78,6 +78,7 @@ typedef volatile Unc_Size Unc_AtomicLarge;
 typedef volatile unsigned short Unc_AtomicFlag;
 typedef volatile unsigned short Unc_AtomicSmall;
 #else
+#include <signal.h>
 typedef volatile sig_atomic_t Unc_AtomicFlag;
 typedef volatile sig_atomic_t Unc_AtomicSmall;
 #endif

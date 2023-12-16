@@ -58,6 +58,8 @@ beginning of the format string:
 The mode, if any, is then followed by one or more of any of the following
 value specifiers:
 
+* `b`: byte (`unsigned char`), as a blob. when encoding, the blob is either
+  truncated or zero-padded to the specified length.
 * `c`: `signed char` from/to an Uncil integer
 * `C`: `unsigned char` from/to an Uncil integer
 * `h`: `signed short` from/to an Uncil integer
@@ -75,15 +77,14 @@ value specifiers:
   only available with `@`)
 * `Z`: `size_t` from/to an Uncil integer (only available with `@`)
 * `p`: `void *` from/to an Uncil opaqueptr (only available with `@`)
+* `*`: byte (`unsigned char`) which are skipped on decoding and filled with
+  zeroes on encoding.
 
 If a decoded value is too large to by represented by a target type (such as if
 an unsigned value is out of range of the integer type), an error occurs.
 
-The following specifiers may also be preceded by an integer:
-* `b`: byte (`unsigned char`), as a blob. when encoding, the blob is either
-  truncated or zero-padded to the specified length.
-* `*`: byte (`unsigned char`) which are skipped on decoding and filled with
-  zeroes on encoding.
+All specifiers may also be preceded by an integer to express a repeat count
+(or a blob size for `b` and `*`).
 
 As an example, the following structure
 ```

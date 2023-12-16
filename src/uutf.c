@@ -56,7 +56,7 @@ Unc_UChar unc0_utf8dec(Unc_Size n, const byte **in) {
     if (i < n) {
         Unc_UChar u;
         byte b = *p++;
-        int j;
+        unsigned j;
         ++i;
         if (!(b & 0x80)) {
             *in = p;
@@ -211,7 +211,8 @@ const byte *unc0_utf8lastchar(const byte *sb, Unc_Size n) {
 }
 
 int unc0_utf8validate(Unc_Size n, const char *s) {
-    int c, j;
+    int c;
+    unsigned j;
     Unc_UChar u, m;
     while (n--) {
         c = *s++;

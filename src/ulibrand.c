@@ -202,7 +202,7 @@ static Unc_RetVal unc_randwrapper(Unc_View *w, Unc_Value fn,
                 return unc_throwexc(w, "type", "random source should return "
                                                "a single blob");
             }
-            if (pn != n) {
+            if ((Unc_Int)pn != n) {
                 unc_unlock(w, &tuple.values[0]);
                 unc_discard(w, &ret);
                 return unc_throwexc(w, "value", "random source should return "
@@ -267,7 +267,7 @@ Unc_RetVal uncl_rand_randomint(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_randwrapper_float(w, args.values[2], rng, &uf);
     unc_unlock(w, unc_boundvalue(w, 0));
     if (e) return e;
-    unc_setint(w, &v, i0 + (i1 - i0) * uf);
+    unc_setint(w, &v, (Unc_Int)(i0 + (i1 - i0) * uf));
     return unc_returnlocal(w, 0, &v);
 }
 

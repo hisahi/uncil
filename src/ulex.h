@@ -32,7 +32,7 @@ SOFTWARE.
 #include "uhash.h"
 
 typedef enum Unc_LexToken {
-    ULT_END,            /* no more */
+    ULT_END = 0,        /* no more */
     ULT_N,              /* semicolon, etc. end of line */
     ULT_NL,             /* actual newline */
     ULT_LInt,           /* literals */

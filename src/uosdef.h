@@ -302,53 +302,6 @@ SOFTWARE.
 #define UNCIL_CONVERT_CRLF 1
 #endif
 
-#if __clang__
-#define UNCIL_COMPILED_WITH "Clang " __clang_version__
-#elif __GNUC__
-#define UNCIL_COMPILED_WITH "gcc " __VERSION__
-#elif defined(__INTEL_COMPILER)
-#if __INTEL_COMPILER >= 2000
-#define UNCIL_COMPILED_WITH "Intel C/C++ "                                     \
-              UNCIL_STRINGIFY(__INTEL_COMPILER)                                \
-          "." UNCIL_STRINGIFY(__INTEL_COMPILER_UPDATE) ".*"
-#elif defined(__INTEL_COMPILER_UPDATE)
-#define UNCIL_COMPILED_WITH "Intel C/C++ "                                     \
-              UNCIL_STRINGIFY(__INTEL_COMPILER / 100)                          \
-          "." UNCIL_STRINGIFY(__INTEL_COMPILER % 100)                          \
-          "." UNCIL_STRINGIFY(__INTEL_COMPILER_UPDATE)
-#else
-#define UNCIL_COMPILED_WITH "Intel C/C++ "                                     \
-              UNCIL_STRINGIFY(__INTEL_COMPILER / 100)                          \
-          "." UNCIL_STRINGIFY(__INTEL_COMPILER % 100)
-#endif
-#elif defined(_MSC_VER)
-#ifdef _MSC_FULL_VER
-#define UNCIL_STRINGIFY_PAD2(s) ((s) < 10 ? ("0" UNCIL_STRINGIFY(s))           \
-                                          : UNCIL_STRINGIFY(s))
-#define UNCIL_COMPILED_WITH "Microsoft C Compiler "                            \
-              UNCIL_STRINGIFY(_MSC_FULL_VER / 10000000)                        \
-          "." UNCIL_STRINGIFY_PAD2((_MSC_FULL_VER / 100000) % 100)             \
-          "." UNCIL_STRINGIFY(_MSC_FULL_VER % 100000) ".*"
-#elif defined(_MSC_FULL_VER)
-#define UNCIL_COMPILED_WITH "Microsoft C Compiler "                            \
-              UNCIL_STRINGIFY(_MSC_FULL_VER / 10000000)                        \
-          "." UNCIL_STRINGIFY((_MSC_FULL_VER / 100000) % 100)                  \
-          "." (_MSC_FULL_VER % 100000)
-#else
-#define UNCIL_COMPILED_WITH "Microsoft C Compiler "                            \
-              UNCIL_STRINGIFY(_MSC_VER / 100)                                  \
-          "." UNCIL_STRINGIFY(_MSC_VER % 100)
-#endif
-#elif defined(__IAR_SYSTEMS_ICC__)
-#define UNCIL_COMPILED_WITH "IAR C/C++ "                                       \
-              UNCIL_STRINGIFY(__VER__ / 100)                                   \
-          "." UNCIL_STRINGIFY(__VER__ % 100)
-#elif defined(__TINYC__)
-#define UNCIL_COMPILED_WITH "Tiny C Compiler"
-#else
-#define UNCIL_COMPILED_WITH "(unknown standard compiler)"
-#endif
-
 /* add new requirec impls here and implement in umodule.c */
 
 #ifndef HAVE_DLOPEN

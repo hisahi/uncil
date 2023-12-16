@@ -67,17 +67,21 @@ SOFTWARE.
 #define VINITNULL(D) do { register Unc_Value *tN_ = (D);                       \
             tN_->type = Unc_TNull; tN_->v.p = NULL; } while (0)
 /* assign bool value */
-#define VINITBOOL(D, b) do { register Unc_Value *tB_ = (D);                    \
-            tB_->type = Unc_TBool; tB_->v.i = !!(b); } while (0)
+#define VINITBOOL(D, b) do { Unc_Int vB_ = !!(b);                              \
+            register Unc_Value *tB_ = (D);                                     \
+            tB_->type = Unc_TBool; tB_->v.i = vB_; } while (0)
 /* assign int value */
-#define VINITINT(D, q) do { register Unc_Value *tI_ = (D);                     \
-            tI_->type = Unc_TInt; tI_->v.i = (Unc_Int)(q); } while (0)
+#define VINITINT(D, q) do { Unc_Int vI_ = (Unc_Int)(q);                        \
+            register Unc_Value *tI_ = (D);                                     \
+            tI_->type = Unc_TInt; tI_->v.i = vI_; } while (0)
 /* assign float value */
-#define VINITFLT(D, q) do { register Unc_Value *tF_ = (D);                     \
-            tF_->type = Unc_TFloat; tF_->v.f = (Unc_Float)(q); } while (0)
+#define VINITFLT(D, q) do { Unc_Float vF_ = (Unc_Float)(q);                    \
+            register Unc_Value *tF_ = (D);                                     \
+            tF_->type = Unc_TFloat; tF_->v.f = vF_; } while (0)
 /* assign optr */
-#define VINITPTR(D, q) do { register Unc_Value *tP_ = (D);                     \
-            tP_->type = Unc_TOpaquePtr; tP_->v.p = (void *)(q); } while (0)
+#define VINITPTR(D, q) do { void *vP_ = (void *)(q);                           \
+            register Unc_Value *tP_ = (D);                                     \
+            tP_->type = Unc_TOpaquePtr; tP_->v.p = vP_; } while (0)
 /* assign entity */
 #define VINITENT(D, t, e) do { register Unc_Value *tE_ = (D);                  \
             tE_->type = (t); VGETENT(tE_) = (Unc_Entity *)(e);                 \
@@ -87,20 +91,25 @@ SOFTWARE.
 #define VSETNULL(w, D) do { Unc_Value *t_N_ = (D); VDECREF(w, t_N_);           \
                             VINITNULL(t_N_); } while (0)
 /* assign bool value and decref old */
-#define VSETBOOL(w, D, b) do { Unc_Value *t_B_ = (D); VDECREF(w, t_B_);        \
-                            VINITBOOL(t_B_, b); } while (0)
+#define VSETBOOL(w, D, b) do { Unc_Int v_B_ = b;                               \
+                            Unc_Value *t_B_ = (D); VDECREF(w, t_B_);           \
+                            VINITBOOL(t_B_, v_B_); } while (0)
 /* assign int value and decref old */
-#define VSETINT(w, D, q) do { Unc_Value *t_I_ = (D); VDECREF(w, t_I_);         \
-                            VINITINT(t_I_, q); } while (0)
+#define VSETINT(w, D, q) do { Unc_Int v_I_ = q;                                \
+                            Unc_Value *t_I_ = (D); VDECREF(w, t_I_);           \
+                            VINITINT(t_I_, v_I_); } while (0)
 /* assign float value and decref old */
-#define VSETFLT(w, D, q) do { Unc_Value *t_F_ = (D); VDECREF(w, t_F_);         \
-                            VINITFLT(t_F_, q); } while (0)
+#define VSETFLT(w, D, q) do { Unc_Float v_F_ = q;                              \
+                            Unc_Value *t_F_ = (D); VDECREF(w, t_F_);           \
+                            VINITFLT(t_F_, v_F_); } while (0)
 /* assign optr and decref old */
-#define VSETPTR(w, D, p) do { Unc_Value *t_P_ = (D); VDECREF(w, t_P_);         \
-                            VINITPTR(t_P_, p); } while (0)
+#define VSETPTR(w, D, p) do { void *v_P_ = p;                                  \
+                            Unc_Value *t_P_ = (D); VDECREF(w, t_P_);           \
+                            VINITPTR(t_P_, v_P_); } while (0)
 /* assign entity and decref old */
-#define VSETENT(w, D, t, e) do { Unc_Value *t_E_ = (D); VDECREF(w, t_E_);      \
-                            VINITENT(t_E_, t, e); } while (0)
+#define VSETENT(w, D, t, e) do { Unc_ValueType vt_E_ = t; void *v_E_ = e;      \
+                            Unc_Value *t_E_ = (D); VDECREF(w, t_E_);           \
+                            VINITENT(t_E_, vt_E_, v_E_); } while (0)
 
 /* done before a value is destroyed. equivalent to unc_clear, except faster.
    should not be used for any other purpose than the aforementioned one */

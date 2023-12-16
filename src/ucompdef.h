@@ -34,7 +34,7 @@ SOFTWARE.
 #if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ > 4 \
                     || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)))
 #define DEADCODE() ASSERT(0); __builtin_unreachable()
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) && _MSC_VER >= 1310
 #define DEADCODE() ASSERT(0); __assume(0)
 #else
 #define DEADCODE()

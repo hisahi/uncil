@@ -481,7 +481,7 @@ INLINE BOOL iatof_(int (*getch)(void *p), void *p, int *nextc,
     return digit;
 }
 
-enum iscans_type { A_CHAR, A_STRING, A_SCANSET };
+enum iscans_type { A_CHAR = 0, A_STRING, A_SCANSET };
 
 struct scanset_ {
     const BOOL *mask;
@@ -559,7 +559,7 @@ INLINE BOOL iscans_(int (*getch)(void *p), void *p, int *nextc,
 #define STORE_DSTU(v, T, minv, maxv) STORE_DST(clampu_(minv, v, maxv), T)
 
 /* enum for possible data types */
-enum dlength { LN_, LN_hh, LN_h, LN_l, LN_ll, LN_L, LN_j, LN_z, LN_t };
+enum dlength { LN_ = 0, LN_hh, LN_h, LN_l, LN_ll, LN_L, LN_j, LN_z, LN_t };
 
 #define vLNa_(x) LN_##x
 #define vLN_(x) vLNa_(x)

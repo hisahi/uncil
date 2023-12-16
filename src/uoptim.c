@@ -307,7 +307,7 @@ static Unc_Size ilog2(Unc_Size v) {
     Unc_Size j = 0;
     while (v >>= 1)
         ++j;
-    return v;
+    return j;
 }
 
 Unc_RetVal unc0_optqcode(Unc_Context *cxt, Unc_QCode *out) {

@@ -287,7 +287,7 @@ Unc_RetVal compileuinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     
     v |= 0x80;
     if (unc0_qcode_isoplit(q->o1type)) v |= 0x10;
-    MUST(pushb(c, v));
+    MUST(pushb(c, (byte)v));
     MUST(pushdst0(c, q));
     MUST(pushrlop(c, INSTROP(q, 1)));
     return 0;
@@ -345,7 +345,7 @@ Unc_RetVal compilebinstr(Unc_CompileContext *c, Unc_QInstr *q) {
     v |= 0x40;
     if (unc0_qcode_isoplit(q->o1type)) v |= 0x20;
     if (unc0_qcode_isoplit(q->o2type)) v |= 0x10;
-    MUST(pushb(c, v));
+    MUST(pushb(c, (byte)v));
     MUST(pushdst0(c, q));
     MUST(pushrlop(c, INSTROP(q, 1)));
     MUST(pushrlop(c, INSTROP(q, 2)));
@@ -500,11 +500,11 @@ Unc_RetVal compilefcall(Unc_CompileContext *c, Unc_QInstr *q) {
 Unc_RetVal compiledcall(Unc_CompileContext *c, Unc_QInstr *q) {
     if (q->o0type == UNC_QOPER_TYPE_STACK) {
         MUST(pushb(c, UNC_I_DCALLS));
-        MUST(pushb(c, q->o2data.o));
+        MUST(pushb(c, (byte)q->o2data.o));
         MUST(pushreg(c, INSTROP(q, 1)));
     } else {
         MUST(pushb(c, UNC_I_DCALL));
-        MUST(pushb(c, q->o2data.o));
+        MUST(pushb(c, (byte)q->o2data.o));
         MUST(pushdst0(c, q));
         MUST(pushreg(c, INSTROP(q, 1)));
     }
@@ -521,7 +521,7 @@ Unc_RetVal compileftail(Unc_CompileContext *c, Unc_QInstr *q) {
 Unc_RetVal compiledtail(Unc_CompileContext *c, Unc_QInstr *q) {
     ASSERT(q->o0type == UNC_QOPER_TYPE_STACK);
     MUST(pushb(c, UNC_I_DTAIL));
-    MUST(pushb(c, q->o2data.o));
+    MUST(pushb(c, (byte)q->o2data.o));
     MUST(pushreg(c, INSTROP(q, 1)));
     return 0;
 }
@@ -858,7 +858,7 @@ labelexists:;
     c->labels_i = 0;
     c->forreal = 1;
     MUST(pushb(c, UNC_I_DEL));
-    MUST(pushb(c, c->jumpw));
+    MUST(pushb(c, (byte)c->jumpw));
     base = c->code_off = c->out.code_sz;
     MUST(compilefunc_i(c, f, base));
     ASSERT(c->labels_i == c->labels_n);

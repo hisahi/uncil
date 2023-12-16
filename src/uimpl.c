@@ -350,7 +350,8 @@ Unc_RetVal unc_loadstream(Unc_View *w, int (*getch)(void *), void *udata) {
     if ((e = unc0_streamreadz(getch, udata, buf, 2, &z))) return e;
     if (z != CHAR_BIT) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
     if ((e = unc0_streamreadz(getch, udata, buf, 2, &z))) return e;
-    if (z != unc0_getendianness()) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
+    if (z != (unsigned)unc0_getendianness())
+                               return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
     if ((e = unc0_streamreadz(getch, udata, buf, 4, &z))) return e;
     if (z != sizeof(Unc_Size)) return UNCIL_ERR_PROGRAM_INCOMPATIBLE;
     if ((e = unc0_streamreadz(getch, udata, buf, 4, &z))) return e;
@@ -471,7 +472,7 @@ static Unc_RetVal unc0_streamwritec(int (*putch)(int, void *), void *udata,
 static Unc_RetVal unc0_streamwrite0(int (*putch)(int, void *), void *udata,
                                     int n) {
     Unc_Size i;
-    for (i = 0; i < n; ++i)
+    for (i = 0; i < (Unc_Size)n; ++i)
         if (putch(0, udata) < 0)
             return UNCIL_ERR_IO_GENERIC;
     return 0;
@@ -1434,7 +1435,7 @@ Unc_RetVal unc_callex(Unc_View *w, Unc_Value *func, Unc_Size argn,
     Unc_RetVal e;
     if (!w->program)
         return UNCIL_ERR_ARG_NOPROGRAMLOADED;
-    if (ret->r + 1 != w->region.top - w->region.base)
+    if (ret->r + 1 != (Unc_Size)(w->region.top - w->region.base))
         return UNCIL_ERR_ARG_NOTMOSTRECENT;
     e = func ? unc0_fcallv(w, func, argn, 1, 1, 1, 0)
              : unc0_fcall(w, NULL, argn, 1, 1, 1, 0);
@@ -1633,7 +1634,7 @@ Unc_RetVal unc_exceptiontostringn(Unc_View *w, Unc_Value *exc, Unc_Size *n,
 
 void unc_returnvalues(Unc_View *w, Unc_Pile *pile, Unc_Tuple *tuple) {
     Unc_Size r = pile->r;
-    Unc_Size otop = (r + 1 == w->region.top - w->region.base
+    Unc_Size otop = (r + 1 == (Unc_Size)(w->region.top - w->region.base)
                     ? unc0_stackdepth(&w->sval)
                     : w->region.base[r + 1]);
     tuple->values = &w->sval.base[w->region.base[r]];
@@ -1643,7 +1644,7 @@ void unc_returnvalues(Unc_View *w, Unc_Pile *pile, Unc_Tuple *tuple) {
 
 Unc_RetVal unc_discard(Unc_View *w, Unc_Pile *pile) {
     Unc_Size r = pile->r;
-    if (r + 1 != w->region.top - w->region.base)
+    if (r + 1 != (Unc_Size)(w->region.top - w->region.base))
         return UNCIL_ERR_ARG_NOTMOSTRECENT;
     unc0_restoredepth(w, &w->sval, *--w->region.top);
     return 0;

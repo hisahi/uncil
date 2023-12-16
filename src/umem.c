@@ -189,7 +189,7 @@ int unc0_strcmp(const char *dest, const char *src) {
 #endif
 
 size_t unc0_strnlen(const char *s, size_t maxlen) {
-#if !UNCIL_NOLIBC && _POSIX_C_SOURCE >= 200809L
+#if !UNCIL_NOLIBC && _POSIX_VERSION >= 200809L
     return strnlen(s, maxlen);
 #else
     const char *p = unc0_memchr(s, 0, maxlen);
@@ -381,7 +381,7 @@ void *unc0_mmreallocz(Unc_Allocator *alloc, Unc_Alloc_Purpose purpose,
 #define SIZET_MUL_OVERFLOWS(s, a, b) ((s) = (a) * (b), 0)
 #elif defined(__GNUC__) || defined(__clang__)
 #define SIZET_MUL_OVERFLOWS(s, a, b) __builtin_mul_overflow(a, b, &(s))
-#elif defined(_MSC_VER) && SIZE_MAX == ULLONG_MAX && SIZE_MAX != ULONG_MAX
+#elif defined(_MSC_VER) && defined(_WIN64)
 #define SIZET_MUL_OVERFLOWS(s, a, b) ((s) = (a) * (b),                         \
                                  __umulh((__int64)(a), (__int64)(b)))
 #else

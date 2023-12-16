@@ -28,6 +28,7 @@ SOFTWARE.
 #define UNCIL_UNCVER_H
 
 extern const char *UNCIL_COPYRIGHT;
+extern const char *UNCIL_COMPILED_WITH;
 void uncil_printversion(int detail);
 
 #endif /* UNCIL_UNCVER_H */

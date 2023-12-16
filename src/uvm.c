@@ -707,7 +707,8 @@ void unc0_loadstrpx(const byte *offp, Unc_Size *l, const byte **b) {
 FORCEINLINE Unc_Size unc0_diffregion(Unc_View *w) {
     ASSERT(w->region.top >= w->region.base ||
         !(w->frames.top > w->frames.base &&
-            w->region.top - w->region.base <= w->frames.top[-1].region_r));
+            (Unc_Size)(w->region.top - w->region.base)
+                <= w->frames.top[-1].region_r));
     return unc0_stackdepth(&w->sval) - *--w->region.top;
 }
 
@@ -1251,7 +1252,7 @@ static void unc0_vmobshr(Unc_View *w, jmp_buf *env,
 
 static int unc0_vveq_i(Unc_View *w, jmp_buf *env,
                             Unc_Value *a, Unc_Value *b,
-                             const byte *vmpc) {
+                            const byte *vmpc) {
     if (VGETTYPE(b) == Unc_TObject || VGETTYPE(b) == Unc_TOpaque)
         goto unc0_vveq_o;
     switch (VGETTYPE(a)) {
@@ -1839,7 +1840,8 @@ INLINE void domlist(Unc_View *w, jmp_buf *env, Unc_Value *tr,
     Unc_Entity *en = unc0_wake(w, Unc_TArray);
     ASSERT(w->region.top >= w->region.base ||
         !(w->frames.top > w->frames.base &&
-            w->region.top - w->region.base <= w->frames.top[-1].region_r));
+            (Unc_Size)(w->region.top - w->region.base)
+                <= w->frames.top[-1].region_r));
     argc = (w->sval.top - w->sval.base) - w->region.top[-1];
     if (!en) {
         unc0_vmrestoredepth(w, &w->sval, *--w->region.top);
@@ -3159,5 +3161,5 @@ vmexit:
         GOTONEXT();
     }
     UNC_UNLOCKF(w->runlock);
-    return e;
+    return UNCIL_IS_ERR(e) ? e : 0;
 }

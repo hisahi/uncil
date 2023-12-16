@@ -855,8 +855,8 @@ int main(int argc, char *argv[]) {
             char buf[2], fchr;
             const char *fptr;
 
-            if (argv[i][1] == '-') {
-                const char *fstr = &argv[i][2];
+            if (arg[1] == '-') {
+                const char *fstr = &arg[2];
                 buf[1] = 0;
                 if (!*fstr) {
                     flagok = 0;
@@ -870,7 +870,7 @@ int main(int argc, char *argv[]) {
                 }
                 fptr = &buf[0];
             } else {
-                fptr = &argv[i][1];
+                fptr = &arg[1];
             }
 
             while ((fchr = *fptr++)) {

@@ -59,6 +59,7 @@ SOFTWARE.
 char *realpath(const char *RESTRICT path, char *RESTRICT resolved_path);
 #endif /* __GNUC__ */
 #elif UNCIL_IS_WINDOWS
+#undef BOOL
 #include <Windows.h>
 #endif /* UNCIL_IS_... */
 

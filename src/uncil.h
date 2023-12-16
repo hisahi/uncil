@@ -45,11 +45,6 @@ SOFTWARE.
 extern "C" {
 #endif 
 
-typedef struct Unc_Tuple {
-    Unc_Size count;
-    Unc_Value *values;
-} Unc_Tuple;
-
 extern const Unc_Value unc_blank;
 #define UNC_BLANK { 0 }
 #define UNC_BLANKS { UNC_BLANK }

@@ -278,6 +278,11 @@ Unc_RetVal unc0_lexcode_i(Unc_Context *cxt, Unc_LexOut *out,
             nx = ULT_NL;
             ++out->lineno;
             c = getch(ud);
+        } else if (c == '\r') {
+            c = getch(ud);
+            if (c == '\n') continue;
+            err = UNCIL_ERR_SYNTAX;
+            goto lexreturn;
         } else if (isspace_(c)) {
             /* ignore */
             c = getch(ud);
@@ -288,7 +293,8 @@ readnum:
             /* read in number */
             {
                 byte buf[1 + (sizeof(Unc_Int) > sizeof(Unc_Float)
-                            ? sizeof(Unc_Int) : sizeof(Unc_Float))];
+                            ? sizeof(Unc_Int) : sizeof(Unc_Float))] = { 0 };
+                Unc_Size bufn;
                 int dot = sign & 1, base = 10;
                 union {
                     Unc_Int i;
@@ -384,11 +390,13 @@ noexpneg:
                     u.f = unc0_adjexp10(u.f, off);
                     buf[0] = ULT_LFloat;
                     unc0_memcpy(buf + 1, &u.f, sizeof(Unc_Float));
+                    bufn = sizeof(Unc_Float) + 1;
                 } else {
                     buf[0] = ULT_LInt;
                     unc0_memcpy(buf + 1, &u.i, sizeof(Unc_Int));
+                    bufn = sizeof(Unc_Int) + 1;
                 }
-                if ((err = sputn(alloc, &olc, 6, sizeof(buf), buf)))
+                if ((err = sputn(alloc, &olc, 6, bufn, buf)))
                     goto lexreturn;
             }
             continue;
@@ -397,7 +405,7 @@ noexpneg:
             Unc_Size oid_n2 = oid.length, res;
 
             while (isident_(c)) {
-                if ((err = sput1(alloc, &oid, 5, c)))
+                if ((err = sput1(alloc, &oid, 5, (byte)c)))
                     goto lexreturn;
                 c = getch(ud);
             }
@@ -430,7 +438,7 @@ noexpneg:
 
             c = getch(ud);
             for (;;) {
-                if (c < 0 || c == '\n') {
+                if (c < 0 || c == '\n' || c == '\r') {
                     err = UNCIL_ERR_SYNTAX_UNTERMSTR;
                     goto lexreturn;
                 } else if (c == '"') {
@@ -500,12 +508,15 @@ noexpneg:
                                 goto lexreturn;
                         }
                         continue;
+                    case '\r':
+                        c = getch(ud);
+                        if (c == '\n') break;
                     default:
                         err = UNCIL_ERR_SYNTAX_BADESCAPE;
                         goto lexreturn;
                     }
                 }
-                if ((err = sput1(alloc, &ost, inc, c)))
+                if ((err = sput1(alloc, &ost, inc, (byte)c)))
                     goto lexreturn;
                 if (inc < 7)
                     ++inc;
@@ -691,7 +702,7 @@ noexpneg:
                 c = getch(ud);
 keep_buf:   ;
         }
-        if ((err = sput1(alloc, &olc, 3, nx)))
+        if ((err = sput1(alloc, &olc, 3, (byte)nx)))
             goto lexreturn;
     }
     

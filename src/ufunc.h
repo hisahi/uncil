@@ -33,8 +33,12 @@ SOFTWARE.
 #include "uval.h"
 
 struct Unc_View;
-struct Unc_Tuple;
 struct Unc_Program;
+
+typedef struct Unc_Tuple {
+    Unc_Size count;
+    Unc_Value *values;
+} Unc_Tuple;
 
 typedef Unc_RetVal (*Unc_CFunc)(struct Unc_View *w,
                                 struct Unc_Tuple args,

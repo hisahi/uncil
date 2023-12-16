@@ -40,7 +40,7 @@ typedef struct Unc_Stack {
 
 struct Unc_View;
 
-#define unc0_stackdepth(s) ((s)->top - (s)->base)
+#define unc0_stackdepth(s) ((Unc_Size)((s)->top - (s)->base))
 
 Unc_RetVal unc0_stackinit(struct Unc_View *w, Unc_Stack *s, Unc_Size start);
 Unc_RetVal unc0_stackreserve(struct Unc_View *w, Unc_Stack *s, Unc_Size n);

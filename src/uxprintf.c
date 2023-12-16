@@ -49,7 +49,7 @@ SOFTWARE.
 #define PUTC(c) do { if (out(c, udata)) return UNC_PRINTF_EOF; ++outp; } while (0)
 
 enum length_mod {
-    L_, L_hh, L_h, L_l, L_ll, L_j, L_z, L_t, L_L
+    L_ = 0, L_hh, L_h, L_l, L_ll, L_j, L_z, L_t, L_L
 };
 
 #define PR_FLAG_UPPER (1 << 0)
@@ -84,7 +84,7 @@ static int fromdecimal(int c) {
 #endif
 }
 
-static int todecimal(int c) {
+static char todecimal(int c) {
 #if '9' - '0' == 9
     return '0' + c;
 #else
@@ -92,7 +92,7 @@ static int todecimal(int c) {
 #endif
 }
 
-static int tooctal(int c) {
+static char tooctal(int c) {
 #if '7' - '0' == 7
     return '0' + c;
 #else
@@ -100,7 +100,7 @@ static int tooctal(int c) {
 #endif
 }
 
-static int tohex(int c, int u) {
+static char tohex(int c, int u) {
 #if '9' - '0' == 9 && 'F' - 'A' == 5 && 'f' - 'a' == 5
     return c >= 10 ? (u ? 'A' : 'a') + c - 10 : '0' + c;
 #else
@@ -108,7 +108,7 @@ static int tohex(int c, int u) {
 #endif
 }
 
-INLINE int toibase(int c, int b, int u) {
+INLINE char toibase(int c, int b, int u) {
     switch (b) {
     case 8:
         return tooctal(c);
@@ -818,7 +818,7 @@ size_t unc0_vxprintf(int (*out)(char outp, void *udata),
     const char *format_end = format + format_n;
     while ((!format_n || format < format_end) && (c = *format++)) {
         if (c != '%')
-            PUTC(c);
+            PUTC((char)c);
         else {
             int flags = 0;
             size_t width = 0;
@@ -827,7 +827,7 @@ size_t unc0_vxprintf(int (*out)(char outp, void *udata),
             int e = 0;
 
             if ((c = *format) == '%') {
-                PUTC(c);
+                PUTC((char)c);
                 ++format;
                 continue;
             }
@@ -1052,7 +1052,7 @@ nextflag:
                 if (c == 'g') {
                     intmax_t exp =  num ? (intmax_t)unc0_malog10f(num) : 0;
                     if (!precision) precision = 1;
-                    if ((exp < 0 || precision > exp) && exp >= -4) {
+                    if ((exp < 0 || (int)precision > exp) && exp >= -4) {
                         precision -= exp + 1;
                     } else {
                         flags |= PR_FLAG_SCIENTIFIC;
@@ -1082,7 +1082,7 @@ nextflag:
                         PUTC(uc[i]);
                     }
                 } else
-                    PUTC(va_arg(arg, int));
+                    PUTC((char)(va_arg(arg, int)));
                 break;
             case 's':
                 if (!(flags & PR_FLAG_PREC)) precision = SIZE_MAX;

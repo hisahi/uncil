@@ -473,35 +473,28 @@ static int unc0_unic_icmp(struct unc_uchar_casemap *casemap, Unc_View *w,
     char sb[256], *sl = NULL, *si;
     char zb[256], *zl = NULL, *zi;
     UErrorCode ue = U_ZERO_ERROR;
-    UCaseMap *ucm;
     icu_u8index_t sq, zq;
     Unc_Size sq1, zq1;
     
     /* TODO: if ICU adds u_utf8strCaseCompare one day */
-    sq = ucasemap_utf8FoldCase(ucm, sb, sizeof(sb), sp, sn, &ue);
+    sq = ucasemap_utf8FoldCase(casemap->ucm, sb, sizeof(sb), sp, sn, &ue);
     if (ue == U_BUFFER_OVERFLOW_ERROR) {
         ue = U_ZERO_ERROR;
         sl = unc_malloc(w, sq);
-        if (!sl) {
-            ucasemap_close(ucm);
-            return UNCIL_ERR_MEM;
-        }
-        sq = ucasemap_utf8FoldCase(ucm, sl, sq, sp, sn, &ue);
+        if (!sl) return UNCIL_ERR_MEM;
+        sq = ucasemap_utf8FoldCase(casemap->ucm, sl, sq, sp, sn, &ue);
     }
     if (U_FAILURE(ue)) {
         if (sl) unc_mfree(w, sl);
         return unc_throwexc(w, "internal", "ucasemap_utf8FoldCase failed");
     }
     
-    zq = ucasemap_utf8FoldCase(ucm, zb, sizeof(zb), zp, zn, &ue);
+    zq = ucasemap_utf8FoldCase(casemap->ucm, zb, sizeof(zb), zp, zn, &ue);
     if (ue == U_BUFFER_OVERFLOW_ERROR) {
         ue = U_ZERO_ERROR;
         zl = unc_malloc(w, zq);
-        if (!zl) {
-            ucasemap_close(ucm);
-            return UNCIL_ERR_MEM;
-        }
-        zq = ucasemap_utf8FoldCase(ucm, zl, zq, zp, zn, &ue);
+        if (!zl) return UNCIL_ERR_MEM;
+        zq = ucasemap_utf8FoldCase(casemap->ucm, zl, zq, zp, zn, &ue);
     }
     if (U_FAILURE(ue)) {
         if (zl) unc_mfree(w, zl);
@@ -509,7 +502,6 @@ static int unc0_unic_icmp(struct unc_uchar_casemap *casemap, Unc_View *w,
         return unc_throwexc(w, "internal", "ucasemap_utf8FoldCase failed");
     }
 
-    ucasemap_close(ucm);
     si = sl ? sl : sb, sq1 = sq;
     zi = zl ? zl : zb, zq1 = zq;
 

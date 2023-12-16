@@ -172,6 +172,6 @@ Unc_RetVal unc0_verifyopaque(struct Unc_View *w, Unc_Value *v,
 #include "uvali.h"
 #endif
 
-#define DEBUG_NO_SLEEPERS 0
+#define DEBUG_NO_SLEEPERS 1
 
 #endif /* UNCIL_UVAL_H */

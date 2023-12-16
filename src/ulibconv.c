@@ -83,7 +83,7 @@ fromhex_skip:
             h = tohex(c);
             if (h >= 0) {
                 b = (b << 4) | h;
-                if ((e = unc0_strbuf_put1(&buf, b))) {
+                if ((e = unc0_strbuf_put1(&buf, (byte)b))) {
                     unc0_strbuf_free(&buf);
                     return e;
                 }
@@ -178,7 +178,7 @@ Unc_RetVal uncl_convert_fromintbase(
                 return UNCIL_ERR_MEM;
             }
             ++ssign;
-            intu = -(Unc_UInt)iint;
+            intu = (Unc_UInt)-iint;
         } else
             intu = (Unc_UInt)iint;
         if (!intu) {
@@ -419,7 +419,7 @@ INLINE void encode_uint_le(byte *out, Unc_Int vi, Unc_Size n) {
 }
 
 INLINE void encode_float_b32(byte *out, Unc_Float uf) {
-    float f = (Unc_Float)uf;
+    float f = (float)(Unc_Float)uf;
     unc0_memcpy(out, &f, sizeof(float));
 }
 
@@ -443,7 +443,7 @@ Unc_RetVal uncl_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
     int native = 1;
 #endif
     /* endian 0 for big-endian, 1 for little-endian */
-    Unc_Size i = 1, z;
+    Unc_Size i = 1, z, zi;
     struct unc0_strbuf b;
 
     e = unc_getstringc(w, &args.values[0], &s);
@@ -505,7 +505,7 @@ Unc_RetVal uncl_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
                 z = z * 10 + (*s++ - '0');
                 if (z < pz) {
                     /* overflow */
-                    return unc_throwexc(w, "value", "b or * size too large");
+                    return unc_throwexc(w, "value", "repeat count too large");
                 }
                 pz = z;
             }
@@ -514,14 +514,14 @@ Unc_RetVal uncl_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
             if (!c) break;
         }
 
+        if (!hassize) z = 1;
+
         switch (c) {
         case '*':
-            if (!hassize) z = 1;
             e = unc0_strbuf_putfill(&b, z, 0);
             if (e) goto uncl_convert_encode_fail;
             continue;
         case 'b':
-            if (!hassize) z = 1;
             if (i >= args.count)
                 ENCODE_THROW("value", "not enough values to encode "
                                     "(more specifiers than values)");
@@ -547,220 +547,432 @@ Unc_RetVal uncl_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
             continue;
         }
 
-        if (i >= args.count)
-            ENCODE_THROW("value", "not enough values to encode "
-                                "(more specifiers than values)");
-        if (hassize)
-            ENCODE_THROW("value", "size modifiers are only supported "
-                                "for b and *");
+        for (zi = 0; zi < z; ++zi) {
+            if (i >= args.count)
+                ENCODE_THROW("value", "not enough values to encode "
+                                    "(more specifiers than values)");
 
-        if (!native) {
-            /* different logic */
+            if (!native) {
+                /* different logic */
+                switch (c) {
+                case 'c':
+                {
+                    Unc_Int ui;
+                    byte tbuf[1];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "c requires an integer");
+                    if (ui < -0x80 || ui > 0x7F)
+                        ENCODE_THROW("type", "value out of range for native c "
+                                                    "(signed char)");
+                    encode_uint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'C':
+                {
+                    Unc_Int ui;
+                    byte tbuf[1];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "C requires an integer");
+                    if (ui < 0 || ui > 0xFF)
+                        ENCODE_THROW("type", "value out of range for native C "
+                                                    "(unsigned char)");
+                    encode_uint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'h':
+                {
+                    Unc_Int ui;
+                    byte tbuf[2];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "h requires an integer");
+                    if (ui < -0x8000 || ui > 0x7FFF)
+                        ENCODE_THROW("type", "value out of range for native h "
+                                                    "(signed short)");
+                    if (endian)
+                        encode_sint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_sint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'H':
+                {
+                    Unc_Int ui;
+                    byte tbuf[2];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "H requires an integer");
+                    if (ui < 0 || ui > 0xFFFFU)
+                        ENCODE_THROW("type", "value out of range for native H "
+                                                    "(unsigned short)");
+                    if (endian)
+                        encode_uint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_uint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'i':
+                {
+                    Unc_Int ui;
+                    byte tbuf[4];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "i requires an integer");
+                    if (ui < -0x80000000L || ui > 0x7FFFFFFFL)
+                        ENCODE_THROW("type", "value out of range for native i "
+                                                    "(signed int)");
+                    if (endian)
+                        encode_sint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_sint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'I':
+                {
+                    Unc_Int ui;
+                    byte tbuf[4];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "I requires an integer");
+                    if (ui < 0 || ui > 0xFFFFFFFFUL)
+                        ENCODE_THROW("type", "value out of range for native I "
+                                                    "(unsigned int)");
+                    if (endian)
+                        encode_uint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_uint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'l':
+                {
+                    Unc_Int ui;
+                    byte tbuf[8];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "l requires an integer");
+                    if (ui < -0x8000000000000000L || ui > 0x7FFFFFFFFFFFFFFFL)
+                        ENCODE_THROW("type", "value out of range for native l "
+                                                    "(signed long)");
+                    if (endian)
+                        encode_sint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_sint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'L':
+                {
+                    Unc_Int ui;
+                    byte tbuf[8];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "L requires an integer");
+                    if (ui < 0 || ui > 0xFFFFFFFFFFFFFFFFUL)
+                        ENCODE_THROW("type", "value out of range for native L "
+                                                    "(unsigned long)");
+                    if (endian)
+                        encode_uint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_uint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'q':
+                {
+                    Unc_Int ui;
+                    byte tbuf[8];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "q requires an integer");
+                    if (ui < -0x8000000000000000L || ui > 0x7FFFFFFFFFFFFFFFL)
+                        ENCODE_THROW("type", "value out of range for native q "
+                                                    "(signed long long)");
+                    if (endian)
+                        encode_sint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_sint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'Q':
+                {
+                    Unc_Int ui;
+                    byte tbuf[8];
+                    e = unc_getint(w, &args.values[i++], &ui);
+                    if (e)
+                        ENCODE_THROW("type", "Q requires an integer");
+                    if (ui < 0 || ui > 0xFFFFFFFFFFFFFFFFUL)
+                        ENCODE_THROW("type", "value out of range for native Q "
+                                                    "(unsigned long long)");
+                    if (endian)
+                        encode_uint_le(tbuf, ui, sizeof(tbuf));
+                    else
+                        encode_uint_be(tbuf, ui, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case '?':
+                {
+                    byte tbuf[1];
+                    e = unc_converttobool(w, &args.values[i++]);
+                    if (UNCIL_IS_ERR(e))
+                        goto uncl_convert_encode_fail;
+                    encode_uint_be(tbuf, e, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'f':
+                {
+                    Unc_Float uf;
+                    byte tbuf[4];
+                    e = unc_getfloat(w, &args.values[i++], &uf);
+                    if (e)
+                        ENCODE_THROW("type", "f requires a number");
+                    encode_float_b32(tbuf, uf);
+                    if (endianfloat)
+                        unc0_memrev(tbuf, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'd':
+                {
+                    Unc_Float uf;
+                    byte tbuf[8];
+                    e = unc_getfloat(w, &args.values[i++], &uf);
+                    if (e)
+                        ENCODE_THROW("type", "d requires a number");
+                    encode_float_b64(tbuf, uf);
+                    if (endianfloat)
+                        unc0_memrev(tbuf, sizeof(tbuf));
+                    e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                    break;
+                }
+                case 'Z':
+                case 'D':
+                case 'p':
+                    ENCODE_THROW("value", "Z, D, p only available in "
+                                          "native mode");
+                case '@':
+                case '<':
+                case '>':
+                case '=':
+                    ENCODE_THROW("value", "mode specifier only allowed as the "
+                                          "first character in format");
+                default:
+                    ENCODE_THROW("value", "unrecognized encode "
+                                          "format specifier");
+                }
+                if (e) goto uncl_convert_encode_fail;
+                continue;
+            }
+
             switch (c) {
+#define ENCODE_VAL(T, src)  do {                                               \
+                                T tval = (T)src;                               \
+                                e = unc0_strbuf_putn(&b, sizeof(T),            \
+                                                (const byte *)&tval);          \
+                            } while (0)
+#define ENCODE_PAD(type)    do {                                               \
+                                size_t pad = ((ALIGN_##type) -                 \
+                                    (b.length % (ALIGN_##type)))               \
+                                                % (ALIGN_##type);              \
+                                if (pad) {                                     \
+                                    e = unc0_strbuf_putfill(&b, pad, 0);       \
+                                    if (e) goto uncl_convert_encode_fail;      \
+                                }                                              \
+                            } while (0)
             case 'c':
             {
                 Unc_Int ui;
-                byte tbuf[1];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "c requires an integer");
-                if (ui < -0x80 || ui > 0x7F)
+                if (e) ENCODE_THROW("type", "c requires an integer");
+                if (ui < SCHAR_MIN || ui > SCHAR_MAX)
                     ENCODE_THROW("type", "value out of range for native c "
                                                 "(signed char)");
-                encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_VAL(signed char, ui);
                 break;
             }
             case 'C':
             {
                 Unc_Int ui;
-                byte tbuf[1];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "C requires an integer");
-                if (ui < 0 || ui > 0xFF)
+                if (e) ENCODE_THROW("type", "C requires an integer");
+                if (ui < 0 || ui > UCHAR_MAX)
                     ENCODE_THROW("type", "value out of range for native C "
                                                 "(unsigned char)");
-                encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_VAL(unsigned char, ui);
                 break;
             }
             case 'h':
             {
                 Unc_Int ui;
-                byte tbuf[2];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "h requires an integer");
-                if (ui < -0x8000 || ui > 0x7FFF)
+                if (e) ENCODE_THROW("type", "h requires an integer");
+                if (ui < SHRT_MIN || ui > SHRT_MAX)
                     ENCODE_THROW("type", "value out of range for native h "
                                                 "(signed short)");
-                if (endian)
-                    encode_sint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(h);
+                ENCODE_VAL(signed short, ui);
                 break;
             }
             case 'H':
             {
                 Unc_Int ui;
-                byte tbuf[2];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "H requires an integer");
-                if (ui < 0 || ui > 0xFFFFU)
+                if (e) ENCODE_THROW("type", "H requires an integer");
+                if (ui < 0 || ui > USHRT_MAX)
                     ENCODE_THROW("type", "value out of range for native H "
                                                 "(unsigned short)");
-                if (endian)
-                    encode_uint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(h);
+                ENCODE_VAL(unsigned short, ui);
                 break;
             }
             case 'i':
             {
                 Unc_Int ui;
-                byte tbuf[4];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "i requires an integer");
-                if (ui < -0x80000000L || ui > 0x7FFFFFFFL)
+                if (e) ENCODE_THROW("type", "i requires an integer");
+                if (ui < INT_MIN || ui > INT_MAX)
                     ENCODE_THROW("type", "value out of range for native i "
                                                 "(signed int)");
-                if (endian)
-                    encode_sint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(i);
+                ENCODE_VAL(signed int, ui);
                 break;
             }
             case 'I':
             {
                 Unc_Int ui;
-                byte tbuf[4];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "I requires an integer");
-                if (ui < 0 || ui > 0xFFFFFFFFUL)
+                if (e) ENCODE_THROW("type", "I requires an integer");
+                if (ui < 0 || ui > UINT_MAX)
                     ENCODE_THROW("type", "value out of range for native I "
                                                 "(unsigned int)");
-                if (endian)
-                    encode_uint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(i);
+                ENCODE_VAL(unsigned int, ui);
                 break;
             }
             case 'l':
             {
                 Unc_Int ui;
-                byte tbuf[8];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "l requires an integer");
-                if (ui < -0x8000000000000000L || ui > 0x7FFFFFFFFFFFFFFFL)
+                if (e) ENCODE_THROW("type", "l requires an integer");
+                if (ui < LONG_MIN || ui > LONG_MAX)
                     ENCODE_THROW("type", "value out of range for native l "
                                                 "(signed long)");
-                if (endian)
-                    encode_sint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(l);
+                ENCODE_VAL(signed long, ui);
                 break;
             }
             case 'L':
             {
                 Unc_Int ui;
-                byte tbuf[8];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "L requires an integer");
-                if (ui < 0 || ui > 0xFFFFFFFFFFFFFFFFUL)
+                if (e) ENCODE_THROW("type", "L requires an integer");
+                if (ui < 0 || ui > ULONG_MAX)
                     ENCODE_THROW("type", "value out of range for native L "
                                                 "(unsigned long)");
-                if (endian)
-                    encode_uint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(l);
+                ENCODE_VAL(unsigned long, ui);
                 break;
             }
+#if !UNCIL_C99
+            case 'q':
+            case 'Q':
+                ENCODE_THROW("type", "no native long long types available");
+#else
             case 'q':
             {
                 Unc_Int ui;
-                byte tbuf[8];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "q requires an integer");
-                if (ui < -0x8000000000000000L || ui > 0x7FFFFFFFFFFFFFFFL)
+                if (e) ENCODE_THROW("type", "q requires an integer");
+                if (ui < LLONG_MIN || ui > LLONG_MAX)
                     ENCODE_THROW("type", "value out of range for native q "
                                                 "(signed long long)");
-                if (endian)
-                    encode_sint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_sint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(q);
+                ENCODE_VAL(signed long long, ui);
                 break;
             }
             case 'Q':
             {
                 Unc_Int ui;
-                byte tbuf[8];
                 e = unc_getint(w, &args.values[i++], &ui);
-                if (e)
-                    ENCODE_THROW("type", "Q requires an integer");
-                if (ui < 0 || ui > 0xFFFFFFFFFFFFFFFFUL)
+                if (e) ENCODE_THROW("type", "Q requires an integer");
+                if (ui < 0 || ui > ULLONG_MAX)
                     ENCODE_THROW("type", "value out of range for native Q "
                                                 "(unsigned long long)");
-                if (endian)
-                    encode_uint_le(tbuf, ui, sizeof(tbuf));
-                else
-                    encode_uint_be(tbuf, ui, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                ENCODE_PAD(q);
+                ENCODE_VAL(unsigned long long, ui);
+                break;
+            }
+#endif
+            case 'Z':
+            {
+                Unc_Int ui;
+                e = unc_getint(w, &args.values[i++], &ui);
+                if (e) ENCODE_THROW("type", "Z requires an integer");
+                if (ui < 0 || ui > SIZE_MAX)
+                    ENCODE_THROW("type", "value out of range for native Z "
+                                                "(size_t)");
+                ENCODE_PAD(z);
+                ENCODE_VAL(size_t, ui);
                 break;
             }
             case '?':
             {
-                byte tbuf[1];
                 e = unc_converttobool(w, &args.values[i++]);
                 if (UNCIL_IS_ERR(e))
                     goto uncl_convert_encode_fail;
-                encode_uint_be(tbuf, e, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+#if UNCIL_C99
+                ENCODE_VAL(_Bool, e);
+#else
+                ENCODE_VAL(unsigned char, e);
+#endif
+                break;
+            }
+            case 'p':
+            {
+                void *p;
+                e = unc_getopaqueptr(w, &args.values[i++], &p);
+                if (e) ENCODE_THROW("type", "p requires a optr");
+                ENCODE_PAD(p);
+                ENCODE_VAL(void *, p);
                 break;
             }
             case 'f':
             {
                 Unc_Float uf;
-                byte tbuf[4];
                 e = unc_getfloat(w, &args.values[i++], &uf);
-                if (e)
-                    ENCODE_THROW("type", "f requires a number");
-                encode_float_b32(tbuf, uf);
-                if (endianfloat)
-                    unc0_memrev(tbuf, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                if (e) ENCODE_THROW("type", "f requires a number");
+                ENCODE_PAD(f);
+                ENCODE_VAL(float, uf);
                 break;
             }
             case 'd':
             {
                 Unc_Float uf;
-                byte tbuf[8];
                 e = unc_getfloat(w, &args.values[i++], &uf);
-                if (e)
-                    ENCODE_THROW("type", "d requires a number");
-                encode_float_b64(tbuf, uf);
-                if (endianfloat)
-                    unc0_memrev(tbuf, sizeof(tbuf));
-                e = unc0_strbuf_putn(&b, sizeof(tbuf), tbuf);
+                if (e) ENCODE_THROW("type", "d requires a number");
+                ENCODE_PAD(d);
+                ENCODE_VAL(double, uf);
                 break;
             }
-            case 'Z':
             case 'D':
-            case 'p':
-                ENCODE_THROW("value", "Z, D, p only available in native mode");
+            {
+                Unc_Float uf;
+                e = unc_getfloat(w, &args.values[i++], &uf);
+                if (e) ENCODE_THROW("type", "d requires a number");
+                ENCODE_PAD(D);
+                ENCODE_VAL(long double, uf);
+                break;
+            }
             case '@':
             case '<':
             case '>':
@@ -773,224 +985,11 @@ Unc_RetVal uncl_convert_encode(Unc_View *w, Unc_Tuple args, void *udata) {
             if (e) goto uncl_convert_encode_fail;
             continue;
         }
-
-        switch (c) {
-#define ENCODE_VAL(T, src)  do {                                               \
-                                T tval = (T)src;                               \
-                                e = unc0_strbuf_putn(&b, sizeof(T),            \
-                                                (const byte *)&tval);          \
-                            } while (0)
-#define ENCODE_PAD(type)    do {                                               \
-                                size_t pad = ((ALIGN_##type) -                 \
-                                    (b.length % (ALIGN_##type)))               \
-                                                   % (ALIGN_##type);           \
-                                if (pad) {                                     \
-                                    e = unc0_strbuf_putfill(&b, pad, 0);       \
-                                    if (e) goto uncl_convert_encode_fail;  \
-                                }                                              \
-                            } while (0)
-        case 'c':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "c requires an integer");
-            if (ui < SCHAR_MIN || ui > SCHAR_MAX)
-                ENCODE_THROW("type", "value out of range for native c "
-                                               "(signed char)");
-            ENCODE_VAL(signed char, ui);
-            break;
-        }
-        case 'C':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "C requires an integer");
-            if (ui < 0 || ui > UCHAR_MAX)
-                ENCODE_THROW("type", "value out of range for native C "
-                                               "(unsigned char)");
-            ENCODE_VAL(unsigned char, ui);
-            break;
-        }
-        case 'h':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "h requires an integer");
-            if (ui < SHRT_MIN || ui > SHRT_MAX)
-                ENCODE_THROW("type", "value out of range for native h "
-                                               "(signed short)");
-            ENCODE_PAD(h);
-            ENCODE_VAL(signed short, ui);
-            break;
-        }
-        case 'H':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "H requires an integer");
-            if (ui < 0 || ui > USHRT_MAX)
-                ENCODE_THROW("type", "value out of range for native H "
-                                               "(unsigned short)");
-            ENCODE_PAD(h);
-            ENCODE_VAL(unsigned short, ui);
-            break;
-        }
-        case 'i':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "i requires an integer");
-            if (ui < INT_MIN || ui > INT_MAX)
-                ENCODE_THROW("type", "value out of range for native i "
-                                               "(signed int)");
-            ENCODE_PAD(i);
-            ENCODE_VAL(signed int, ui);
-            break;
-        }
-        case 'I':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "I requires an integer");
-            if (ui < 0 || ui > UINT_MAX)
-                ENCODE_THROW("type", "value out of range for native I "
-                                               "(unsigned int)");
-            ENCODE_PAD(i);
-            ENCODE_VAL(unsigned int, ui);
-            break;
-        }
-        case 'l':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "l requires an integer");
-            if (ui < LONG_MIN || ui > LONG_MAX)
-                ENCODE_THROW("type", "value out of range for native l "
-                                               "(signed long)");
-            ENCODE_PAD(l);
-            ENCODE_VAL(signed long, ui);
-            break;
-        }
-        case 'L':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "L requires an integer");
-            if (ui < 0 || ui > ULONG_MAX)
-                ENCODE_THROW("type", "value out of range for native L "
-                                               "(unsigned long)");
-            ENCODE_PAD(l);
-            ENCODE_VAL(unsigned long, ui);
-            break;
-        }
-#if !UNCIL_C99
-        case 'q':
-        case 'Q':
-            ENCODE_THROW("type", "no native long long types available");
-#else
-        case 'q':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "q requires an integer");
-            if (ui < LLONG_MIN || ui > LLONG_MAX)
-                ENCODE_THROW("type", "value out of range for native q "
-                                               "(signed long long)");
-            ENCODE_PAD(q);
-            ENCODE_VAL(signed long long, ui);
-            break;
-        }
-        case 'Q':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "Q requires an integer");
-            if (ui < 0 || ui > ULLONG_MAX)
-                ENCODE_THROW("type", "value out of range for native Q "
-                                               "(unsigned long long)");
-            ENCODE_PAD(q);
-            ENCODE_VAL(unsigned long long, ui);
-            break;
-        }
-#endif
-        case 'Z':
-        {
-            Unc_Int ui;
-            e = unc_getint(w, &args.values[i++], &ui);
-            if (e) ENCODE_THROW("type", "Z requires an integer");
-            if (ui < 0 || ui > SIZE_MAX)
-                ENCODE_THROW("type", "value out of range for native Z "
-                                               "(size_t)");
-            ENCODE_PAD(z);
-            ENCODE_VAL(size_t, ui);
-            break;
-        }
-        case '?':
-        {
-            e = unc_converttobool(w, &args.values[i++]);
-            if (UNCIL_IS_ERR(e))
-                goto uncl_convert_encode_fail;
-#if UNCIL_C99
-            ENCODE_VAL(_Bool, e);
-#else
-            ENCODE_VAL(unsigned char, e);
-#endif
-            break;
-        }
-        case 'p':
-        {
-            void *p;
-            e = unc_getopaqueptr(w, &args.values[i++], &p);
-            if (e) ENCODE_THROW("type", "p requires a optr");
-            ENCODE_PAD(p);
-            ENCODE_VAL(void *, p);
-            break;
-        }
-        case 'f':
-        {
-            Unc_Float uf;
-            e = unc_getfloat(w, &args.values[i++], &uf);
-            if (e) ENCODE_THROW("type", "f requires a number");
-            ENCODE_PAD(f);
-            ENCODE_VAL(float, uf);
-            break;
-        }
-        case 'd':
-        {
-            Unc_Float uf;
-            e = unc_getfloat(w, &args.values[i++], &uf);
-            if (e) ENCODE_THROW("type", "d requires a number");
-            ENCODE_PAD(d);
-            ENCODE_VAL(double, uf);
-            break;
-        }
-        case 'D':
-        {
-            Unc_Float uf;
-            e = unc_getfloat(w, &args.values[i++], &uf);
-            if (e) ENCODE_THROW("type", "d requires a number");
-            ENCODE_PAD(D);
-            ENCODE_VAL(long double, uf);
-            break;
-        }
-        case '@':
-        case '<':
-        case '>':
-        case '=':
-            ENCODE_THROW("value", "mode specifier only allowed as the first "
-                                  "character in format");
-        default:
-            ENCODE_THROW("value", "unrecognized encode format specifier");
-        }
-        if (e) goto uncl_convert_encode_fail;
-        continue;
-uncl_convert_encode_fail:
-        unc0_mmfree(alloc, &b);
-        return e;
     }
 
     e = unc0_buftoblob(w, &v, &b);
     e = unc_returnlocal(w, e, &v);
+uncl_convert_encode_fail:
     unc0_strbuf_free(&b);
     return e;
 }
@@ -1068,7 +1067,7 @@ Unc_RetVal uncl_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
     int native = 1;
 #endif
     /* endian 0 for big-endian, 1 for little-endian */
-    Unc_Size z, bn, bno, depth = 0;
+    Unc_Size z, zi, bn, bno, depth = 0;
     Unc_Int offset = 0;
     
     e = unc_getstringc(w, &args.values[1], &s);
@@ -1141,7 +1140,7 @@ Unc_RetVal uncl_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                 z = z * 10 + (*s++ - '0');
                 if (z < pz) {
                     /* overflow */
-                    return unc_throwexc(w, "value", "b or * size too large");
+                    return unc_throwexc(w, "value", "repeat count too large");
                 }
                 pz = z;
             }
@@ -1150,14 +1149,14 @@ Unc_RetVal uncl_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
             if (!c) break;
         }
 
+        if (!hassize) z = 1;
+
         switch (c) {
         case '*':
-            if (!hassize) z = 1;
             if (bn < z) DECODE_EOF();
             DECODE_SHIFT(z);
             continue;
         case 'b':
-            if (!hassize) z = 1;
             if (bn < z) DECODE_EOF();
             e = unc_newblobfrom(w, &v, z, b);
             if (e) goto uncl_convert_decode_fail;
@@ -1168,196 +1167,197 @@ Unc_RetVal uncl_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
             continue;
         }
 
-        if (hassize)
-            DECODE_THROW("value",
-                    "size modifiers are only supported for b and *");
+        for (zi = 0; zi < z; ++zi) {
+            if (!native) {
+                /* different logic */
+                switch (c) {
+                case 'c':
+                {
+                    Unc_UInt ui;
+                    if (bn < 1) DECODE_EOF();
+                    e = decode_uint_be(b, 1, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(1);
+                    if (ui > 0x7F)
+                        unc_setint(w, &v, (Unc_Int)ui - 0x7F - 1);
+                    else
+                        unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'C':
+                {
+                    Unc_UInt ui;
+                    if (bn < 1) DECODE_EOF();
+                    e = decode_uint_be(b, 1, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(1);
+                    unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'h':
+                {
+                    Unc_UInt ui;
+                    if (bn < 2) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 2, &ui)
+                            : decode_uint_be(b, 2, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(2);
+                    if (ui > 0x7FFF)
+                        unc_setint(w, &v, (Unc_Int)ui - 0x7FFF - 1);
+                    else
+                        unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'H':
+                {
+                    Unc_UInt ui;
+                    if (bn < 2) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 2, &ui)
+                            : decode_uint_be(b, 2, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(2);
+                    unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'i':
+                {
+                    Unc_UInt ui;
+                    if (bn < 4) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 4, &ui)
+                            : decode_uint_be(b, 4, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(4);
+                    if (ui > 0x7FFFFFFFL)
+                        unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFL - 1);
+                    else
+                        unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'I':
+                {
+                    Unc_UInt ui;
+                    if (bn < 4) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 4, &ui)
+                            : decode_uint_be(b, 4, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(4);
+                    unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'l':
+                {
+                    Unc_UInt ui;
+                    if (bn < 8) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 8, &ui)
+                            : decode_uint_be(b, 8, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(8);
+                    if (ui > 0x7FFFFFFFFFFFFFFFL)
+                        unc_setint(w, &v, (Unc_Int)((Unc_Int)ui
+                                            - 0x7FFFFFFFFFFFFFFFL - 1));
+                    else
+                        unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'L':
+                {
+                    Unc_UInt ui;
+                    if (bn < 8) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 8, &ui)
+                            : decode_uint_be(b, 8, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(8);
+                    unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'q':
+                {
+                    Unc_UInt ui;
+                    if (bn < 8) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 8, &ui)
+                            : decode_uint_be(b, 8, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(8);
+                    if (ui > 0x7FFFFFFFFFFFFFFFL)
+                        unc_setint(w, &v, (Unc_Int)((Unc_Int)ui
+                                            - 0x7FFFFFFFFFFFFFFFL - 1));
+                    else
+                        unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'Q':
+                {
+                    Unc_UInt ui;
+                    if (bn < 8) DECODE_EOF();
+                    e = endian ? decode_uint_le(b, 8, &ui)
+                            : decode_uint_be(b, 8, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(8);
+                    unc_setint(w, &v, (Unc_Int)ui);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case '?':
+                {
+                    Unc_UInt ui;
+                    if (bn < 1) DECODE_EOF();
+                    e = decode_uint_be(b, 1, &ui);
+                    if (e) goto uncl_convert_decode_fail;
+                    DECODE_SHIFT(1);
+                    unc_setbool(w, &v, ui != 0);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'f':
+                {
+                    Unc_Float uf;
+                    if (bn < 4) DECODE_EOF();
+                    uf = decode_float_b32(b, endianfloat);
+                    DECODE_SHIFT(4);
+                    unc_setfloat(w, &v, uf);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'd':
+                {
+                    Unc_Float uf;
+                    if (bn < 8) DECODE_EOF();
+                    uf = decode_float_b64(b, endianfloat);
+                    DECODE_SHIFT(8);
+                    unc_setfloat(w, &v, uf);
+                    e = unc_pushmove(w, &v);
+                    break;
+                }
+                case 'Z':
+                case 'D':
+                case 'p':
+                    DECODE_THROW("value", "Z, D, p only available in "
+                                          "native mode");
+                case '@':
+                case '<':
+                case '>':
+                case '=':
+                    DECODE_THROW("value", "mode specifier only allowed as the "
+                                        "first character in format");
+                default:
+                    DECODE_THROW("value", "unrecognized encode "
+                                          "format specifier");
+                }
+                if (e) goto uncl_convert_decode_fail;
+                ++depth;
+                continue;
+            }
 
-        if (!native) {
-            /* different logic */
             switch (c) {
-            case 'c':
-            {
-                Unc_UInt ui;
-                if (bn < 1) DECODE_EOF();
-                e = decode_uint_be(b, 1, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(1);
-                if (ui > 0x7F)
-                    unc_setint(w, &v, (Unc_Int)ui - 0x7F - 1);
-                else
-                    unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'C':
-            {
-                Unc_UInt ui;
-                if (bn < 1) DECODE_EOF();
-                e = decode_uint_be(b, 1, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(1);
-                unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'h':
-            {
-                Unc_UInt ui;
-                if (bn < 2) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 2, &ui)
-                           : decode_uint_be(b, 2, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(2);
-                if (ui > 0x7FFF)
-                    unc_setint(w, &v, (Unc_Int)ui - 0x7FFF - 1);
-                else
-                    unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'H':
-            {
-                Unc_UInt ui;
-                if (bn < 2) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 2, &ui)
-                           : decode_uint_be(b, 2, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(2);
-                unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'i':
-            {
-                Unc_UInt ui;
-                if (bn < 4) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 4, &ui)
-                           : decode_uint_be(b, 4, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(4);
-                if (ui > 0x7FFFFFFFL)
-                    unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFL - 1);
-                else
-                    unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'I':
-            {
-                Unc_UInt ui;
-                if (bn < 4) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 4, &ui)
-                           : decode_uint_be(b, 4, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(4);
-                unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'l':
-            {
-                Unc_UInt ui;
-                if (bn < 8) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 8, &ui)
-                           : decode_uint_be(b, 8, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(8);
-                if (ui > 0x7FFFFFFFFFFFFFFFL)
-                    unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFFFFFFFFFL - 1);
-                else
-                    unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'L':
-            {
-                Unc_UInt ui;
-                if (bn < 8) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 8, &ui)
-                           : decode_uint_be(b, 8, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(8);
-                unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'q':
-            {
-                Unc_UInt ui;
-                if (bn < 8) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 8, &ui)
-                           : decode_uint_be(b, 8, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(8);
-                if (ui > 0x7FFFFFFFFFFFFFFFL)
-                    unc_setint(w, &v, (Unc_Int)ui - 0x7FFFFFFFFFFFFFFFL - 1);
-                else
-                    unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'Q':
-            {
-                Unc_UInt ui;
-                if (bn < 8) DECODE_EOF();
-                e = endian ? decode_uint_le(b, 8, &ui)
-                           : decode_uint_be(b, 8, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(8);
-                unc_setint(w, &v, (Unc_Int)ui);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case '?':
-            {
-                Unc_UInt ui;
-                if (bn < 1) DECODE_EOF();
-                e = decode_uint_be(b, 1, &ui);
-                if (e) goto uncl_convert_decode_fail;
-                DECODE_SHIFT(1);
-                unc_setbool(w, &v, ui != 0);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'f':
-            {
-                Unc_Float uf;
-                if (bn < 4) DECODE_EOF();
-                uf = decode_float_b32(b, endianfloat);
-                DECODE_SHIFT(4);
-                unc_setfloat(w, &v, uf);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'd':
-            {
-                Unc_Float uf;
-                if (bn < 8) DECODE_EOF();
-                uf = decode_float_b64(b, endianfloat);
-                DECODE_SHIFT(8);
-                unc_setfloat(w, &v, uf);
-                e = unc_pushmove(w, &v);
-                break;
-            }
-            case 'Z':
-            case 'D':
-            case 'p':
-                DECODE_THROW("value", "Z, D, p only available in native mode");
-            case '@':
-            case '<':
-            case '>':
-            case '=':
-                DECODE_THROW("value", "mode specifier only allowed as the "
-                                    "first character in format");
-            default:
-                DECODE_THROW("value", "unrecognized encode format specifier");
-            }
-            if (e) goto uncl_convert_decode_fail;
-            ++depth;
-            continue;
-        }
-
-        switch (c) {
 #define DECODE_VAL(T, CONV) do {                                               \
                                 T val;                                         \
                                 unc0_memcpy(&val, b, sizeof(val));             \
@@ -1374,85 +1374,86 @@ Unc_RetVal uncl_convert_decode(Unc_View *w, Unc_Tuple args, void *udata) {
                                     DECODE_SHIFT(pad);                         \
                                 }                                              \
                             } while (0)
-        case 'c':
-            DECODE_VAL(signed char, setint_range_signed(w, &v, val));
-            break;
-        case 'C':
-            DECODE_VAL(unsigned char, setint_range_unsigned(w, &v, val));
-            break;
-        case 'h':
-            DECODE_PAD(h);
-            DECODE_VAL(signed short, setint_range_signed(w, &v, val));
-            break;
-        case 'H':
-            DECODE_PAD(h);
-            DECODE_VAL(unsigned short, setint_range_unsigned(w, &v, val));
-            break;
-        case 'i':
-            DECODE_PAD(i);
-            DECODE_VAL(signed int, setint_range_signed(w, &v, val));
-            break;
-        case 'I':
-            DECODE_PAD(i);
-            DECODE_VAL(unsigned int, setint_range_unsigned(w, &v, val));
-            break;
-        case 'l':
-            DECODE_PAD(l);
-            DECODE_VAL(signed long, setint_range_signed(w, &v, val));
-            break;
-        case 'L':
-            DECODE_PAD(l);
-            DECODE_VAL(unsigned long, setint_range_unsigned(w, &v, val));
-            break;
+            case 'c':
+                DECODE_VAL(signed char, setint_range_signed(w, &v, val));
+                break;
+            case 'C':
+                DECODE_VAL(unsigned char, setint_range_unsigned(w, &v, val));
+                break;
+            case 'h':
+                DECODE_PAD(h);
+                DECODE_VAL(signed short, setint_range_signed(w, &v, val));
+                break;
+            case 'H':
+                DECODE_PAD(h);
+                DECODE_VAL(unsigned short, setint_range_unsigned(w, &v, val));
+                break;
+            case 'i':
+                DECODE_PAD(i);
+                DECODE_VAL(signed int, setint_range_signed(w, &v, val));
+                break;
+            case 'I':
+                DECODE_PAD(i);
+                DECODE_VAL(unsigned int, setint_range_unsigned(w, &v, val));
+                break;
+            case 'l':
+                DECODE_PAD(l);
+                DECODE_VAL(signed long, setint_range_signed(w, &v, val));
+                break;
+            case 'L':
+                DECODE_PAD(l);
+                DECODE_VAL(unsigned long, setint_range_unsigned(w, &v, val));
+                break;
 #if !UNCIL_C99
-        case 'q':
-        case 'Q':
-            DECODE_THROW("type", "no native long long types available");
+            case 'q':
+            case 'Q':
+                DECODE_THROW("type", "no native long long types available");
 #else
-        case 'q':
-            DECODE_PAD(q);
-            DECODE_VAL(signed long, setint_range_signed(w, &v, val));
-            break;
-        case 'Q':
-            DECODE_PAD(q);
-            DECODE_VAL(unsigned long, setint_range_unsigned(w, &v, val));
-            break;
+            case 'q':
+                DECODE_PAD(q);
+                DECODE_VAL(signed long, setint_range_signed(w, &v, val));
+                break;
+            case 'Q':
+                DECODE_PAD(q);
+                DECODE_VAL(unsigned long, setint_range_unsigned(w, &v, val));
+                break;
 #endif
-        case 'Z':
-            DECODE_PAD(z);
-            DECODE_VAL(size_t, setint_range_unsigned(w, &v, val));
-            break;
-        case '?':
-            DECODE_VAL(unsigned char, (unc_setbool(w, &v, val != 0), 0));
-            break;
-        case 'p':
-            DECODE_PAD(p);
-            DECODE_VAL(void *, (unc_setopaqueptr(w, &v, val), 0));
-            break;
-        case 'f':
-            DECODE_PAD(f);
-            DECODE_VAL(float, (unc_setfloat(w, &v, val), 0));
-            break;
-        case 'd':
-            DECODE_PAD(d);
-            DECODE_VAL(double, (unc_setfloat(w, &v, val), 0));
-            break;
-        case 'D':
-            DECODE_PAD(D);
-            DECODE_VAL(long double, (unc_setfloat(w, &v, val), 0));
-            break;
-        case '@':
-        case '<':
-        case '>':
-        case '=':
-            DECODE_THROW("value", "mode specifier only allowed as the first "
-                                  "character in format");
-        default:
-            DECODE_THROW("value", "unrecognized encode format specifier");
+            case 'Z':
+                DECODE_PAD(z);
+                DECODE_VAL(size_t, setint_range_unsigned(w, &v, val));
+                break;
+            case '?':
+                DECODE_VAL(unsigned char, (unc_setbool(w, &v, val != 0), 0));
+                break;
+            case 'p':
+                DECODE_PAD(p);
+                DECODE_VAL(void *, (unc_setopaqueptr(w, &v, val), 0));
+                break;
+            case 'f':
+                DECODE_PAD(f);
+                DECODE_VAL(float, (unc_setfloat(w, &v, val), 0));
+                break;
+            case 'd':
+                DECODE_PAD(d);
+                DECODE_VAL(double, (unc_setfloat(w, &v, val), 0));
+                break;
+            case 'D':
+                DECODE_PAD(D);
+                DECODE_VAL(long double, (unc_setfloat(w, &v, val), 0));
+                break;
+            case '@':
+            case '<':
+            case '>':
+            case '=':
+                DECODE_THROW("value", "mode specifier only allowed as the "
+                                      "first character in format");
+            default:
+                DECODE_THROW("value", "unrecognized encode format specifier");
+            }
+            if (e) goto uncl_convert_decode_fail;
+            ++depth;
+            continue;
         }
-        if (e) goto uncl_convert_decode_fail;
-        ++depth;
-        continue;
     }
 
 uncl_convert_decode_fail:

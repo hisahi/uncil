@@ -44,7 +44,7 @@ struct Unc_View;
 struct Unc_ModuleFrame;
 
 typedef enum Unc_FrameType {
-    Unc_FrameMain,
+    Unc_FrameMain = 0,
     Unc_FrameTry,
     Unc_FrameCall,
     Unc_FrameCallSpew,
@@ -55,7 +55,7 @@ typedef enum Unc_FrameType {
 } Unc_FrameType;
 
 typedef enum Unc_Mode {
-    Unc_ModeStandard,
+    Unc_ModeStandard = 0,
     Unc_ModeREPL
 } Unc_Mode;
 
@@ -130,7 +130,7 @@ typedef struct Unc_Frame {
 #define UNC_SLEEPER_VALUES 8
 
 typedef enum Unc_ViewType {
-    Unc_ViewTypeNormal,
+    Unc_ViewTypeNormal = 0,
     Unc_ViewTypeSub,
     Unc_ViewTypeSubDaemon,
     Unc_ViewTypeFinalized = -1

@@ -125,7 +125,7 @@ void unc0_sort_fail(struct unc0_sortenv *s) {
 #undef MIN
 #endif
 
-#define RANGE_LEN(R_) ((R_).end - (R_).beg)
+#define RANGE_LEN(R_) (Unc_Size)((R_).end - (R_).beg)
 #define RANGE_NEW(R_, i_, j_) ((R_).beg = (i_), (R_).end = (j_))
 #define RANGE_NEWI(R_, A_, i_, j_) RANGE_NEW(R_, (A_) + (i_), (A_) + (j_))
 #define RANGE_COPY(a_, R_) COPY_N(a_, R_.beg, RANGE_LEN(R_))

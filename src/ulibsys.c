@@ -30,6 +30,7 @@ SOFTWARE.
 #include "ugc.h"
 #include "umodule.h"
 #include "uncil.h"
+#include "uncver.h"
 #include "uobj.h"
 #include "uvali.h"
 #include "uvlq.h"

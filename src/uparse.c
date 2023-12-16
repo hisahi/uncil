@@ -492,7 +492,7 @@ int unc0_qcode_operandcount(byte op) {
 #define QOPER_PUBLIC(r) UNC_QOPER_TYPE_PUBLIC, qdataz(r)
 #define QOPER_INT(r) UNC_QOPER_TYPE_INT, qdatai(r)
 #define QOPER_FLOAT(r) UNC_QOPER_TYPE_FLOAT, qdataf(r)
-#define QOPER_NULL(r) UNC_QOPER_TYPE_NULL, qdatanone()
+#define QOPER_NULL() UNC_QOPER_TYPE_NULL, qdatanone()
 #define QOPER_STR(r) UNC_QOPER_TYPE_STR, qdataz(r)
 #define QOPER_JUMP(r) UNC_QOPER_TYPE_JUMP, qdataz(r)
 #define QOPER_STACK(r) UNC_QOPER_TYPE_STACK, qdataz(r)
@@ -1294,7 +1294,7 @@ static Unc_RetVal dobind(Unc_ParserContext *c, Unc_Size key,
             if (br->first != UNC_QOPER_TYPE_INHALE) {
                 ASSERT(br->first == UNC_QOPER_TYPE_BINDABLE);
                 MUST(inhalloc(c, depth, &ex,
-                                makeoperand(tmp.first, qdataz(tmp.second))));
+                            makeoperand((byte)tmp.first, qdataz(tmp.second))));
                 br->first = UNC_QOPER_TYPE_INHALE;
                 br->second = ex;
             }
@@ -1753,7 +1753,7 @@ INLINE Unc_RetVal eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
         if (rec) {
             if (!c->quiet && rec->first == UNC_QOPER_TYPE_BINDABLE)
                 MUST(dobind(c, s, rec));
-            *op = makeoperand(rec->first, qdataz(rec->second));
+            *op = makeoperand((byte)rec->first, qdataz(rec->second));
         /*} else if (write < 0) {
             *op = makeoperand(QOPER_NONE());*/
         } else {
@@ -1829,7 +1829,7 @@ INLINE Unc_RetVal eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
                     prev == ULT_ODotQue ? UNC_QINSTR_OP_GATTRQ
                                         : UNC_QINSTR_OP_GATTR, 
                                                 QOPER_TMP(tr),
-                                                pq.type, pq.data,
+                                                (byte)pq.type, pq.data,
                                                 QOPER_IDENT(o.data.o)));
                 }
                 o = makeoperand(QOPER_TMP(tr));
@@ -1888,7 +1888,7 @@ INLINE Unc_RetVal eatatomx(Unc_ParserContext *c, Unc_QOperand *op, int write) {
                     argc = 0;
                 if (consume(c) != ULT_SParenR)
                     return UNCIL_ERR(SYNTAX);
-                if (argc < 256 - arrow) {
+                if (argc < 256 - (unsigned)arrow) {
                     configure3x(c, UNC_QINSTR_OP_DCALL, o.type, o.data,
                                                 QOPER_UNSIGN(argc + arrow));
                     if (!c->quiet) c->cd[pushfo].op = UNC_QINSTR_OP_DELETE;
@@ -2765,12 +2765,13 @@ static Unc_RetVal eatforblk(Unc_ParserContext *c, int expr) {
                         MUST(eatatomw(c, &dst));
                         MUST(bewvar(c, &dst));
                         MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
-                                    dst.type, dst.data,
+                                    (byte)dst.type, dst.data,
                                     QOPER_UNSIGN(p), QOPER_UNSIGN(0)));
                     } else {
                         MUST(eatatomw(c, &dst));
                         MUST(bewvar(c, &dst));
-                        MUST(emit2(c, UNC_QINSTR_OP_MOV, dst.type, dst.data,
+                        MUST(emit2(c, UNC_QINSTR_OP_MOV,
+                                        (byte)dst.type, dst.data,
                                         ellipsis ? UNC_QOPER_TYPE_STACKNEG
                                                  : UNC_QOPER_TYPE_STACK,
                                         qdataz(ellipsis ? k++ : p++)));
@@ -2974,14 +2975,14 @@ static Unc_RetVal eatwithblk(Unc_ParserContext *c) {
                         UNC_QOPER_TYPE_PUBLIC, qdataz(z), QOPER_TMP(0)));
         } else if (unc0_qcode_isopreg(rec->first)) {
             MUST(emit2(c, UNC_QINSTR_OP_MOV,
-                        rec->first, qdataz(rec->second), QOPER_STACK(s++)));
+                    (byte)rec->first, qdataz(rec->second), QOPER_STACK(s++)));
             MUST(emit2(c, UNC_QINSTR_OP_PUSHW, QOPER_WSTACK(),
-                        rec->first, qdataz(rec->second)));
+                    (byte)rec->first, qdataz(rec->second)));
         } else {
             MUST(emit2(c, UNC_QINSTR_OP_MOV, QOPER_TMP(0), QOPER_STACK(s++)));
             MUST(emit2(c, UNC_QINSTR_OP_PUSHW, QOPER_WSTACK(), QOPER_TMP(0)));
             MUST(emit2(c, UNC_QINSTR_OP_MOV,
-                        rec->first, qdataz(rec->second), QOPER_TMP(0)));
+                    (byte)rec->first, qdataz(rec->second), QOPER_TMP(0)));
         }
 
         if (peek(c) == ULT_SComma) {
@@ -3237,13 +3238,13 @@ static Unc_RetVal eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save,
                     MUST(wrapreg(c, &wrapper, 0));
                     MUST(emit3(c, UNC_QINSTR_OP_GATTR,
                                     QOPER_TMP(tr),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_IDENT(shell.data.o)));
                     MUST(emit3(c, opm, QOPER_TMP(tr), QOPER_TMP(tr),
-                                    wrapper.type, wrapper.data));
+                                    (byte)wrapper.type, wrapper.data));
                     MUST(emit3(c, UNC_QINSTR_OP_SATTR,
                                     QOPER_TMP(tr),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_IDENT(shell.data.o)));
                 }
                 break;
@@ -3256,24 +3257,24 @@ static Unc_RetVal eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save,
                     MUST(wrapreg(c, &wrapper, 0));
                     MUST(emit3(c, UNC_QINSTR_OP_GINDX,
                                     QOPER_TMP(tr),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_TMP(shell.data.o)));
                     MUST(emit3(c, opm, QOPER_TMP(tr), QOPER_TMP(tr),
-                                    wrapper.type, wrapper.data));
+                                    (byte)wrapper.type, wrapper.data));
                     MUST(emit3(c, UNC_QINSTR_OP_SINDX,
                                     QOPER_TMP(tr),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_TMP(shell.data.o)));
                 }
                 break;
             default:
                 MUST(unwrapmov(c, wrapper.type, wrapper.data));
                 if (pushed) {
-                    MUST(emit3(c, opm, shell.type, shell.data,
-                                    shell.type, shell.data,
-                                    wrapper.type, wrapper.data));
+                    MUST(emit3(c, opm, (byte)shell.type, shell.data,
+                                    (byte)shell.type, shell.data,
+                                    (byte)wrapper.type, wrapper.data));
                 } else {
-                    MUST(emitre(c, shell.type, shell.data));
+                    MUST(emitre(c, (byte)shell.type, shell.data));
                 }
             }
             MUST(holdend(c, s));
@@ -3318,15 +3319,15 @@ static Unc_RetVal eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save,
                     auxpop(c, &top);
                     MUST(emit3(c, UNC_QINSTR_OP_GATTR,
                                     QOPER_TMP(tr2),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_TMP(shell.data.o)));
                     MUST(emit2(c, UNC_QINSTR_OP_MOV, QOPER_TMP(tr),
                                 UNC_QOPER_TYPE_STACK, qdataz(pn)));
-                    MUST(emit3(c, opm, QOPER_TMP(tr2), QOPER_TMP(tr2),
+                    MUST(emit3(c, (byte)opm, QOPER_TMP(tr2), QOPER_TMP(tr2),
                                     QOPER_TMP(tr)));
                     MUST(emit3(c, UNC_QINSTR_OP_SATTR,
                                     QOPER_TMP(tr2),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_TMP(shell.data.o)));
                 }
                 break;
@@ -3340,21 +3341,21 @@ static Unc_RetVal eatcompoundeqlist(Unc_ParserContext *c, Unc_Save save,
                     auxpop(c, &top);
                     MUST(emit3(c, UNC_QINSTR_OP_GINDX,
                                     QOPER_TMP(tr2),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_TMP(shell.data.o)));
                     MUST(emit2(c, UNC_QINSTR_OP_MOV, QOPER_TMP(tr),
                                 UNC_QOPER_TYPE_STACK, qdataz(pn)));
-                    MUST(emit3(c, opm, QOPER_TMP(tr2), QOPER_TMP(tr2),
+                    MUST(emit3(c, (byte)opm, QOPER_TMP(tr2), QOPER_TMP(tr2),
                                     QOPER_TMP(tr)));
                     MUST(emit3(c, UNC_QINSTR_OP_SINDX,
                                     QOPER_TMP(tr2),
-                                    top.type, top.data,
+                                    (byte)top.type, top.data,
                                     QOPER_TMP(shell.data.o)));
                 }
                 break;
             default:
-                MUST(emit3(c, opm, shell.type, shell.data,
-                                   shell.type, shell.data,
+                MUST(emit3(c, opm, (byte)shell.type, shell.data,
+                                   (byte)shell.type, shell.data,
                                 UNC_QOPER_TYPE_STACK, qdataz(pn)));
             }
         }
@@ -3537,9 +3538,8 @@ static Unc_RetVal eateqlist(Unc_ParserContext *c) {
                                 if (rec->first == UNC_QOPER_TYPE_BINDABLE)
                                     MUST(dobind(c, z, rec));
                                 MUST(emit3(c, UNC_QINSTR_OP_MLISTP,
-                                            rec->first, qdataz(rec->second),
-                                            QOPER_UNSIGN(pn),
-                                            QOPER_UNSIGN(0)));
+                                        (byte)rec->first, qdataz(rec->second),
+                                        QOPER_UNSIGN(pn), QOPER_UNSIGN(0)));
                             }
                         }
                     }
@@ -3559,7 +3559,7 @@ static Unc_RetVal eateqlist(Unc_ParserContext *c) {
                         auxpop(c, &top);
                         MUST(emit3(c, UNC_QINSTR_OP_SATTR,
                                       QOPER_TMP(tr),
-                                      top.type, top.data,
+                                      (byte)top.type, top.data,
                                       QOPER_IDENT(shell.data.o)));
                     }
                     break;
@@ -3575,12 +3575,13 @@ static Unc_RetVal eateqlist(Unc_ParserContext *c) {
                         auxpop(c, &top);
                         MUST(emit3(c, UNC_QINSTR_OP_SINDX,
                                       QOPER_TMP(tr),
-                                      top.type, top.data,
+                                      (byte)top.type, top.data,
                                       QOPER_TMP(shell.data.o)));
                     }
                     break;
                 default:
-                    MUST(emit2(c, UNC_QINSTR_OP_MOV, shell.type, shell.data,
+                    MUST(emit2(c, UNC_QINSTR_OP_MOV,
+                                (byte)shell.type, shell.data,
                                     ellipsis ? UNC_QOPER_TYPE_STACKNEG
                                              : UNC_QOPER_TYPE_STACK,
                                     qdataz(ellipsis ? pushedpast : pn)));
@@ -4148,7 +4149,7 @@ static Unc_RetVal eatfunc(Unc_ParserContext *c, int ftype) {
                     rec->first = UNC_QOPER_TYPE_LOCAL;
                     rec->second = u;
                 }
-                MUST(emit2(c, UNC_QINSTR_OP_FMAKE, rec->first,
+                MUST(emit2(c, UNC_QINSTR_OP_FMAKE, (byte)rec->first,
                                             qdataz(rec->second),
                                             QOPER_FUNCTION(c->out.fn_sz - 1)));
                 break;

@@ -205,11 +205,11 @@ static Unc_RetVal jsondec_num(struct json_decode_context *c, Unc_Value *v) {
         if (!eneg) {
             if (u > DBL_MAX_10_EXP * 2)
                 u = DBL_MAX_10_EXP * 2;
-            x = x * unc0_mpow10((int)u);
+            f *= unc0_mpow10((int)u);
         } else {
             if (u > -DBL_MIN_10_EXP * 2)
                 u = -DBL_MIN_10_EXP * 2;
-            x = x * unc0_mpow10(-(int)u);
+            f *= unc0_mpow10(-(int)u);
         }
     }
 
@@ -340,7 +340,7 @@ static Unc_RetVal jsondec_str(struct json_decode_context *c, Unc_Value *v) {
             unc0_memcpy(&buf[buf_n], uc, us);
             buf_n += us;
         } else {
-            buf[buf_n++] = u;
+            buf[buf_n++] = (char)u;
         }
         x = jsonnext(c);
     }
@@ -788,10 +788,10 @@ static Unc_RetVal jsonenc_str_i(struct json_encode_context *c,
             }
         } else if (u == '\\' || u == '\"') {
             char buf[2] = "\\";
-            buf[1] = u;
+            buf[1] = (char)u;
             e = (*c->out)(2, buf, c->out_data);
         } else {
-            char ch = u;
+            char ch = (char)u;
             e = (*c->out)(1, &ch, c->out_data);
         }
         if (e) return e;

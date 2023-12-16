@@ -131,7 +131,7 @@ int unc0_mulovf(Unc_Int a, Unc_Int b) {
     /* BIT_WIDTH = 2N -> m = 2^N */
     h = BIT_WIDTH / 2;
     m = (Unc_UInt)1 << h;
-    if (a >= m && b >= m)
+    if (a >= (Unc_Int)m && b >= (Unc_Int)m)
         return 1;
     --m;
     negative = (a < 0) != (b < 0);
@@ -181,7 +181,7 @@ Unc_Float unc0_fnan(void) {
 #elif UNCIL_IEEE754
     return (Unc_Float)0.0 / (Unc_Float)0.0;
 #else
-    return HUGE_VAL - HUGE_VAL + HUGE_VAl;
+    return HUGE_VAL - HUGE_VAL + HUGE_VAL;
 #endif
 }
 

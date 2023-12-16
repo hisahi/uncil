@@ -96,7 +96,7 @@ Unc_RetVal unc0_g_input(Unc_View *w, Unc_Tuple args, void *udata) {
         } else if (c == '\n') {
             break;
         }
-        if (unc0_strbuf_put1(&s, c)) goto memfail;
+        if (unc0_strbuf_put1(&s, (byte)c)) goto memfail;
     }
 
     e = unc0_buftostring(w, &out, &s);
@@ -1248,9 +1248,9 @@ Unc_RetVal unc0_gb_find(Unc_View *w, Unc_Tuple args, void *udata) {
             return e;
         }
         if (ui < 0)
-            sp = -ui > sn ? NULL : sp + (sn + ui);
+            sp = -ui > (Unc_Int)sn ? NULL : sp + (sn + ui);
         else
-            sp = ui > sn ? NULL : sp + ui;
+            sp = ui > (Unc_Int)sn ? NULL : sp + ui;
     } else {
         ui = 0;
     }
@@ -1287,9 +1287,9 @@ Unc_RetVal unc0_gb_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
             return e;
         }
         if (ui < 0)
-            sn = -ui > sn ? 0 : sn - (Unc_Size)-ui;
+            sn = -ui > (Unc_Int)sn ? 0 : sn - (Unc_Size)-ui;
         else
-            sn = ui > sn ? 0 : sn - ui;
+            sn = ui > (Unc_Int)sn ? 0 : sn - ui;
     } else {
         ui = 0;
     }
@@ -1332,16 +1332,18 @@ Unc_RetVal unc0_gb_sub(Unc_View *w, Unc_Tuple args, void *udata) {
         return e;
     }
     if (ui1 < 0)
-        sp = -ui1 > sn ? NULL : sp + (sn + ui1), sn = -ui1 > sn ? 0 : sn + ui1;
+        sp = -ui1 > (Unc_Int)sn ? NULL : sp + (sn + ui1),
+            sn = -ui1 > (Unc_Int)sn ? 0 : sn + ui1;
     else
-        sp = ui1 > sn ? NULL : sp + ui1, sn = ui1 > sn ? 0 : sn - ui1;
+        sp = ui1 > (Unc_Int)sn ? NULL : sp + ui1,
+            sn = ui1 > (Unc_Int)sn ? 0 : sn - ui1;
     if (sp && unc_gettype(w, &args.values[2])) {
         e = unc_getint(w, &args.values[2], &ui2);
         if (e) {
             unc_unlock(w, &args.values[0]);
             return e;
         }
-        if (ui2 > sn) ui2 = sn;
+        if (ui2 > (Unc_Int)sn) ui2 = sn;
         if (ui2 >= 0) {
             if (ui2 <= ui1)
                 e = unc_newblobfrom(w, &v, 0, NULL);
@@ -1349,7 +1351,7 @@ Unc_RetVal unc0_gb_sub(Unc_View *w, Unc_Tuple args, void *udata) {
                 e = unc_newblobfrom(w, &v, ui2 - ui1, sp);
             }
         } else {
-            if (sn <= -ui2)
+            if ((Unc_Int)sn <= -ui2)
                 e = unc_newblobfrom(w, &v, 0, NULL);
             else
                 e = unc_newblobfrom(w, &v, sn + ui2, sp);
@@ -1381,9 +1383,11 @@ Unc_RetVal unc0_gb_fill(Unc_View *w, Unc_Tuple args, void *udata) {
         return e;
     }
     if (ui1 < 0)
-        sp = -ui1 > sn ? NULL : sp + (sn + ui1), sn = -ui1 > sn ? 0 : sn + ui1;
+        sp = -ui1 > (Unc_Int)sn ? NULL : sp + (sn + ui1),
+            sn = -ui1 > (Unc_Int)sn ? 0 : sn + ui1;
     else
-        sp = ui1 > sn ? NULL : sp + ui1, sn = ui1 > sn ? 0 : sn - ui1;
+        sp = ui1 > (Unc_Int)sn ? NULL : sp + ui1,
+            sn = ui1 > (Unc_Int)sn ? 0 : sn - ui1;
     if (sp && unc_gettype(w, &args.values[3])) {
         e = unc_getint(w, &args.values[3], &ui2);
         if (e) {
@@ -1394,7 +1398,7 @@ Unc_RetVal unc0_gb_fill(Unc_View *w, Unc_Tuple args, void *udata) {
             if (ui2 > ui1)
                 unc0_memset(sp, f, ui2 - ui1);
         } else {
-            if (sn > -ui2)
+            if ((Unc_Int)sn > -ui2)
                 unc0_memset(sp, f, sn + ui2);
         }
     } else
@@ -1512,7 +1516,7 @@ Unc_RetVal unc0_gb_insert(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     if (indx < 0)
         indx += bn;
-    if (indx < 0 || indx > bn) {
+    if (indx < 0 || indx > (Unc_Int)bn) {
         unc_unlock(w, &args.values[0]);
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
@@ -1618,7 +1622,7 @@ Unc_RetVal unc0_gb_remove(Unc_View *w, Unc_Tuple args, void *udata) {
         cnt = 1;
     if (indx < 0)
         indx += bn;
-    if (indx < 0 || indx > bn) {
+    if (indx < 0 || indx > (Unc_Int)bn) {
         unc_unlock(w, &args.values[0]);
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
@@ -1626,7 +1630,7 @@ Unc_RetVal unc0_gb_remove(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_unlock(w, &args.values[0]);
         return unc0_throwexc(w, "value", "count must be non-negative");
     }
-    if (indx + cnt > bn)
+    if (indx + cnt > (Unc_Int)bn)
         cnt = bn - indx;
     if (!cnt)
         return 0;
@@ -1708,8 +1712,7 @@ Unc_RetVal unc0_ga_new(Unc_View *w, Unc_Tuple args, void *udata) {
         unc0_unwake(VGETENT(&v), w);
         return e;
     } else if (unc_gettype(w, &args.values[1])) {
-        Unc_Int i;
-        Unc_Size an;
+        Unc_Size i, an;
         Unc_Value *av;
         e = unc_lockarray(w, &v, &an, &av);
         if (e) {
@@ -1783,7 +1786,7 @@ Unc_RetVal unc0_ga_find(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     
     VINITINT(&v, -1);
-    for (i = ui; i < sn; ++i) {
+    for (i = (Unc_Size)ui; i < sn; ++i) {
         e = unc0_vveq(w, &comp, &sp[i]);
         if (UNCIL_IS_ERR(e)) {
             unc_unlock(w, &args.values[0]);
@@ -1817,7 +1820,7 @@ Unc_RetVal unc0_ga_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
         }
         if (ui < 0)
             ui += sn;
-        if (ui >= sn)
+        if (ui >= (Unc_Int)sn)
             ui = sn;
     } else {
         ui = sn;
@@ -1905,7 +1908,7 @@ Unc_RetVal unc0_ga_insert(Unc_View *w, Unc_Tuple args, void *udata) {
     }
     if (indx < 0)
         indx += sn;
-    if (indx < 0 || indx > sn) {
+    if (indx < 0 || indx > (Unc_Int)sn) {
         unc_unlock(w, &args.values[0]);
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
@@ -1939,7 +1942,7 @@ Unc_RetVal unc0_ga_remove(Unc_View *w, Unc_Tuple args, void *udata) {
         cnt = 1;
     if (indx < 0)
         indx += sn;
-    if (indx < 0 || indx > sn) {
+    if (indx < 0 || indx > (Unc_Int)sn) {
         unc_unlock(w, &args.values[0]);
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
@@ -1947,7 +1950,7 @@ Unc_RetVal unc0_ga_remove(Unc_View *w, Unc_Tuple args, void *udata) {
         unc_unlock(w, &args.values[0]);
         return unc0_throwexc(w, "value", "count must be non-negative");
     }
-    if (indx + cnt > sn)
+    if (indx + cnt > (Unc_Int)sn)
         cnt = sn - indx;
     if (!cnt) {
         unc_unlock(w, &args.values[0]);
@@ -1974,16 +1977,18 @@ Unc_RetVal unc0_ga_sub(Unc_View *w, Unc_Tuple args, void *udata) {
         return e;
     }
     if (ui1 < 0)
-        sp = -ui1 > sn ? NULL : sp + (sn + ui1), sn = -ui1 > sn ? 0 : sn + ui1;
+        sp = -ui1 > (Unc_Int)sn ? NULL : sp + (sn + ui1),
+            sn = -ui1 > (Unc_Int)sn ? 0 : sn + ui1;
     else
-        sp = ui1 > sn ? NULL : sp + ui1, sn = ui1 > sn ? 0 : sn - ui1;
+        sp = ui1 > (Unc_Int)sn ? NULL : sp + ui1,
+            sn = ui1 > (Unc_Int)sn ? 0 : sn - ui1;
     if (sp && unc_gettype(w, &args.values[2])) {
         e = unc_getint(w, &args.values[2], &ui2);
         if (e) {
             unc_unlock(w, &args.values[0]);
             return e;
         }
-        if (ui2 > sn) ui2 = sn;
+        if (ui2 > (Unc_Int)sn) ui2 = sn;
         if (ui2 >= 0) {
             if (ui2 <= ui1)
                 e = unc_newarrayfrom(w, &v, 0, NULL);
@@ -1991,7 +1996,7 @@ Unc_RetVal unc0_ga_sub(Unc_View *w, Unc_Tuple args, void *udata) {
                 e = unc_newarrayfrom(w, &v, ui2 - ui1, sp);
             }
         } else {
-            if (sn <= -ui2)
+            if ((Unc_Int)sn <= -ui2)
                 e = unc_newarrayfrom(w, &v, 0, NULL);
             else
                 e = unc_newarrayfrom(w, &v, sn + ui2, sp);
@@ -2193,7 +2198,7 @@ Unc_RetVal unc0_iter_string(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getstring(w, arr, &s, &ss);
     if (!e)
         e = unc_getint(w, indx, &i);
-    if (!e && i < s) {
+    if (!e && i < (Unc_Int)s) {
         Unc_Value v = unc_blank;
         e = unc_getindex(w, arr, indx, &v);
         if (!e) {
@@ -2219,7 +2224,7 @@ Unc_RetVal unc0_iter_blob(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getblobsize(w, arr, &s);
     if (!e)
         e = unc_getint(w, indx, &i);
-    if (!e && i < s) {
+    if (!e && i < (Unc_Int)s) {
         Unc_Value v = unc_blank;
         e = unc_getindex(w, arr, indx, &v);
         if (!e) {
@@ -2245,7 +2250,7 @@ Unc_RetVal unc0_iter_array(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getarraysize(w, arr, &s);
     if (!e)
         e = unc_getint(w, indx, &i);
-    if (!e && i < s) {
+    if (!e && i < (Unc_Int)s) {
         Unc_Value v = unc_blank;
         e = unc_getindex(w, arr, indx, &v);
         if (!e) {
@@ -2276,7 +2281,7 @@ Unc_RetVal unc0_iter_table(Unc_View *w, Unc_Tuple args, void *udata) {
     e = unc_getint(w, unc_boundvalue(w, 3), &gen);
     if (e) return e;
     dict = LEFTOVER(Unc_Dict, VGETENT(tbl));
-    if (gen != dict->generation) {
+    if (gen != (Unc_Int)dict->generation) {
         unc_setnull(w, unc_boundvalue(w, 0));
         return unc0_throwexc(w, "value", "table modified while iterating");
     }
@@ -2284,7 +2289,7 @@ Unc_RetVal unc0_iter_table(Unc_View *w, Unc_Tuple args, void *udata) {
     if (!vp) {
         do {
             ++bucket;
-            if (bucket >= dict->data.capacity) {
+            if (bucket >= (Unc_Int)dict->data.capacity) {
                 unc_setnull(w, unc_boundvalue(w, 0));
                 return 0;
             }

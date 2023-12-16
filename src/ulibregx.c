@@ -345,7 +345,7 @@ static int unc0_regex_findbidi(int direction,
 static int unc0_regex_match(Unc_View *w, struct unc_regex_pattern *pat,
                             Unc_Size sn, const char *ss,
                             Unc_Value v[2], void *udata) {
-    Unc_RetVal e;
+    Unc_RetVal e = 0;
     pcre2_general_context *gcxt = (pcre2_general_context *)udata;
     pcre2_match_data *mdata =
         pcre2_match_data_create_from_pattern(pat->code, gcxt);
@@ -388,7 +388,7 @@ static Unc_RetVal unc0_regex_find(Unc_View *w, struct unc_regex_pattern *pat,
                                   Unc_Size sn, const char *ss,
                                   Unc_Value v[2], Unc_Size startat,
                                   void *udata) {
-    Unc_RetVal e;
+    Unc_RetVal e = 0;
     pcre2_general_context *gcxt = (pcre2_general_context *)udata;
     pcre2_match_data *mdata =
         pcre2_match_data_create_from_pattern(pat->code, gcxt);
@@ -425,7 +425,7 @@ static Unc_RetVal unc0_regex_findlast(Unc_View *w,
                                       Unc_Size sn, const char *ss,
                                       Unc_Value v[2], Unc_Size startat,
                                       void *udata) {
-    Unc_RetVal e;
+    Unc_RetVal e = 0;
     pcre2_general_context *gcxt = (pcre2_general_context *)udata;
     pcre2_match_data *mdata =
         pcre2_match_data_create_from_pattern(pat->code, gcxt);
@@ -463,7 +463,7 @@ static Unc_RetVal unc0_regex_findall(Unc_View *w,
                                      struct unc0_varr *varr,
                                      Unc_Value v[2], Unc_Size startat,
                                      void *udata) {
-    Unc_RetVal e;
+    Unc_RetVal e = 0;
     pcre2_general_context *gcxt = (pcre2_general_context *)udata;
     pcre2_match_data *mdata =
         pcre2_match_data_create_from_pattern(pat->code, gcxt);
@@ -505,7 +505,7 @@ static Unc_RetVal unc0_regex_split(Unc_View *w,
                                    struct unc0_varr *varr, int direction,
                                    Unc_Size startat, Unc_Size splits,
                                    void *udata) {
-    Unc_RetVal e;
+    Unc_RetVal e = 0;
     Unc_Value vs = UNC_BLANK;
     pcre2_general_context *gcxt = (pcre2_general_context *)udata;
         pcre2_match_data *mdata =
@@ -1021,13 +1021,13 @@ Unc_RetVal uncl_regex_find(Unc_View *w, Unc_Tuple args, void *udata) {
         if (e) return e;
         if (ui < 0) {
             ui = sn - ui;
-            if (ui < 0 || ui > sn) {
+            if (ui < 0 || ui > (Unc_Int)sn) {
                 unc_setint(w, &v[0], -1);
                 return unc_push(w, 2, v);
             }
             startat = ui;
         } else {
-            if (ui > sn) {
+            if (ui > (Unc_Int)sn) {
                 unc_setint(w, &v[0], -1);
                 return unc_push(w, 2, v);
             }
@@ -1067,13 +1067,13 @@ Unc_RetVal uncl_regex_findlast(Unc_View *w, Unc_Tuple args, void *udata) {
         if (e) return e;
         if (ui < 0) {
             ui = sn - ui;
-            if (ui < 0 || ui >= sn) {
+            if (ui < 0 || ui >= (Unc_Int)sn) {
                 unc_setint(w, &v[0], -1);
                 return unc_push(w, 2, v);
             }
             startat = ui;
         } else {
-            if (ui > sn) {
+            if (ui > (Unc_Int)sn) {
                 unc_setint(w, &v[0], -1);
                 return unc_push(w, 2, v);
             }
@@ -1115,13 +1115,13 @@ Unc_RetVal uncl_regex_findall(Unc_View *w, Unc_Tuple args, void *udata) {
         if (e) return e;
         if (ui < 0) {
             ui = sn - ui;
-            if (ui < 0 || ui >= sn) {
+            if (ui < 0 || ui >= (Unc_Int)sn) {
                 unc_setint(w, &v[0], -1);
                 return unc_push(w, 2, v);
             }
             startat = ui;
         } else {
-            if (ui >= sn) {
+            if (ui >= (Unc_Int)sn) {
                 unc_setint(w, &v[0], -1);
                 return unc_push(w, 2, v);
             }

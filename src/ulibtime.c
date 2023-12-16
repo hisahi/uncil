@@ -361,7 +361,7 @@ static time_t unc0_timegm_fallback(struct tm *time, int y);
 static time_t unc0_timegm(struct tm *time) {
     time_t t;
     time->tm_isdst = 0;
-#if UNCIL_IS_WINDOWS
+#if UNCIL_IS_WINDOWS && _MSC_VER >= 1400
     UNC_LOCKL(loctime);
     t = _mkgmtime(time);
     UNC_UNLOCKL(loctime);

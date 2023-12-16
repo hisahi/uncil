@@ -30,7 +30,7 @@ SOFTWARE.
 #include <stddef.h>
 
 typedef enum Unc_Alloc_Purpose {
-    Unc_AllocOther,
+    Unc_AllocOther = 0,
     Unc_AllocEntity,
     Unc_AllocString,
     Unc_AllocArray,

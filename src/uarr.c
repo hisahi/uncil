@@ -220,14 +220,14 @@ int unc0_agetindx(Unc_View *w, Unc_Array *a,
     }
     if (i < 0)
         i += a->size;
-    if (i < 0 || i >= a->size) {
+    if (i < 0 || (Unc_UInt)i >= a->size) {
         if (permissive) {
             VSETNULL(w, out);
             return 0;
         }
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
     }
-    VCOPY(w, out, &a->data[i]);
+    VCOPY(w, out, &a->data[(Unc_UInt)i]);
     return 0;
 }
 
@@ -242,8 +242,8 @@ int unc0_asetindx(Unc_View *w, Unc_Array *a, Unc_Value *indx, Unc_Value *v) {
     }
     if (i < 0)
         i += a->size;
-    if (i < 0 || i >= a->size)
+    if (i < 0 || (Unc_UInt)i >= a->size)
         return UNCIL_ERR_ARG_INDEXOUTOFBOUNDS;
-    VCOPY(w, &a->data[i], v);
+    VCOPY(w, &a->data[(Unc_UInt)i], v);
     return 0;
 }

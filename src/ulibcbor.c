@@ -70,10 +70,15 @@ typedef struct s_u64_ {
 #endif
 
 #if U64SYNTH
-#define U64_0 0
+static u64_t unc0_u64_0(void) {
+    u64_t u = { 0 };
+    return u;
+}
+
+#define U64_0 unc0_u64_0()
 #define U64SETL(u, v) (u.l = (v), u.h = 0)
 #else
-#define U64_0 { 0 }
+#define U64_0 0
 #define U64SETL(u, v) u = (v)
 #endif
 
@@ -516,7 +521,14 @@ static Unc_RetVal cbordec_tag(struct cbor_decode_context *c, Unc_Value *v,
     if (e) return e;
     e = unc_setattrc(c->view, v, "data", &tmp);
     if (e) return e;
-    unc_setint(c->view, &tmp, tag);
+#if U64SYNTH
+    if (tag.h > 0 || tag.l > (Unc_UInt)UNC_INT_MAX)
+        return cbordec_err(c, "value",
+            "CBOR integer too large to represent as Uncil integer");
+    unc_setint(c->view, v, (Unc_Int)tag.l);
+#else
+    unc_setint(c->view, v, (Unc_Int)tag);
+#endif
     return unc_setattrc(c->view, v, "tag", &tmp);
 }
 
@@ -638,7 +650,7 @@ static Unc_RetVal cbordec(struct cbor_decode_context *c, Unc_Value *v) {
     case 4:
         if (len >= 24) {
             if (len == 31) {
-                return cbordec_arr(c, v, 1, 0);
+                return cbordec_arr(c, v, 1, U64_0);
             } else if (len < 28) {
                 Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
@@ -652,7 +664,7 @@ static Unc_RetVal cbordec(struct cbor_decode_context *c, Unc_Value *v) {
     case 5:
         if (len >= 24) {
             if (len == 31) {
-                return cbordec_map(c, v, 1, 0);
+                return cbordec_map(c, v, 1, U64_0);
             } else if (len < 28) {
                 Unc_RetVal e = cbordec_len(c, 1 << (len - 24), &ulen);
                 if (e) return e;
