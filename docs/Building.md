@@ -123,7 +123,7 @@ The following hosted C headers are needed by each Uncil source file:
   * `stdio.h` for `FILE *` support
 * `umem.c`
   * `stdlib.h` (default allocator: `realloc`, `free`)
-    * can be dsiabled with `UNCIL_NOSTDALLOC`. however, doing so means
+    * can be disabled with `UNCIL_NOSTDALLOC`. however, doing so means
       `unc_create`(`ex`) requires that an allocator be provided
 * `umodule.c`
   * `stdio.h` (`fopen`, `fclose`; for checking whether a file can be found)
